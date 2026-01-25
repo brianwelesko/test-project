@@ -38,6 +38,26 @@ class SpiceInventory {
         // Alerts elements
         this.alertsSection = document.getElementById('alertsSection');
         this.alertsList = document.getElementById('alertsList');
+
+        // Recipe elements
+        this.recipeText = document.getElementById('recipeText');
+        this.recipeFile = document.getElementById('recipeFile');
+        this.dropZone = document.getElementById('dropZone');
+        this.browseBtn = document.getElementById('browseBtn');
+        this.fileName = document.getElementById('fileName');
+        this.parseRecipeBtn = document.getElementById('parseRecipeBtn');
+        this.parsedResults = document.getElementById('parsedResults');
+        this.matchedIngredients = document.getElementById('matchedIngredients');
+        this.unmatchedIngredients = document.getElementById('unmatchedIngredients');
+        this.unmatchedList = document.getElementById('unmatchedList');
+        this.applyRecipeBtn = document.getElementById('applyRecipeBtn');
+        this.cancelRecipeBtn = document.getElementById('cancelRecipeBtn');
+        this.tabBtns = document.querySelectorAll('.tab-btn');
+        this.pasteTab = document.getElementById('pasteTab');
+        this.uploadTab = document.getElementById('uploadTab');
+
+        // Store parsed data
+        this.parsedRecipeData = null;
     }
 
     bindEvents() {
@@ -57,6 +77,35 @@ class SpiceInventory {
         // Filter and sort events
         this.filterCategory.addEventListener('change', () => this.render());
         this.sortBy.addEventListener('change', () => this.render());
+
+        // Recipe events
+        this.tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => this.switchTab(btn.dataset.tab));
+        });
+
+        this.browseBtn.addEventListener('click', () => this.recipeFile.click());
+        this.recipeFile.addEventListener('change', (e) => this.handleFileSelect(e));
+
+        // Drag and drop
+        this.dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            this.dropZone.classList.add('dragover');
+        });
+        this.dropZone.addEventListener('dragleave', () => {
+            this.dropZone.classList.remove('dragover');
+        });
+        this.dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            this.dropZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                this.processFile(files[0]);
+            }
+        });
+
+        this.parseRecipeBtn.addEventListener('click', () => this.parseRecipe());
+        this.applyRecipeBtn.addEventListener('click', () => this.applyRecipeDeductions());
+        this.cancelRecipeBtn.addEventListener('click', () => this.cancelRecipe());
     }
 
     // Local Storage Operations
@@ -365,6 +414,348 @@ class SpiceInventory {
             this.deleteItem(id);
             this.render();
         }
+    }
+
+    // Recipe functionality
+    switchTab(tab) {
+        this.tabBtns.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tab);
+        });
+        this.pasteTab.classList.toggle('active', tab === 'paste');
+        this.uploadTab.classList.toggle('active', tab === 'upload');
+    }
+
+    handleFileSelect(e) {
+        const file = e.target.files[0];
+        if (file) {
+            this.processFile(file);
+        }
+    }
+
+    processFile(file) {
+        const validTypes = ['text/plain', 'text/markdown'];
+        const validExtensions = ['.txt', '.md'];
+        const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+
+        if (!validTypes.includes(file.type) && !validExtensions.includes(ext)) {
+            alert('Please upload a .txt or .md file');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            this.recipeText.value = e.target.result;
+            this.switchTab('paste');
+        };
+        reader.readAsText(file);
+
+        this.fileName.textContent = file.name;
+        this.fileName.classList.remove('hidden');
+    }
+
+    parseRecipe() {
+        const text = this.recipeText.value.trim();
+        if (!text) {
+            alert('Please paste or upload a recipe first');
+            return;
+        }
+
+        const ingredients = this.extractIngredients(text);
+
+        if (ingredients.length === 0) {
+            alert('No ingredients found in the recipe. Try formatting each ingredient on its own line.');
+            return;
+        }
+
+        // Match against inventory
+        const matched = [];
+        const unmatched = [];
+
+        ingredients.forEach(ing => {
+            const match = this.findInventoryMatch(ing.name);
+            if (match) {
+                const convertedQty = this.convertQuantity(ing.quantity, ing.unit, match.unit);
+                matched.push({
+                    ingredient: ing,
+                    inventoryItem: match,
+                    deductAmount: convertedQty,
+                    canConvert: convertedQty !== null,
+                    isInsufficient: convertedQty !== null && match.quantity < convertedQty
+                });
+            } else {
+                unmatched.push(ing);
+            }
+        });
+
+        this.parsedRecipeData = { matched, unmatched };
+        this.renderParsedResults();
+    }
+
+    extractIngredients(text) {
+        const ingredients = [];
+        const lines = text.split('\n');
+
+        // Common units to look for
+        const unitPatterns = [
+            'tablespoons?', 'tbsps?', 'tbs?',
+            'teaspoons?', 'tsps?',
+            'cups?',
+            'ounces?', 'oz',
+            'pounds?', 'lbs?',
+            'grams?', 'g',
+            'kilograms?', 'kgs?', 'kg',
+            'milliliters?', 'ml',
+            'liters?', 'l',
+            'pinch(?:es)?',
+            'dash(?:es)?',
+            'cloves?',
+            'items?',
+            'pieces?',
+            'cans?',
+            'jars?',
+            'bunche?s?',
+            'sprigs?',
+            'slices?',
+            'stalks?'
+        ];
+
+        const unitRegex = new RegExp(`(${unitPatterns.join('|')})`, 'i');
+
+        // Fraction patterns
+        const fractionMap = {
+            '½': 0.5, '⅓': 0.333, '⅔': 0.667, '¼': 0.25, '¾': 0.75,
+            '⅛': 0.125, '⅜': 0.375, '⅝': 0.625, '⅞': 0.875,
+            '1/2': 0.5, '1/3': 0.333, '2/3': 0.667, '1/4': 0.25, '3/4': 0.75,
+            '1/8': 0.125, '3/8': 0.375, '5/8': 0.625, '7/8': 0.875
+        };
+
+        lines.forEach(line => {
+            line = line.trim();
+            if (!line || line.length < 2) return;
+
+            // Skip lines that look like headers or instructions
+            if (/^(instructions?|directions?|steps?|method|notes?|serves?|prep|cook|total):/i.test(line)) return;
+            if (/^\d+\.\s+[A-Z]/.test(line) && line.length > 50) return; // Numbered instructions
+
+            // Try to extract quantity
+            let quantity = 1;
+            let unit = '';
+            let name = line;
+
+            // Match quantity at the beginning (including fractions)
+            const qtyMatch = line.match(/^(\d+\s*[-–]\s*\d+|\d+\.?\d*\s*[-–]?\s*\d*\.?\d*|[½⅓⅔¼¾⅛⅜⅝⅞]|\d+\s*\/\s*\d+|\d+\s+\d+\s*\/\s*\d+)/);
+
+            if (qtyMatch) {
+                let qtyStr = qtyMatch[1].trim();
+                name = line.substring(qtyMatch[0].length).trim();
+
+                // Handle mixed numbers like "1 1/2"
+                const mixedMatch = qtyStr.match(/^(\d+)\s+(\d+)\s*\/\s*(\d+)$/);
+                if (mixedMatch) {
+                    quantity = parseInt(mixedMatch[1]) + (parseInt(mixedMatch[2]) / parseInt(mixedMatch[3]));
+                } else if (fractionMap[qtyStr]) {
+                    quantity = fractionMap[qtyStr];
+                } else if (qtyStr.includes('/')) {
+                    const [num, den] = qtyStr.split('/').map(s => parseFloat(s.trim()));
+                    quantity = num / den;
+                } else if (qtyStr.includes('-') || qtyStr.includes('–')) {
+                    // Range - take the average
+                    const parts = qtyStr.split(/[-–]/).map(s => parseFloat(s.trim()));
+                    quantity = (parts[0] + parts[1]) / 2;
+                } else {
+                    quantity = parseFloat(qtyStr) || 1;
+                }
+            }
+
+            // Extract unit
+            const unitMatch = name.match(unitRegex);
+            if (unitMatch) {
+                unit = this.normalizeUnit(unitMatch[1]);
+                name = name.replace(unitMatch[0], '').trim();
+            }
+
+            // Clean up the name
+            name = name
+                .replace(/^(of\s+)/i, '')
+                .replace(/,.*$/, '')  // Remove anything after comma
+                .replace(/\(.*?\)/g, '')  // Remove parenthetical notes
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            // Skip if name is too short or looks like instruction
+            if (name.length < 2) return;
+            if (/^(and|or|to|for|with|into|until)$/i.test(name)) return;
+
+            ingredients.push({ name, quantity, unit: unit || 'items' });
+        });
+
+        return ingredients;
+    }
+
+    normalizeUnit(unit) {
+        const normalizations = {
+            'tablespoon': 'tbsp', 'tablespoons': 'tbsp', 'tbsps': 'tbsp', 'tbs': 'tbsp',
+            'teaspoon': 'tsp', 'teaspoons': 'tsp', 'tsps': 'tsp',
+            'cup': 'cups',
+            'ounce': 'oz', 'ounces': 'oz',
+            'pound': 'lbs', 'pounds': 'lbs', 'lb': 'lbs',
+            'gram': 'g', 'grams': 'g',
+            'kilogram': 'kg', 'kilograms': 'kg', 'kgs': 'kg',
+            'clove': 'items', 'cloves': 'items',
+            'pinch': 'tsp', 'pinches': 'tsp',
+            'dash': 'tsp', 'dashes': 'tsp',
+            'piece': 'items', 'pieces': 'items',
+            'item': 'items',
+            'sprig': 'items', 'sprigs': 'items',
+            'stalk': 'items', 'stalks': 'items',
+            'slice': 'items', 'slices': 'items',
+            'bunch': 'items', 'bunches': 'items',
+            'can': 'items', 'cans': 'items',
+            'jar': 'items', 'jars': 'items'
+        };
+
+        const lower = unit.toLowerCase();
+        return normalizations[lower] || lower;
+    }
+
+    findInventoryMatch(ingredientName) {
+        const searchName = ingredientName.toLowerCase();
+
+        // Try exact match first
+        let match = this.inventory.find(item =>
+            item.name.toLowerCase() === searchName
+        );
+
+        if (!match) {
+            // Try if inventory item contains ingredient name or vice versa
+            match = this.inventory.find(item => {
+                const itemName = item.name.toLowerCase();
+                return itemName.includes(searchName) || searchName.includes(itemName);
+            });
+        }
+
+        if (!match) {
+            // Try matching individual words
+            const words = searchName.split(/\s+/).filter(w => w.length > 2);
+            match = this.inventory.find(item => {
+                const itemName = item.name.toLowerCase();
+                return words.some(word => itemName.includes(word));
+            });
+        }
+
+        return match;
+    }
+
+    convertQuantity(amount, fromUnit, toUnit) {
+        if (fromUnit === toUnit) return amount;
+
+        // Conversion table (to a common base where possible)
+        const conversions = {
+            // Volume conversions (base: tsp)
+            'tsp': { tsp: 1, tbsp: 1/3, cups: 1/48, oz: 1/6, ml: 5 },
+            'tbsp': { tsp: 3, tbsp: 1, cups: 1/16, oz: 0.5, ml: 15 },
+            'cups': { tsp: 48, tbsp: 16, cups: 1, oz: 8, ml: 240 },
+            'oz': { tsp: 6, tbsp: 2, cups: 0.125, oz: 1, ml: 30 },
+
+            // Weight conversions (base: g)
+            'g': { g: 1, kg: 0.001, oz: 0.035, lbs: 0.0022 },
+            'kg': { g: 1000, kg: 1, oz: 35.274, lbs: 2.205 },
+            'lbs': { g: 453.6, kg: 0.4536, oz: 16, lbs: 1 },
+
+            // Items (no conversion possible to other units)
+            'items': { items: 1 }
+        };
+
+        const fromConv = conversions[fromUnit];
+        const toConv = conversions[toUnit];
+
+        if (!fromConv || !toConv) return amount; // Unknown units, assume same
+        if (fromConv[toUnit] !== undefined) {
+            return Math.round(amount * fromConv[toUnit] * 100) / 100;
+        }
+
+        // Can't convert between volume and weight or to items
+        return null;
+    }
+
+    renderParsedResults() {
+        if (!this.parsedRecipeData) return;
+
+        const { matched, unmatched } = this.parsedRecipeData;
+
+        this.parsedResults.classList.remove('hidden');
+
+        // Render matched ingredients
+        if (matched.length === 0) {
+            this.matchedIngredients.innerHTML = '<p style="color: #888;">No matching items found in your inventory.</p>';
+        } else {
+            this.matchedIngredients.innerHTML = matched.map((m, index) => {
+                const statusClass = m.isInsufficient ? 'insufficient' : (m.canConvert ? '' : 'warning');
+                const afterDeduct = m.canConvert ? Math.max(0, m.inventoryItem.quantity - m.deductAmount) : null;
+
+                return `
+                    <div class="ingredient-match ${statusClass}">
+                        <input type="checkbox" id="match-${index}" ${m.canConvert ? 'checked' : ''} ${!m.canConvert ? 'disabled' : ''}>
+                        <div class="match-info">
+                            <div class="match-name">${this.escapeHtml(m.inventoryItem.name)}</div>
+                            <div class="match-details">
+                                Recipe needs: ${m.ingredient.quantity} ${m.ingredient.unit} ${this.escapeHtml(m.ingredient.name)}
+                                ${!m.canConvert ? '<br><em>Cannot convert units automatically</em>' : ''}
+                                ${m.isInsufficient ? '<br><em>Not enough in stock!</em>' : ''}
+                            </div>
+                        </div>
+                        <div class="match-amount">
+                            <div class="deduct-amount">-${m.canConvert ? m.deductAmount : '?'} ${m.inventoryItem.unit}</div>
+                            <div class="current-amount">
+                                Have: ${m.inventoryItem.quantity} → ${afterDeduct !== null ? afterDeduct : '?'}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Render unmatched ingredients
+        if (unmatched.length > 0) {
+            this.unmatchedIngredients.classList.remove('hidden');
+            this.unmatchedList.innerHTML = unmatched.map(ing =>
+                `<div class="unmatched-item">${ing.quantity} ${ing.unit} ${this.escapeHtml(ing.name)}</div>`
+            ).join('');
+        } else {
+            this.unmatchedIngredients.classList.add('hidden');
+        }
+    }
+
+    applyRecipeDeductions() {
+        if (!this.parsedRecipeData) return;
+
+        const { matched } = this.parsedRecipeData;
+        let deductedCount = 0;
+
+        matched.forEach((m, index) => {
+            const checkbox = document.getElementById(`match-${index}`);
+            if (checkbox && checkbox.checked && m.canConvert) {
+                const newQty = Math.max(0, m.inventoryItem.quantity - m.deductAmount);
+                this.updateItem(m.inventoryItem.id, { quantity: newQty });
+                deductedCount++;
+            }
+        });
+
+        if (deductedCount > 0) {
+            alert(`Updated ${deductedCount} item(s) in your inventory.`);
+            this.cancelRecipe();
+            this.render();
+        } else {
+            alert('No items were selected for deduction.');
+        }
+    }
+
+    cancelRecipe() {
+        this.parsedRecipeData = null;
+        this.parsedResults.classList.add('hidden');
+        this.recipeText.value = '';
+        this.fileName.classList.add('hidden');
+        this.recipeFile.value = '';
     }
 
     // Utility functions

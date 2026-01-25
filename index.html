@@ -21,6 +21,54 @@
             <div id="searchResult" class="search-result hidden"></div>
         </section>
 
+        <!-- Recipe Section -->
+        <section class="recipe-section">
+            <h2>Use a Recipe</h2>
+            <p class="section-description">Paste a recipe or upload a file to automatically deduct ingredients from your inventory.</p>
+
+            <div class="recipe-input-tabs">
+                <button class="tab-btn active" data-tab="paste">Paste Recipe</button>
+                <button class="tab-btn" data-tab="upload">Upload File</button>
+            </div>
+
+            <div id="pasteTab" class="tab-content active">
+                <textarea id="recipeText" placeholder="Paste your recipe here...
+
+Example:
+2 tbsp olive oil
+1 tsp paprika
+1/2 tsp cumin
+3 cloves garlic
+1 cup rice"></textarea>
+            </div>
+
+            <div id="uploadTab" class="tab-content">
+                <div class="file-upload-area" id="dropZone">
+                    <input type="file" id="recipeFile" accept=".txt,.md,.pdf" hidden>
+                    <p>Drag & drop a file here or <button type="button" id="browseBtn">browse</button></p>
+                    <span class="file-types">Supports: .txt, .md</span>
+                </div>
+                <div id="fileName" class="file-name hidden"></div>
+            </div>
+
+            <button id="parseRecipeBtn" class="parse-btn">Parse Recipe</button>
+
+            <!-- Parsed Results -->
+            <div id="parsedResults" class="parsed-results hidden">
+                <h3>Matched Ingredients</h3>
+                <p class="results-description">Review the matches below. Check the items you want to deduct from inventory.</p>
+                <div id="matchedIngredients"></div>
+                <div id="unmatchedIngredients" class="unmatched-section hidden">
+                    <h4>Not in Inventory</h4>
+                    <div id="unmatchedList"></div>
+                </div>
+                <div class="recipe-actions">
+                    <button id="applyRecipeBtn" class="apply-btn">Deduct from Inventory</button>
+                    <button id="cancelRecipeBtn" class="cancel-recipe-btn">Cancel</button>
+                </div>
+            </div>
+        </section>
+
         <!-- Low Stock Alerts -->
         <section id="alertsSection" class="alerts-section hidden">
             <h2>Low Stock Alerts</h2>

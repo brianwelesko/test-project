@@ -15,40 +15,35 @@
 
         <!-- Account/Sync Section -->
         <section class="sync-section">
-            <div id="loggedOutView" class="sync-view">
-                <div class="sync-header">
-                    <h3>Sync Across Devices</h3>
-                    <p>Enter a password to sync your inventory to the cloud</p>
+            <div class="sync-header">
+                <h3>Sync Across Devices</h3>
+                <p>Transfer your inventory to another device using a password-protected code</p>
+            </div>
+
+            <div class="sync-main">
+                <div class="sync-buttons-main">
+                    <button id="exportDataBtn" class="sync-btn export-main">Export to Code</button>
+                    <button id="importDataBtn" class="sync-btn import-main">Import from Code</button>
                 </div>
-                <div class="sync-form">
-                    <input type="password" id="syncPassword" placeholder="Enter your sync password" autocomplete="off">
-                    <div class="sync-buttons">
-                        <button id="loginBtn" class="sync-btn login">Login</button>
-                        <button id="signupBtn" class="sync-btn signup">Create New</button>
+
+                <div id="exportView" class="sync-panel hidden">
+                    <label>Your encrypted sync code (copy this):</label>
+                    <textarea id="exportCode" class="sync-code-output" readonly></textarea>
+                    <div class="export-actions">
+                        <button id="copyCodeBtn" class="sync-btn copy">Copy to Clipboard</button>
+                        <button id="closeExportBtn" class="sync-btn close">Close</button>
+                    </div>
+                    <p class="sync-hint">Send this code to your other device (text, email, etc.) then import it there with the same password.</p>
+                </div>
+
+                <div id="importView" class="sync-panel hidden">
+                    <label>Paste the sync code from your other device:</label>
+                    <textarea id="syncCode" class="sync-code-input" placeholder="Paste sync code here..."></textarea>
+                    <div class="import-actions">
+                        <button id="confirmImportBtn" class="sync-btn confirm">Import</button>
+                        <button id="closeImportBtn" class="sync-btn close">Cancel</button>
                     </div>
                 </div>
-            </div>
-            <div id="loggedInView" class="sync-view hidden">
-                <div class="sync-info">
-                    <span class="sync-badge">Synced</span>
-                    <span id="lastSyncTime">Last synced: Never</span>
-                </div>
-                <div class="sync-actions">
-                    <button id="syncNowBtn" class="sync-btn sync">Sync Now</button>
-                    <button id="logoutBtn" class="sync-btn logout">Logout</button>
-                </div>
-            </div>
-            <div class="manual-sync-section">
-                <details>
-                    <summary>Manual Sync (Backup Option)</summary>
-                    <p class="manual-sync-desc">If cloud sync isn't working, use these buttons to manually transfer your data:</p>
-                    <div class="manual-sync-buttons">
-                        <button id="exportDataBtn" class="sync-btn export">Export Data</button>
-                        <button id="importDataBtn" class="sync-btn import">Import Data</button>
-                    </div>
-                    <textarea id="syncCode" placeholder="Paste sync code here to import..." class="sync-code-input hidden"></textarea>
-                    <button id="confirmImportBtn" class="sync-btn confirm-import hidden">Confirm Import</button>
-                </details>
             </div>
         </section>
 

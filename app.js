@@ -127,27 +127,15 @@ const INGREDIENT_DENSITIES = {
     '_default': 2.5
 };
 
-// Cloud sync configuration - uses Pantry (getpantry.cloud) free tier
-// Pantry allows storing JSON data with custom basket names (no signup required)
-const SYNC_CONFIG = {
-    // This is a demo pantry ID - the password hash becomes the basket name
-    // allowing deterministic cross-device sync
-    pantryId: 'a]SpiceInventoryDemoDoNotDelete',
-    apiUrl: 'https://getpantry.cloud/apiv1/pantry'
-};
-
 class SpiceInventory {
     constructor() {
         this.storageKey = 'spiceInventory';
-        this.syncKey = 'spiceInventorySync';
         this.inventory = this.loadInventory();
         this.editingId = null;
-        this.syncSession = this.loadSyncSession();
 
         this.initializeElements();
         this.bindEvents();
         this.render();
-        this.updateSyncUI();
     }
 
     initializeElements() {
@@ -200,20 +188,16 @@ class SpiceInventory {
 
         // Sync elements
         this.syncStatus = document.getElementById('syncStatus');
-        this.loggedOutView = document.getElementById('loggedOutView');
-        this.loggedInView = document.getElementById('loggedInView');
-        this.syncPassword = document.getElementById('syncPassword');
-        this.loginBtn = document.getElementById('loginBtn');
-        this.signupBtn = document.getElementById('signupBtn');
-        this.syncNowBtn = document.getElementById('syncNowBtn');
-        this.logoutBtn = document.getElementById('logoutBtn');
-        this.lastSyncTime = document.getElementById('lastSyncTime');
-
-        // Manual sync elements
         this.exportDataBtn = document.getElementById('exportDataBtn');
         this.importDataBtn = document.getElementById('importDataBtn');
+        this.exportView = document.getElementById('exportView');
+        this.importView = document.getElementById('importView');
+        this.exportCode = document.getElementById('exportCode');
         this.syncCodeInput = document.getElementById('syncCode');
+        this.copyCodeBtn = document.getElementById('copyCodeBtn');
+        this.closeExportBtn = document.getElementById('closeExportBtn');
         this.confirmImportBtn = document.getElementById('confirmImportBtn');
+        this.closeImportBtn = document.getElementById('closeImportBtn');
     }
 
     bindEvents() {
@@ -264,56 +248,12 @@ class SpiceInventory {
         this.cancelRecipeBtn.addEventListener('click', () => this.cancelRecipe());
 
         // Sync events
-        this.loginBtn.addEventListener('click', () => this.handleLogin());
-        this.signupBtn.addEventListener('click', () => this.handleSignup());
-        this.syncNowBtn.addEventListener('click', () => this.syncToCloud());
-        this.logoutBtn.addEventListener('click', () => this.handleLogout());
-        this.syncPassword.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                this.handleLogin();
-            }
-        });
-
-        // Manual sync events
-        this.exportDataBtn.addEventListener('click', () => this.handleExport());
-        this.importDataBtn.addEventListener('click', () => this.showImportInput());
+        this.exportDataBtn.addEventListener('click', () => this.showExportView());
+        this.importDataBtn.addEventListener('click', () => this.showImportView());
+        this.copyCodeBtn.addEventListener('click', () => this.copyExportCode());
+        this.closeExportBtn.addEventListener('click', () => this.closeExportView());
         this.confirmImportBtn.addEventListener('click', () => this.handleImport());
-    }
-
-    // Sync Session Management
-    loadSyncSession() {
-        const data = localStorage.getItem(this.syncKey);
-        return data ? JSON.parse(data) : null;
-    }
-
-    saveSyncSession(session) {
-        this.syncSession = session;
-        if (session) {
-            localStorage.setItem(this.syncKey, JSON.stringify(session));
-        } else {
-            localStorage.removeItem(this.syncKey);
-        }
-        this.updateSyncUI();
-    }
-
-    updateSyncUI() {
-        if (this.syncSession) {
-            this.loggedOutView.classList.add('hidden');
-            this.loggedInView.classList.remove('hidden');
-            if (this.syncSession.lastSync) {
-                const date = new Date(this.syncSession.lastSync);
-                this.lastSyncTime.textContent = `Last synced: ${date.toLocaleString()}`;
-            }
-        } else {
-            this.loggedOutView.classList.remove('hidden');
-            this.loggedInView.classList.add('hidden');
-        }
-    }
-
-    setSyncStatus(message, isLoading = false) {
-        this.syncStatus.textContent = message;
-        this.syncStatus.classList.toggle('syncing', isLoading);
+        this.closeImportBtn.addEventListener('click', () => this.closeImportView());
     }
 
     // Encryption utilities using Web Crypto API
@@ -394,186 +334,9 @@ class SpiceInventory {
         }
     }
 
-    // Cloud sync using Pantry API - enables true cross-device sync
-    getBasketUrl(passwordHash) {
-        // Use first 24 chars of hash as basket name (URL-safe)
-        const basketName = `spice_${passwordHash.substring(0, 24)}`;
-        return `${SYNC_CONFIG.apiUrl}/${SYNC_CONFIG.pantryId}/basket/${basketName}`;
-    }
-
-    async handleSignup() {
-        const password = this.syncPassword.value.trim();
-        if (!password || password.length < 4) {
-            alert('Please enter a password with at least 4 characters');
-            return;
-        }
-
-        this.setSyncStatus('Creating account...', true);
-        this.loginBtn.disabled = true;
-        this.signupBtn.disabled = true;
-
-        try {
-            const passwordHash = await this.hashPassword(password);
-            const encryptedData = await this.encrypt(this.inventory, password);
-
-            // Check if basket already exists
-            const checkResponse = await fetch(this.getBasketUrl(passwordHash));
-            if (checkResponse.ok) {
-                alert('An account with this password already exists. Use "Login" instead.');
-                this.setSyncStatus('');
-                return;
-            }
-
-            // Create new basket with encrypted data
-            const response = await fetch(this.getBasketUrl(passwordHash), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    data: encryptedData,
-                    updatedAt: new Date().toISOString()
-                })
-            });
-
-            if (response.ok) {
-                this.saveSyncSession({
-                    passwordHash: passwordHash,
-                    password: password,
-                    lastSync: new Date().toISOString()
-                });
-                this.syncPassword.value = '';
-                this.setSyncStatus('Account created & synced to cloud!');
-                setTimeout(() => this.setSyncStatus(''), 3000);
-            } else {
-                throw new Error('Failed to create account');
-            }
-        } catch (e) {
-            console.error('Signup error:', e);
-            this.setSyncStatus('Error: Could not connect to sync server');
-            setTimeout(() => this.setSyncStatus(''), 5000);
-        } finally {
-            this.loginBtn.disabled = false;
-            this.signupBtn.disabled = false;
-        }
-    }
-
-    async handleLogin() {
-        const password = this.syncPassword.value.trim();
-        if (!password) {
-            alert('Please enter your sync password');
-            return;
-        }
-
-        this.setSyncStatus('Logging in...', true);
-        this.loginBtn.disabled = true;
-        this.signupBtn.disabled = true;
-
-        try {
-            const passwordHash = await this.hashPassword(password);
-
-            // Fetch from cloud
-            const response = await fetch(this.getBasketUrl(passwordHash));
-
-            if (response.ok) {
-                const cloudData = await response.json();
-
-                if (cloudData && cloudData.data) {
-                    // Decrypt the cloud data
-                    const decrypted = await this.decrypt(cloudData.data, password);
-
-                    if (decrypted) {
-                        this.inventory = decrypted;
-                        this.saveInventory();
-                        this.saveSyncSession({
-                            passwordHash: passwordHash,
-                            password: password,
-                            lastSync: cloudData.updatedAt || new Date().toISOString()
-                        });
-                        this.syncPassword.value = '';
-                        this.render();
-                        this.setSyncStatus('Logged in & synced from cloud!');
-                        setTimeout(() => this.setSyncStatus(''), 3000);
-                    } else {
-                        alert('Incorrect password - could not decrypt data');
-                        this.setSyncStatus('');
-                    }
-                } else {
-                    alert('No data found. Click "Create New" to create an account.');
-                    this.setSyncStatus('');
-                }
-            } else if (response.status === 400) {
-                alert('No account found with this password. Click "Create New" to create one.');
-                this.setSyncStatus('');
-            } else {
-                throw new Error('Failed to connect to sync server');
-            }
-        } catch (e) {
-            console.error('Login error:', e);
-            this.setSyncStatus('Error: Could not connect to sync server');
-            setTimeout(() => this.setSyncStatus(''), 5000);
-        } finally {
-            this.loginBtn.disabled = false;
-            this.signupBtn.disabled = false;
-        }
-    }
-
-    async syncToCloud() {
-        if (!this.syncSession) {
-            alert('Please log in first');
-            return;
-        }
-
-        this.setSyncStatus('Syncing to cloud...', true);
-        this.syncNowBtn.disabled = true;
-
-        try {
-            const password = this.syncSession.password || prompt('Enter your password to sync:');
-            if (!password) {
-                this.setSyncStatus('Sync cancelled');
-                this.syncNowBtn.disabled = false;
-                return;
-            }
-
-            const encryptedData = await this.encrypt(this.inventory, password);
-
-            // Update cloud storage
-            const response = await fetch(this.getBasketUrl(this.syncSession.passwordHash), {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    data: encryptedData,
-                    updatedAt: new Date().toISOString()
-                })
-            });
-
-            if (response.ok) {
-                this.syncSession.lastSync = new Date().toISOString();
-                this.syncSession.password = password;
-                this.saveSyncSession(this.syncSession);
-
-                this.setSyncStatus('Synced to cloud!');
-                setTimeout(() => this.setSyncStatus(''), 3000);
-            } else {
-                throw new Error('Failed to sync');
-            }
-        } catch (e) {
-            console.error('Sync error:', e);
-            this.setSyncStatus('Sync failed - check your connection');
-            setTimeout(() => this.setSyncStatus(''), 5000);
-        } finally {
-            this.syncNowBtn.disabled = false;
-        }
-    }
-
-    handleLogout() {
-        if (confirm('Are you sure you want to log out? Your data will remain on this device.')) {
-            this.saveSyncSession(null);
-            this.setSyncStatus('');
-        }
-    }
-
-    // Manual Export/Import for reliable cross-device sync
-    async handleExport() {
-        const password = prompt('Enter a password to encrypt your export:');
+    // Export/Import for cross-device sync
+    async showExportView() {
+        const password = prompt('Enter a password to encrypt your data:');
         if (!password || password.length < 4) {
             alert('Password must be at least 4 characters');
             return;
@@ -582,7 +345,7 @@ class SpiceInventory {
         try {
             const encryptedData = await this.encrypt(this.inventory, password);
             const exportData = {
-                v: 1, // version
+                v: 1,
                 data: encryptedData,
                 exportedAt: new Date().toISOString(),
                 itemCount: this.inventory.length
@@ -590,27 +353,50 @@ class SpiceInventory {
 
             const exportCode = btoa(JSON.stringify(exportData));
 
-            // Copy to clipboard
-            await navigator.clipboard.writeText(exportCode);
-            alert(`Exported ${this.inventory.length} items!\n\nThe sync code has been copied to your clipboard.\n\nPaste this code on your other device and use the same password to import.`);
+            this.exportCode.value = exportCode;
+            this.exportView.classList.remove('hidden');
+            this.importView.classList.add('hidden');
+            this.syncStatus.textContent = `Exported ${this.inventory.length} items`;
         } catch (e) {
             console.error('Export error:', e);
-            // Fallback: show in textarea
-            const encryptedData = await this.encrypt(this.inventory, password);
-            const exportData = { v: 1, data: encryptedData, exportedAt: new Date().toISOString() };
-            const exportCode = btoa(JSON.stringify(exportData));
-            this.syncCodeInput.value = exportCode;
-            this.syncCodeInput.classList.remove('hidden');
-            alert('Export code is shown in the text box below. Copy it manually.');
+            alert('Error creating export. Please try again.');
         }
     }
 
-    showImportInput() {
+    async copyExportCode() {
+        try {
+            await navigator.clipboard.writeText(this.exportCode.value);
+            this.copyCodeBtn.textContent = 'Copied!';
+            setTimeout(() => {
+                this.copyCodeBtn.textContent = 'Copy to Clipboard';
+            }, 2000);
+        } catch (e) {
+            // Fallback for mobile
+            this.exportCode.select();
+            document.execCommand('copy');
+            this.copyCodeBtn.textContent = 'Copied!';
+            setTimeout(() => {
+                this.copyCodeBtn.textContent = 'Copy to Clipboard';
+            }, 2000);
+        }
+    }
+
+    closeExportView() {
+        this.exportView.classList.add('hidden');
+        this.exportCode.value = '';
+        this.syncStatus.textContent = '';
+    }
+
+    showImportView() {
         this.syncCodeInput.value = '';
-        this.syncCodeInput.classList.remove('hidden');
-        this.confirmImportBtn.classList.remove('hidden');
+        this.importView.classList.remove('hidden');
+        this.exportView.classList.add('hidden');
         this.syncCodeInput.focus();
-        this.syncCodeInput.placeholder = 'Paste the sync code from your other device here...';
+    }
+
+    closeImportView() {
+        this.importView.classList.add('hidden');
+        this.syncCodeInput.value = '';
     }
 
     async handleImport() {
@@ -635,19 +421,19 @@ class SpiceInventory {
             const decrypted = await this.decrypt(exportData.data, password);
 
             if (decrypted) {
-                const confirmMsg = `Found ${decrypted.length} items from ${new Date(exportData.exportedAt).toLocaleString()}.\n\nThis will replace your current inventory. Continue?`;
+                const itemCount = decrypted.length;
+                const exportDate = exportData.exportedAt ? new Date(exportData.exportedAt).toLocaleString() : 'unknown date';
+                const confirmMsg = `Found ${itemCount} items exported on ${exportDate}.\n\nThis will replace your current inventory (${this.inventory.length} items). Continue?`;
 
                 if (confirm(confirmMsg)) {
                     this.inventory = decrypted;
                     this.saveInventory();
                     this.render();
-
-                    // Hide the import UI
-                    this.syncCodeInput.classList.add('hidden');
-                    this.confirmImportBtn.classList.add('hidden');
-                    this.syncCodeInput.value = '';
-
-                    alert('Import successful!');
+                    this.closeImportView();
+                    this.syncStatus.textContent = `Imported ${itemCount} items successfully!`;
+                    setTimeout(() => {
+                        this.syncStatus.textContent = '';
+                    }, 3000);
                 }
             } else {
                 alert('Could not decrypt data. Check your password and try again.');

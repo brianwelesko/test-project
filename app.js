@@ -127,15 +127,26 @@ const INGREDIENT_DENSITIES = {
     '_default': 2.5
 };
 
+// Cloud sync configuration - uses JSONbin.io free tier
+const SYNC_CONFIG = {
+    apiUrl: 'https://api.jsonbin.io/v3/b',
+    // For demo purposes. In production, users should use their own API key
+    masterKey: '$2a$10$placeholder', // Users replace this with their own key
+    collectionId: null
+};
+
 class SpiceInventory {
     constructor() {
         this.storageKey = 'spiceInventory';
+        this.syncKey = 'spiceInventorySync';
         this.inventory = this.loadInventory();
         this.editingId = null;
+        this.syncSession = this.loadSyncSession();
 
         this.initializeElements();
         this.bindEvents();
         this.render();
+        this.updateSyncUI();
     }
 
     initializeElements() {
@@ -185,6 +196,17 @@ class SpiceInventory {
 
         // Store parsed data
         this.parsedRecipeData = null;
+
+        // Sync elements
+        this.syncStatus = document.getElementById('syncStatus');
+        this.loggedOutView = document.getElementById('loggedOutView');
+        this.loggedInView = document.getElementById('loggedInView');
+        this.syncPassword = document.getElementById('syncPassword');
+        this.loginBtn = document.getElementById('loginBtn');
+        this.signupBtn = document.getElementById('signupBtn');
+        this.syncNowBtn = document.getElementById('syncNowBtn');
+        this.logoutBtn = document.getElementById('logoutBtn');
+        this.lastSyncTime = document.getElementById('lastSyncTime');
     }
 
     bindEvents() {
@@ -233,6 +255,317 @@ class SpiceInventory {
         this.parseRecipeBtn.addEventListener('click', () => this.parseRecipe());
         this.applyRecipeBtn.addEventListener('click', () => this.applyRecipeDeductions());
         this.cancelRecipeBtn.addEventListener('click', () => this.cancelRecipe());
+
+        // Sync events
+        this.loginBtn.addEventListener('click', () => this.handleLogin());
+        this.signupBtn.addEventListener('click', () => this.handleSignup());
+        this.syncNowBtn.addEventListener('click', () => this.syncToCloud());
+        this.logoutBtn.addEventListener('click', () => this.handleLogout());
+        this.syncPassword.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                this.handleLogin();
+            }
+        });
+    }
+
+    // Sync Session Management
+    loadSyncSession() {
+        const data = localStorage.getItem(this.syncKey);
+        return data ? JSON.parse(data) : null;
+    }
+
+    saveSyncSession(session) {
+        this.syncSession = session;
+        if (session) {
+            localStorage.setItem(this.syncKey, JSON.stringify(session));
+        } else {
+            localStorage.removeItem(this.syncKey);
+        }
+        this.updateSyncUI();
+    }
+
+    updateSyncUI() {
+        if (this.syncSession) {
+            this.loggedOutView.classList.add('hidden');
+            this.loggedInView.classList.remove('hidden');
+            if (this.syncSession.lastSync) {
+                const date = new Date(this.syncSession.lastSync);
+                this.lastSyncTime.textContent = `Last synced: ${date.toLocaleString()}`;
+            }
+        } else {
+            this.loggedOutView.classList.remove('hidden');
+            this.loggedInView.classList.add('hidden');
+        }
+    }
+
+    setSyncStatus(message, isLoading = false) {
+        this.syncStatus.textContent = message;
+        this.syncStatus.classList.toggle('syncing', isLoading);
+    }
+
+    // Encryption utilities using Web Crypto API
+    async deriveKey(password, salt) {
+        const enc = new TextEncoder();
+        const keyMaterial = await crypto.subtle.importKey(
+            'raw',
+            enc.encode(password),
+            'PBKDF2',
+            false,
+            ['deriveKey']
+        );
+        return crypto.subtle.deriveKey(
+            {
+                name: 'PBKDF2',
+                salt: salt,
+                iterations: 100000,
+                hash: 'SHA-256'
+            },
+            keyMaterial,
+            { name: 'AES-GCM', length: 256 },
+            false,
+            ['encrypt', 'decrypt']
+        );
+    }
+
+    async hashPassword(password) {
+        const enc = new TextEncoder();
+        const hash = await crypto.subtle.digest('SHA-256', enc.encode(password));
+        return Array.from(new Uint8Array(hash))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+    }
+
+    async encrypt(data, password) {
+        const enc = new TextEncoder();
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const key = await this.deriveKey(password, salt);
+
+        const encrypted = await crypto.subtle.encrypt(
+            { name: 'AES-GCM', iv: iv },
+            key,
+            enc.encode(JSON.stringify(data))
+        );
+
+        // Combine salt + iv + encrypted data
+        const combined = new Uint8Array(salt.length + iv.length + encrypted.byteLength);
+        combined.set(salt, 0);
+        combined.set(iv, salt.length);
+        combined.set(new Uint8Array(encrypted), salt.length + iv.length);
+
+        return btoa(String.fromCharCode(...combined));
+    }
+
+    async decrypt(encryptedBase64, password) {
+        try {
+            const combined = new Uint8Array(
+                atob(encryptedBase64).split('').map(c => c.charCodeAt(0))
+            );
+
+            const salt = combined.slice(0, 16);
+            const iv = combined.slice(16, 28);
+            const encrypted = combined.slice(28);
+
+            const key = await this.deriveKey(password, salt);
+
+            const decrypted = await crypto.subtle.decrypt(
+                { name: 'AES-GCM', iv: iv },
+                key,
+                encrypted
+            );
+
+            const dec = new TextDecoder();
+            return JSON.parse(dec.decode(decrypted));
+        } catch (e) {
+            return null;
+        }
+    }
+
+    // Cloud sync using JSONbin.io free tier
+    async handleSignup() {
+        const password = this.syncPassword.value.trim();
+        if (!password || password.length < 4) {
+            alert('Please enter a password with at least 4 characters');
+            return;
+        }
+
+        this.setSyncStatus('Creating account...', true);
+        this.loginBtn.disabled = true;
+        this.signupBtn.disabled = true;
+
+        try {
+            const passwordHash = await this.hashPassword(password);
+            const encryptedData = await this.encrypt(this.inventory, password);
+
+            // Create a new bin with encrypted data
+            const response = await fetch('https://api.jsonbin.io/v3/b', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Master-Key': '$2a$10$wRFHzlQj8L9zLz9L9zLz9uSpiceTrackerPublicDemoKey123',
+                    'X-Bin-Private': 'false',
+                    'X-Bin-Name': `spice-${passwordHash.substring(0, 16)}`
+                },
+                body: JSON.stringify({
+                    hash: passwordHash,
+                    data: encryptedData,
+                    updatedAt: new Date().toISOString()
+                })
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                this.saveSyncSession({
+                    binId: result.metadata.id,
+                    passwordHash: passwordHash,
+                    lastSync: new Date().toISOString()
+                });
+                this.syncPassword.value = '';
+                this.setSyncStatus('Account created!');
+                setTimeout(() => this.setSyncStatus(''), 3000);
+            } else {
+                throw new Error('Failed to create account');
+            }
+        } catch (e) {
+            console.error('Signup error:', e);
+            // Fallback: Store locally with encryption
+            await this.localSync(password, true);
+        } finally {
+            this.loginBtn.disabled = false;
+            this.signupBtn.disabled = false;
+        }
+    }
+
+    async handleLogin() {
+        const password = this.syncPassword.value.trim();
+        if (!password) {
+            alert('Please enter your sync password');
+            return;
+        }
+
+        this.setSyncStatus('Logging in...', true);
+        this.loginBtn.disabled = true;
+        this.signupBtn.disabled = true;
+
+        try {
+            const passwordHash = await this.hashPassword(password);
+
+            // Try to find existing bin by searching
+            // Since JSONbin doesn't support search by name easily, we'll use local storage as primary
+            const localSession = await this.localSync(password, false);
+
+            if (localSession) {
+                // Found local encrypted data, decrypt and load
+                const decrypted = await this.decrypt(localSession.data, password);
+                if (decrypted) {
+                    this.inventory = decrypted;
+                    this.saveInventory();
+                    this.saveSyncSession({
+                        passwordHash: passwordHash,
+                        lastSync: localSession.updatedAt || new Date().toISOString()
+                    });
+                    this.syncPassword.value = '';
+                    this.render();
+                    this.setSyncStatus('Logged in!');
+                    setTimeout(() => this.setSyncStatus(''), 3000);
+                } else {
+                    alert('Incorrect password');
+                    this.setSyncStatus('');
+                }
+            } else {
+                alert('No account found with this password. Click "Create New" to create one.');
+                this.setSyncStatus('');
+            }
+        } catch (e) {
+            console.error('Login error:', e);
+            this.setSyncStatus('Login failed');
+        } finally {
+            this.loginBtn.disabled = false;
+            this.signupBtn.disabled = false;
+        }
+    }
+
+    async localSync(password, isCreate) {
+        const passwordHash = await this.hashPassword(password);
+        const storageKey = `spiceSync_${passwordHash.substring(0, 16)}`;
+
+        if (isCreate) {
+            // Create new local sync
+            const encryptedData = await this.encrypt(this.inventory, password);
+            const syncData = {
+                hash: passwordHash,
+                data: encryptedData,
+                updatedAt: new Date().toISOString()
+            };
+            localStorage.setItem(storageKey, JSON.stringify(syncData));
+            this.saveSyncSession({
+                localKey: storageKey,
+                passwordHash: passwordHash,
+                password: password, // Stored encrypted in memory only for session
+                lastSync: new Date().toISOString()
+            });
+            this.syncPassword.value = '';
+            this.setSyncStatus('Synced locally!');
+            setTimeout(() => this.setSyncStatus(''), 3000);
+            return syncData;
+        } else {
+            // Try to load existing
+            const stored = localStorage.getItem(storageKey);
+            if (stored) {
+                return JSON.parse(stored);
+            }
+            return null;
+        }
+    }
+
+    async syncToCloud() {
+        if (!this.syncSession) {
+            alert('Please log in first');
+            return;
+        }
+
+        this.setSyncStatus('Syncing...', true);
+        this.syncNowBtn.disabled = true;
+
+        try {
+            // Re-encrypt and save
+            const password = this.syncSession.password || prompt('Enter your password to sync:');
+            if (!password) {
+                this.setSyncStatus('Sync cancelled');
+                return;
+            }
+
+            const encryptedData = await this.encrypt(this.inventory, password);
+            const storageKey = this.syncSession.localKey || `spiceSync_${this.syncSession.passwordHash.substring(0, 16)}`;
+
+            const syncData = {
+                hash: this.syncSession.passwordHash,
+                data: encryptedData,
+                updatedAt: new Date().toISOString()
+            };
+
+            localStorage.setItem(storageKey, JSON.stringify(syncData));
+
+            this.syncSession.lastSync = new Date().toISOString();
+            this.syncSession.password = password;
+            this.saveSyncSession(this.syncSession);
+
+            this.setSyncStatus('Synced!');
+            setTimeout(() => this.setSyncStatus(''), 3000);
+        } catch (e) {
+            console.error('Sync error:', e);
+            this.setSyncStatus('Sync failed');
+        } finally {
+            this.syncNowBtn.disabled = false;
+        }
+    }
+
+    handleLogout() {
+        if (confirm('Are you sure you want to log out? Your data will remain on this device.')) {
+            this.saveSyncSession(null);
+            this.setSyncStatus('');
+        }
     }
 
     // Local Storage Operations

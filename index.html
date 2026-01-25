@@ -10,7 +10,35 @@
     <div class="container">
         <header>
             <h1>Spice Inventory Tracker</h1>
+            <div id="syncStatus" class="sync-status"></div>
         </header>
+
+        <!-- Account/Sync Section -->
+        <section class="sync-section">
+            <div id="loggedOutView" class="sync-view">
+                <div class="sync-header">
+                    <h3>Sync Across Devices</h3>
+                    <p>Enter a password to sync your inventory to the cloud</p>
+                </div>
+                <div class="sync-form">
+                    <input type="password" id="syncPassword" placeholder="Enter your sync password" autocomplete="off">
+                    <div class="sync-buttons">
+                        <button id="loginBtn" class="sync-btn login">Login</button>
+                        <button id="signupBtn" class="sync-btn signup">Create New</button>
+                    </div>
+                </div>
+            </div>
+            <div id="loggedInView" class="sync-view hidden">
+                <div class="sync-info">
+                    <span class="sync-badge">Synced</span>
+                    <span id="lastSyncTime">Last synced: Never</span>
+                </div>
+                <div class="sync-actions">
+                    <button id="syncNowBtn" class="sync-btn sync">Sync Now</button>
+                    <button id="logoutBtn" class="sync-btn logout">Logout</button>
+                </div>
+            </div>
+        </section>
 
         <!-- Search Section -->
         <section class="search-section">

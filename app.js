@@ -988,5 +988,7 @@ class SpiceInventory {
     }
 }
 
-// Initialize the application
-const app = new SpiceInventory();
+// Initialize the application when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    window.app = new SpiceInventory();
+});

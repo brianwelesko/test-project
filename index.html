@@ -10,42 +10,7 @@
     <div class="container">
         <header>
             <h1>Spice Inventory Tracker</h1>
-            <div id="syncStatus" class="sync-status"></div>
         </header>
-
-        <!-- Account/Sync Section -->
-        <section class="sync-section">
-            <div class="sync-header">
-                <h3>Sync Across Devices</h3>
-                <p>Transfer your inventory to another device using a password-protected code</p>
-            </div>
-
-            <div class="sync-main">
-                <div class="sync-buttons-main">
-                    <button id="exportDataBtn" class="sync-btn export-main">Export to Code</button>
-                    <button id="importDataBtn" class="sync-btn import-main">Import from Code</button>
-                </div>
-
-                <div id="exportView" class="sync-panel hidden">
-                    <label>Your encrypted sync code (copy this):</label>
-                    <textarea id="exportCode" class="sync-code-output" readonly></textarea>
-                    <div class="export-actions">
-                        <button id="copyCodeBtn" class="sync-btn copy">Copy to Clipboard</button>
-                        <button id="closeExportBtn" class="sync-btn close">Close</button>
-                    </div>
-                    <p class="sync-hint">Send this code to your other device (text, email, etc.) then import it there with the same password.</p>
-                </div>
-
-                <div id="importView" class="sync-panel hidden">
-                    <label>Paste the sync code from your other device:</label>
-                    <textarea id="syncCode" class="sync-code-input" placeholder="Paste sync code here..."></textarea>
-                    <div class="import-actions">
-                        <button id="confirmImportBtn" class="sync-btn confirm">Import</button>
-                        <button id="closeImportBtn" class="sync-btn close">Cancel</button>
-                    </div>
-                </div>
-            </div>
-        </section>
 
         <!-- Search Section -->
         <section class="search-section">

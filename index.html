@@ -38,6 +38,18 @@
                     <button id="logoutBtn" class="sync-btn logout">Logout</button>
                 </div>
             </div>
+            <div class="manual-sync-section">
+                <details>
+                    <summary>Manual Sync (Backup Option)</summary>
+                    <p class="manual-sync-desc">If cloud sync isn't working, use these buttons to manually transfer your data:</p>
+                    <div class="manual-sync-buttons">
+                        <button id="exportDataBtn" class="sync-btn export">Export Data</button>
+                        <button id="importDataBtn" class="sync-btn import">Import Data</button>
+                    </div>
+                    <textarea id="syncCode" placeholder="Paste sync code here to import..." class="sync-code-input hidden"></textarea>
+                    <button id="confirmImportBtn" class="sync-btn confirm-import hidden">Confirm Import</button>
+                </details>
+            </div>
         </section>
 
         <!-- Search Section -->

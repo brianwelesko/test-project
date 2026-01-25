@@ -127,12 +127,13 @@ const INGREDIENT_DENSITIES = {
     '_default': 2.5
 };
 
-// Cloud sync configuration - uses JSONbin.io free tier
+// Cloud sync configuration - uses Pantry (getpantry.cloud) free tier
+// Pantry allows storing JSON data with custom basket names (no signup required)
 const SYNC_CONFIG = {
-    apiUrl: 'https://api.jsonbin.io/v3/b',
-    // For demo purposes. In production, users should use their own API key
-    masterKey: '$2a$10$placeholder', // Users replace this with their own key
-    collectionId: null
+    // This is a demo pantry ID - the password hash becomes the basket name
+    // allowing deterministic cross-device sync
+    pantryId: 'a]SpiceInventoryDemoDoNotDelete',
+    apiUrl: 'https://getpantry.cloud/apiv1/pantry'
 };
 
 class SpiceInventory {
@@ -207,6 +208,12 @@ class SpiceInventory {
         this.syncNowBtn = document.getElementById('syncNowBtn');
         this.logoutBtn = document.getElementById('logoutBtn');
         this.lastSyncTime = document.getElementById('lastSyncTime');
+
+        // Manual sync elements
+        this.exportDataBtn = document.getElementById('exportDataBtn');
+        this.importDataBtn = document.getElementById('importDataBtn');
+        this.syncCodeInput = document.getElementById('syncCode');
+        this.confirmImportBtn = document.getElementById('confirmImportBtn');
     }
 
     bindEvents() {
@@ -267,6 +274,11 @@ class SpiceInventory {
                 this.handleLogin();
             }
         });
+
+        // Manual sync events
+        this.exportDataBtn.addEventListener('click', () => this.handleExport());
+        this.importDataBtn.addEventListener('click', () => this.showImportInput());
+        this.confirmImportBtn.addEventListener('click', () => this.handleImport());
     }
 
     // Sync Session Management
@@ -382,7 +394,13 @@ class SpiceInventory {
         }
     }
 
-    // Cloud sync using JSONbin.io free tier
+    // Cloud sync using Pantry API - enables true cross-device sync
+    getBasketUrl(passwordHash) {
+        // Use first 24 chars of hash as basket name (URL-safe)
+        const basketName = `spice_${passwordHash.substring(0, 24)}`;
+        return `${SYNC_CONFIG.apiUrl}/${SYNC_CONFIG.pantryId}/basket/${basketName}`;
+    }
+
     async handleSignup() {
         const password = this.syncPassword.value.trim();
         if (!password || password.length < 4) {
@@ -398,39 +416,40 @@ class SpiceInventory {
             const passwordHash = await this.hashPassword(password);
             const encryptedData = await this.encrypt(this.inventory, password);
 
-            // Create a new bin with encrypted data
-            const response = await fetch('https://api.jsonbin.io/v3/b', {
+            // Check if basket already exists
+            const checkResponse = await fetch(this.getBasketUrl(passwordHash));
+            if (checkResponse.ok) {
+                alert('An account with this password already exists. Use "Login" instead.');
+                this.setSyncStatus('');
+                return;
+            }
+
+            // Create new basket with encrypted data
+            const response = await fetch(this.getBasketUrl(passwordHash), {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Master-Key': '$2a$10$wRFHzlQj8L9zLz9L9zLz9uSpiceTrackerPublicDemoKey123',
-                    'X-Bin-Private': 'false',
-                    'X-Bin-Name': `spice-${passwordHash.substring(0, 16)}`
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    hash: passwordHash,
                     data: encryptedData,
                     updatedAt: new Date().toISOString()
                 })
             });
 
             if (response.ok) {
-                const result = await response.json();
                 this.saveSyncSession({
-                    binId: result.metadata.id,
                     passwordHash: passwordHash,
+                    password: password,
                     lastSync: new Date().toISOString()
                 });
                 this.syncPassword.value = '';
-                this.setSyncStatus('Account created!');
+                this.setSyncStatus('Account created & synced to cloud!');
                 setTimeout(() => this.setSyncStatus(''), 3000);
             } else {
                 throw new Error('Failed to create account');
             }
         } catch (e) {
             console.error('Signup error:', e);
-            // Fallback: Store locally with encryption
-            await this.localSync(password, true);
+            this.setSyncStatus('Error: Could not connect to sync server');
+            setTimeout(() => this.setSyncStatus(''), 5000);
         } finally {
             this.loginBtn.disabled = false;
             this.signupBtn.disabled = false;
@@ -451,71 +470,49 @@ class SpiceInventory {
         try {
             const passwordHash = await this.hashPassword(password);
 
-            // Try to find existing bin by searching
-            // Since JSONbin doesn't support search by name easily, we'll use local storage as primary
-            const localSession = await this.localSync(password, false);
+            // Fetch from cloud
+            const response = await fetch(this.getBasketUrl(passwordHash));
 
-            if (localSession) {
-                // Found local encrypted data, decrypt and load
-                const decrypted = await this.decrypt(localSession.data, password);
-                if (decrypted) {
-                    this.inventory = decrypted;
-                    this.saveInventory();
-                    this.saveSyncSession({
-                        passwordHash: passwordHash,
-                        lastSync: localSession.updatedAt || new Date().toISOString()
-                    });
-                    this.syncPassword.value = '';
-                    this.render();
-                    this.setSyncStatus('Logged in!');
-                    setTimeout(() => this.setSyncStatus(''), 3000);
+            if (response.ok) {
+                const cloudData = await response.json();
+
+                if (cloudData && cloudData.data) {
+                    // Decrypt the cloud data
+                    const decrypted = await this.decrypt(cloudData.data, password);
+
+                    if (decrypted) {
+                        this.inventory = decrypted;
+                        this.saveInventory();
+                        this.saveSyncSession({
+                            passwordHash: passwordHash,
+                            password: password,
+                            lastSync: cloudData.updatedAt || new Date().toISOString()
+                        });
+                        this.syncPassword.value = '';
+                        this.render();
+                        this.setSyncStatus('Logged in & synced from cloud!');
+                        setTimeout(() => this.setSyncStatus(''), 3000);
+                    } else {
+                        alert('Incorrect password - could not decrypt data');
+                        this.setSyncStatus('');
+                    }
                 } else {
-                    alert('Incorrect password');
+                    alert('No data found. Click "Create New" to create an account.');
                     this.setSyncStatus('');
                 }
-            } else {
+            } else if (response.status === 400) {
                 alert('No account found with this password. Click "Create New" to create one.');
                 this.setSyncStatus('');
+            } else {
+                throw new Error('Failed to connect to sync server');
             }
         } catch (e) {
             console.error('Login error:', e);
-            this.setSyncStatus('Login failed');
+            this.setSyncStatus('Error: Could not connect to sync server');
+            setTimeout(() => this.setSyncStatus(''), 5000);
         } finally {
             this.loginBtn.disabled = false;
             this.signupBtn.disabled = false;
-        }
-    }
-
-    async localSync(password, isCreate) {
-        const passwordHash = await this.hashPassword(password);
-        const storageKey = `spiceSync_${passwordHash.substring(0, 16)}`;
-
-        if (isCreate) {
-            // Create new local sync
-            const encryptedData = await this.encrypt(this.inventory, password);
-            const syncData = {
-                hash: passwordHash,
-                data: encryptedData,
-                updatedAt: new Date().toISOString()
-            };
-            localStorage.setItem(storageKey, JSON.stringify(syncData));
-            this.saveSyncSession({
-                localKey: storageKey,
-                passwordHash: passwordHash,
-                password: password, // Stored encrypted in memory only for session
-                lastSync: new Date().toISOString()
-            });
-            this.syncPassword.value = '';
-            this.setSyncStatus('Synced locally!');
-            setTimeout(() => this.setSyncStatus(''), 3000);
-            return syncData;
-        } else {
-            // Try to load existing
-            const stored = localStorage.getItem(storageKey);
-            if (stored) {
-                return JSON.parse(stored);
-            }
-            return null;
         }
     }
 
@@ -525,37 +522,43 @@ class SpiceInventory {
             return;
         }
 
-        this.setSyncStatus('Syncing...', true);
+        this.setSyncStatus('Syncing to cloud...', true);
         this.syncNowBtn.disabled = true;
 
         try {
-            // Re-encrypt and save
             const password = this.syncSession.password || prompt('Enter your password to sync:');
             if (!password) {
                 this.setSyncStatus('Sync cancelled');
+                this.syncNowBtn.disabled = false;
                 return;
             }
 
             const encryptedData = await this.encrypt(this.inventory, password);
-            const storageKey = this.syncSession.localKey || `spiceSync_${this.syncSession.passwordHash.substring(0, 16)}`;
 
-            const syncData = {
-                hash: this.syncSession.passwordHash,
-                data: encryptedData,
-                updatedAt: new Date().toISOString()
-            };
+            // Update cloud storage
+            const response = await fetch(this.getBasketUrl(this.syncSession.passwordHash), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    data: encryptedData,
+                    updatedAt: new Date().toISOString()
+                })
+            });
 
-            localStorage.setItem(storageKey, JSON.stringify(syncData));
+            if (response.ok) {
+                this.syncSession.lastSync = new Date().toISOString();
+                this.syncSession.password = password;
+                this.saveSyncSession(this.syncSession);
 
-            this.syncSession.lastSync = new Date().toISOString();
-            this.syncSession.password = password;
-            this.saveSyncSession(this.syncSession);
-
-            this.setSyncStatus('Synced!');
-            setTimeout(() => this.setSyncStatus(''), 3000);
+                this.setSyncStatus('Synced to cloud!');
+                setTimeout(() => this.setSyncStatus(''), 3000);
+            } else {
+                throw new Error('Failed to sync');
+            }
         } catch (e) {
             console.error('Sync error:', e);
-            this.setSyncStatus('Sync failed');
+            this.setSyncStatus('Sync failed - check your connection');
+            setTimeout(() => this.setSyncStatus(''), 5000);
         } finally {
             this.syncNowBtn.disabled = false;
         }
@@ -565,6 +568,93 @@ class SpiceInventory {
         if (confirm('Are you sure you want to log out? Your data will remain on this device.')) {
             this.saveSyncSession(null);
             this.setSyncStatus('');
+        }
+    }
+
+    // Manual Export/Import for reliable cross-device sync
+    async handleExport() {
+        const password = prompt('Enter a password to encrypt your export:');
+        if (!password || password.length < 4) {
+            alert('Password must be at least 4 characters');
+            return;
+        }
+
+        try {
+            const encryptedData = await this.encrypt(this.inventory, password);
+            const exportData = {
+                v: 1, // version
+                data: encryptedData,
+                exportedAt: new Date().toISOString(),
+                itemCount: this.inventory.length
+            };
+
+            const exportCode = btoa(JSON.stringify(exportData));
+
+            // Copy to clipboard
+            await navigator.clipboard.writeText(exportCode);
+            alert(`Exported ${this.inventory.length} items!\n\nThe sync code has been copied to your clipboard.\n\nPaste this code on your other device and use the same password to import.`);
+        } catch (e) {
+            console.error('Export error:', e);
+            // Fallback: show in textarea
+            const encryptedData = await this.encrypt(this.inventory, password);
+            const exportData = { v: 1, data: encryptedData, exportedAt: new Date().toISOString() };
+            const exportCode = btoa(JSON.stringify(exportData));
+            this.syncCodeInput.value = exportCode;
+            this.syncCodeInput.classList.remove('hidden');
+            alert('Export code is shown in the text box below. Copy it manually.');
+        }
+    }
+
+    showImportInput() {
+        this.syncCodeInput.value = '';
+        this.syncCodeInput.classList.remove('hidden');
+        this.confirmImportBtn.classList.remove('hidden');
+        this.syncCodeInput.focus();
+        this.syncCodeInput.placeholder = 'Paste the sync code from your other device here...';
+    }
+
+    async handleImport() {
+        const code = this.syncCodeInput.value.trim();
+        if (!code) {
+            alert('Please paste a sync code first');
+            return;
+        }
+
+        const password = prompt('Enter the password used when exporting:');
+        if (!password) {
+            return;
+        }
+
+        try {
+            const exportData = JSON.parse(atob(code));
+
+            if (!exportData.data) {
+                throw new Error('Invalid sync code format');
+            }
+
+            const decrypted = await this.decrypt(exportData.data, password);
+
+            if (decrypted) {
+                const confirmMsg = `Found ${decrypted.length} items from ${new Date(exportData.exportedAt).toLocaleString()}.\n\nThis will replace your current inventory. Continue?`;
+
+                if (confirm(confirmMsg)) {
+                    this.inventory = decrypted;
+                    this.saveInventory();
+                    this.render();
+
+                    // Hide the import UI
+                    this.syncCodeInput.classList.add('hidden');
+                    this.confirmImportBtn.classList.add('hidden');
+                    this.syncCodeInput.value = '';
+
+                    alert('Import successful!');
+                }
+            } else {
+                alert('Could not decrypt data. Check your password and try again.');
+            }
+        } catch (e) {
+            console.error('Import error:', e);
+            alert('Invalid sync code. Please check and try again.');
         }
     }
 

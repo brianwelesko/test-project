@@ -181,6 +181,72 @@ header h1 {
     gap: 10px;
 }
 
+.manual-sync-section {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.manual-sync-section details {
+    cursor: pointer;
+}
+
+.manual-sync-section summary {
+    color: #666;
+    font-size: 0.9rem;
+    padding: 8px 0;
+}
+
+.manual-sync-desc {
+    color: #888;
+    font-size: 0.85rem;
+    margin: 10px 0;
+}
+
+.manual-sync-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 10px;
+}
+
+.sync-btn.export {
+    background: #17a2b8;
+    color: white;
+}
+
+.sync-btn.export:hover {
+    background: #138496;
+}
+
+.sync-btn.import {
+    background: #6c757d;
+    color: white;
+}
+
+.sync-btn.import:hover {
+    background: #5a6268;
+}
+
+.sync-code-input {
+    width: 100%;
+    min-height: 80px;
+    padding: 10px;
+    margin-top: 10px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 0.85rem;
+    resize: vertical;
+}
+
+.sync-btn.confirm-import {
+    width: 100%;
+    margin-top: 10px;
+    background: #28a745;
+    color: white;
+}
+
 @media (max-width: 600px) {
     .sync-buttons {
         flex-direction: column;

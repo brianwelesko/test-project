@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spice Inventory Tracker</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Spice Inventory Tracker</h1>
+        </header>
+
+        <!-- Search Section -->
+        <section class="search-section">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Search for a spice..." autocomplete="off">
+                <button id="searchBtn">Search</button>
+            </div>
+            <div id="searchResult" class="search-result hidden"></div>
+        </section>
+
+        <!-- Low Stock Alerts -->
+        <section id="alertsSection" class="alerts-section hidden">
+            <h2>Low Stock Alerts</h2>
+            <div id="alertsList"></div>
+        </section>
+
+        <!-- Add/Edit Form -->
+        <section class="form-section">
+            <h2 id="formTitle">Add New Item</h2>
+            <form id="spiceForm">
+                <input type="hidden" id="editId">
+                <div class="form-group">
+                    <label for="name">Item Name</label>
+                    <input type="text" id="name" required placeholder="e.g., Paprika, Cumin, Salt...">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="quantity">Quantity</label>
+                        <input type="number" id="quantity" required min="0" step="0.1" placeholder="Amount">
+                    </div>
+                    <div class="form-group">
+                        <label for="unit">Unit</label>
+                        <select id="unit">
+                            <option value="oz">oz</option>
+                            <option value="g">grams</option>
+                            <option value="cups">cups</option>
+                            <option value="tbsp">tbsp</option>
+                            <option value="tsp">tsp</option>
+                            <option value="lbs">lbs</option>
+                            <option value="kg">kg</option>
+                            <option value="items">items</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="threshold">Low Stock Threshold</label>
+                    <input type="number" id="threshold" min="0" step="0.1" placeholder="Alert when below this amount">
+                </div>
+                <div class="form-group">
+                    <label for="category">Category</label>
+                    <select id="category">
+                        <option value="spice">Spice</option>
+                        <option value="herb">Herb</option>
+                        <option value="seasoning">Seasoning Blend</option>
+                        <option value="oil">Oil/Vinegar</option>
+                        <option value="grain">Grain/Flour</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="notes">Notes (optional)</label>
+                    <input type="text" id="notes" placeholder="e.g., Bought from Costco">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" id="submitBtn">Add Item</button>
+                    <button type="button" id="cancelBtn" class="hidden">Cancel</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Inventory List -->
+        <section class="inventory-section">
+            <div class="inventory-header">
+                <h2>Inventory</h2>
+                <div class="filter-sort">
+                    <select id="filterCategory">
+                        <option value="all">All Categories</option>
+                        <option value="spice">Spices</option>
+                        <option value="herb">Herbs</option>
+                        <option value="seasoning">Seasoning Blends</option>
+                        <option value="oil">Oils/Vinegars</option>
+                        <option value="grain">Grains/Flours</option>
+                        <option value="other">Other</option>
+                    </select>
+                    <select id="sortBy">
+                        <option value="name">Sort by Name</option>
+                        <option value="quantity">Sort by Quantity</option>
+                        <option value="category">Sort by Category</option>
+                        <option value="updated">Sort by Last Updated</option>
+                    </select>
+                </div>
+            </div>
+            <div id="inventoryList" class="inventory-list"></div>
+        </section>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

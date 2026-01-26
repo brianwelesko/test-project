@@ -127,7 +127,49 @@ const INGREDIENT_DENSITIES = {
     '_default': 2.5
 };
 
-class SpiceInventory {
+// Default expiration days by category
+const EXPIRATION_DEFAULTS = {
+    'produce': 7,
+    'dairy': 14,
+    'protein': 5,
+    'herb': 7,
+    'canned': 730,
+    'frozen': 180,
+    'grain': 365,
+    'spice': 1095,
+    'seasoning': 730,
+    'oil': 365,
+    'baking': 365,
+    'other': 30
+};
+
+// Category display names
+const CATEGORY_NAMES = {
+    'spice': 'Spice',
+    'herb': 'Herb',
+    'seasoning': 'Seasoning Blend',
+    'produce': 'Produce',
+    'dairy': 'Dairy & Refrigerated',
+    'canned': 'Canned & Jarred',
+    'grain': 'Grain & Pasta',
+    'frozen': 'Frozen',
+    'oil': 'Oil/Vinegar/Condiment',
+    'baking': 'Baking Supply',
+    'protein': 'Protein',
+    'other': 'Other'
+};
+
+// Location display names
+const LOCATION_NAMES = {
+    'pantry': 'Pantry',
+    'fridge': 'Refrigerator',
+    'freezer': 'Freezer',
+    'spice-cabinet': 'Spice Cabinet',
+    'counter': 'Counter',
+    'other': 'Other'
+};
+
+class PantryInventory {
     constructor() {
         this.storageKey = 'spiceInventory';
         this.inventory = this.loadInventory();
@@ -150,6 +192,10 @@ class SpiceInventory {
         this.unitSelect = document.getElementById('unit');
         this.thresholdInput = document.getElementById('threshold');
         this.categorySelect = document.getElementById('category');
+        this.locationSelect = document.getElementById('location');
+        this.purchaseDateInput = document.getElementById('purchaseDate');
+        this.expirationDateInput = document.getElementById('expirationDate');
+        this.isStapleCheckbox = document.getElementById('isStaple');
         this.notesInput = document.getElementById('notes');
 
         // Search elements
@@ -164,7 +210,10 @@ class SpiceInventory {
 
         // Alerts elements
         this.alertsSection = document.getElementById('alertsSection');
-        this.alertsList = document.getElementById('alertsList');
+        this.expiringAlerts = document.getElementById('expiringAlerts');
+        this.expiringList = document.getElementById('expiringList');
+        this.lowStockAlerts = document.getElementById('lowStockAlerts');
+        this.lowStockList = document.getElementById('lowStockList');
 
         // Recipe elements
         this.recipeText = document.getElementById('recipeText');
@@ -247,6 +296,9 @@ class SpiceInventory {
 
     // CRUD Operations
     addItem(item) {
+        const purchaseDate = item.purchaseDate || new Date().toISOString().split('T')[0];
+        const expirationDate = item.expirationDate || this.autoCalculateExpiration(item.category, purchaseDate);
+
         const newItem = {
             id: Date.now().toString(),
             name: item.name.trim(),
@@ -254,13 +306,54 @@ class SpiceInventory {
             unit: item.unit,
             threshold: item.threshold ? parseFloat(item.threshold) : 0,
             category: item.category,
-            notes: item.notes.trim(),
+            location: item.location || '',
+            purchaseDate: purchaseDate,
+            expirationDate: expirationDate,
+            isStaple: item.isStaple || false,
+            notes: item.notes ? item.notes.trim() : '',
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };
         this.inventory.push(newItem);
         this.saveInventory();
         return newItem;
+    }
+
+    // Auto-calculate expiration date based on category
+    autoCalculateExpiration(category, purchaseDate) {
+        const days = EXPIRATION_DEFAULTS[category] || EXPIRATION_DEFAULTS['other'];
+        const date = new Date(purchaseDate);
+        date.setDate(date.getDate() + days);
+        return date.toISOString().split('T')[0];
+    }
+
+    // Get days until expiration (negative if expired)
+    getDaysUntilExpiration(item) {
+        if (!item.expirationDate) return null;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const expDate = new Date(item.expirationDate);
+        const diffTime = expDate - today;
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    }
+
+    // Get expiration status: 'fresh', 'expiring-soon', 'expired'
+    getExpirationStatus(item) {
+        const days = this.getDaysUntilExpiration(item);
+        if (days === null) return 'fresh';
+        if (days < 0) return 'expired';
+        if (days <= 3) return 'expiring-soon';
+        return 'fresh';
+    }
+
+    // Get items expiring within N days
+    getExpiringItems(withinDays = 5) {
+        return this.inventory.filter(item => {
+            const days = this.getDaysUntilExpiration(item);
+            return days !== null && days >= 0 && days <= withinDays;
+        }).sort((a, b) => {
+            return this.getDaysUntilExpiration(a) - this.getDaysUntilExpiration(b);
+        });
     }
 
     updateItem(id, updates) {
@@ -359,6 +452,10 @@ class SpiceInventory {
             unit: this.unitSelect.value,
             threshold: this.thresholdInput.value,
             category: this.categorySelect.value,
+            location: this.locationSelect.value,
+            purchaseDate: this.purchaseDateInput.value,
+            expirationDate: this.expirationDateInput.value,
+            isStaple: this.isStapleCheckbox.checked,
             notes: this.notesInput.value
         };
 
@@ -387,6 +484,10 @@ class SpiceInventory {
         this.unitSelect.value = item.unit;
         this.thresholdInput.value = item.threshold || '';
         this.categorySelect.value = item.category;
+        this.locationSelect.value = item.location || '';
+        this.purchaseDateInput.value = item.purchaseDate || '';
+        this.expirationDateInput.value = item.expirationDate || '';
+        this.isStapleCheckbox.checked = item.isStaple || false;
         this.notesInput.value = item.notes || '';
 
         // Scroll to form
@@ -457,22 +558,52 @@ class SpiceInventory {
     }
 
     renderAlerts() {
+        const expiringItems = this.getExpiringItems(5);
         const lowStockItems = this.getLowStockItems();
 
-        if (lowStockItems.length === 0) {
+        const hasAlerts = expiringItems.length > 0 || lowStockItems.length > 0;
+
+        if (!hasAlerts) {
             this.alertsSection.classList.add('hidden');
             return;
         }
 
         this.alertsSection.classList.remove('hidden');
-        this.alertsList.innerHTML = lowStockItems.map(item => `
-            <div class="alert-item">
-                <span class="item-name">${this.escapeHtml(item.name)}</span>
-                <span class="item-status">
-                    ${item.quantity} ${item.unit} (threshold: ${item.threshold})
-                </span>
-            </div>
-        `).join('');
+
+        // Render expiring items
+        if (expiringItems.length > 0) {
+            this.expiringAlerts.classList.remove('hidden');
+            this.expiringList.innerHTML = expiringItems.map(item => {
+                const days = this.getDaysUntilExpiration(item);
+                const urgency = days <= 1 ? 'urgent' : '';
+                const daysText = days === 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`;
+                return `
+                    <div class="alert-item ${urgency}">
+                        <span class="item-name">${this.escapeHtml(item.name)}</span>
+                        <span class="item-status expiring">
+                            Expires ${daysText}
+                        </span>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            this.expiringAlerts.classList.add('hidden');
+        }
+
+        // Render low stock items
+        if (lowStockItems.length > 0) {
+            this.lowStockAlerts.classList.remove('hidden');
+            this.lowStockList.innerHTML = lowStockItems.map(item => `
+                <div class="alert-item">
+                    <span class="item-name">${this.escapeHtml(item.name)}</span>
+                    <span class="item-status low-stock">
+                        ${item.quantity} ${item.unit} remaining
+                    </span>
+                </div>
+            `).join('');
+        } else {
+            this.lowStockAlerts.classList.add('hidden');
+        }
     }
 
     renderInventory() {
@@ -490,6 +621,13 @@ class SpiceInventory {
             switch (sortOption) {
                 case 'name':
                     return a.name.localeCompare(b.name);
+                case 'expiration':
+                    const daysA = this.getDaysUntilExpiration(a);
+                    const daysB = this.getDaysUntilExpiration(b);
+                    if (daysA === null && daysB === null) return 0;
+                    if (daysA === null) return 1;
+                    if (daysB === null) return -1;
+                    return daysA - daysB;
                 case 'quantity':
                     return a.quantity - b.quantity;
                 case 'category':
@@ -504,7 +642,7 @@ class SpiceInventory {
         if (items.length === 0) {
             this.inventoryList.innerHTML = `
                 <div class="empty-state">
-                    <p>${this.inventory.length === 0 ? 'Your inventory is empty. Add your first item above!' : 'No items match the selected filter.'}</p>
+                    <p>${this.inventory.length === 0 ? 'Your pantry is empty. Add your first item above!' : 'No items match the selected filter.'}</p>
                 </div>
             `;
             return;
@@ -512,14 +650,38 @@ class SpiceInventory {
 
         this.inventoryList.innerHTML = items.map(item => {
             const isLowStock = item.threshold > 0 && item.quantity <= item.threshold;
+            const expirationStatus = this.getExpirationStatus(item);
+            const days = this.getDaysUntilExpiration(item);
+            const statusClass = expirationStatus !== 'fresh' ? expirationStatus : (isLowStock ? 'low-stock' : '');
+
+            // Format expiration display
+            let expirationDisplay = '';
+            if (days !== null) {
+                if (days < 0) {
+                    expirationDisplay = `<span class="expiration-badge expired">Expired ${Math.abs(days)} days ago</span>`;
+                } else if (days === 0) {
+                    expirationDisplay = `<span class="expiration-badge expired">Expires today</span>`;
+                } else if (days <= 3) {
+                    expirationDisplay = `<span class="expiration-badge expiring">Expires in ${days} day${days > 1 ? 's' : ''}</span>`;
+                } else if (days <= 7) {
+                    expirationDisplay = `<span class="expiration-badge fresh">Expires in ${days} days</span>`;
+                }
+            }
+
+            // Format location
+            const locationDisplay = item.location ? LOCATION_NAMES[item.location] || item.location : '';
+
             return `
-                <div class="inventory-item ${isLowStock ? 'low-stock' : ''}" data-id="${item.id}">
+                <div class="inventory-item ${statusClass}" data-id="${item.id}">
                     <div class="item-info">
                         <h3>${this.escapeHtml(item.name)}</h3>
                         <div class="meta">
                             <span class="category-badge">${this.formatCategory(item.category)}</span>
-                            ${item.notes ? `<span>${this.escapeHtml(item.notes)}</span>` : ''}
+                            ${locationDisplay ? `<span class="location-badge">${locationDisplay}</span>` : ''}
+                            ${item.isStaple ? '<span class="staple-badge">Staple</span>' : ''}
                         </div>
+                        ${expirationDisplay ? `<div class="expiration-info">${expirationDisplay}</div>` : ''}
+                        ${item.notes ? `<div class="item-notes">${this.escapeHtml(item.notes)}</div>` : ''}
                     </div>
                     <div class="item-quantity">
                         <div class="amount">${item.quantity}</div>
@@ -959,15 +1121,7 @@ class SpiceInventory {
 
     // Utility functions
     formatCategory(category) {
-        const categories = {
-            spice: 'Spice',
-            herb: 'Herb',
-            seasoning: 'Seasoning',
-            oil: 'Oil/Vinegar',
-            grain: 'Grain/Flour',
-            other: 'Other'
-        };
-        return categories[category] || category;
+        return CATEGORY_NAMES[category] || category;
     }
 
     formatDate(dateString) {
@@ -990,5 +1144,5 @@ class SpiceInventory {
 
 // Initialize the application when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    window.app = new SpiceInventory();
+    window.app = new PantryInventory();
 });

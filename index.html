@@ -21,6 +21,31 @@
             <div id="searchResult" class="search-result hidden"></div>
         </section>
 
+        <!-- Quick Use Section -->
+        <section class="quick-use-section">
+            <h2>Quick Use</h2>
+            <div class="quick-use-input-wrapper">
+                <input type="text" id="quickUseInput" placeholder="Type item name to deduct..." autocomplete="off">
+                <div id="quickUseSuggestions" class="suggestions-dropdown hidden"></div>
+            </div>
+            <div id="quickUseForm" class="quick-use-form hidden">
+                <div class="selected-item">
+                    <span id="selectedItemName"></span>
+                    <span id="selectedItemQty"></span>
+                </div>
+                <div class="deduct-row">
+                    <label>Amount used:</label>
+                    <input type="number" id="deductAmount" min="0" step="0.1" placeholder="0">
+                    <select id="deductUnit"></select>
+                </div>
+                <div id="deductPreview" class="deduct-preview"></div>
+                <div class="quick-use-actions">
+                    <button id="cancelQuickUse" class="btn-cancel">Cancel</button>
+                    <button id="confirmDeduct" class="btn-deduct">Deduct</button>
+                </div>
+            </div>
+        </section>
+
         <!-- Recipe Section -->
         <section class="recipe-section">
             <h2>Use a Recipe</h2>

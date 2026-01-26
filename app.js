@@ -232,8 +232,21 @@ class PantryInventory {
         this.pasteTab = document.getElementById('pasteTab');
         this.uploadTab = document.getElementById('uploadTab');
 
+        // Quick Use elements
+        this.quickUseInput = document.getElementById('quickUseInput');
+        this.quickUseSuggestions = document.getElementById('quickUseSuggestions');
+        this.quickUseForm = document.getElementById('quickUseForm');
+        this.selectedItemName = document.getElementById('selectedItemName');
+        this.selectedItemQty = document.getElementById('selectedItemQty');
+        this.deductAmountInput = document.getElementById('deductAmount');
+        this.deductUnitSelect = document.getElementById('deductUnit');
+        this.deductPreview = document.getElementById('deductPreview');
+        this.cancelQuickUseBtn = document.getElementById('cancelQuickUse');
+        this.confirmDeductBtn = document.getElementById('confirmDeduct');
+
         // Store parsed data
         this.parsedRecipeData = null;
+        this.selectedQuickUseItem = null;
     }
 
     bindEvents() {
@@ -282,6 +295,25 @@ class PantryInventory {
         this.parseRecipeBtn.addEventListener('click', () => this.parseRecipe());
         this.applyRecipeBtn.addEventListener('click', () => this.applyRecipeDeductions());
         this.cancelRecipeBtn.addEventListener('click', () => this.cancelRecipe());
+
+        // Quick Use events
+        this.quickUseInput.addEventListener('input', () => this.handleQuickUseInput());
+        this.quickUseInput.addEventListener('focus', () => this.handleQuickUseInput());
+        this.quickUseSuggestions.addEventListener('click', (e) => {
+            const item = e.target.closest('.suggestion-item');
+            if (item) this.selectQuickUseItem(item.dataset.id);
+        });
+        this.deductAmountInput.addEventListener('input', () => this.updateDeductPreview());
+        this.deductUnitSelect.addEventListener('change', () => this.updateDeductPreview());
+        this.cancelQuickUseBtn.addEventListener('click', () => this.cancelQuickUseForm());
+        this.confirmDeductBtn.addEventListener('click', () => this.confirmQuickUseDeduct());
+
+        // Close suggestions when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.quick-use-input-wrapper')) {
+                this.quickUseSuggestions.classList.add('hidden');
+            }
+        });
     }
 
     // Local Storage Operations
@@ -1117,6 +1149,144 @@ class PantryInventory {
         this.recipeText.value = '';
         this.fileName.classList.add('hidden');
         this.recipeFile.value = '';
+    }
+
+    // Quick Use functionality
+    handleQuickUseInput() {
+        const query = this.quickUseInput.value.trim().toLowerCase();
+        if (query.length < 1) {
+            this.quickUseSuggestions.classList.add('hidden');
+            return;
+        }
+
+        // Find matching items
+        const matches = this.inventory.filter(item =>
+            item.name.toLowerCase().includes(query)
+        ).slice(0, 5);
+
+        if (matches.length === 0) {
+            this.quickUseSuggestions.innerHTML = '<div class="no-matches">No matching items</div>';
+            this.quickUseSuggestions.classList.remove('hidden');
+            return;
+        }
+
+        // Render suggestions
+        this.quickUseSuggestions.innerHTML = matches.map(item => {
+            const locationText = item.location ? LOCATION_NAMES[item.location] || item.location : '';
+            return `
+                <div class="suggestion-item" data-id="${item.id}">
+                    <span class="suggestion-name">${this.escapeHtml(item.name)}</span>
+                    <span class="suggestion-qty">${item.quantity} ${item.unit}</span>
+                    ${locationText ? `<span class="suggestion-loc">${locationText}</span>` : ''}
+                </div>
+            `;
+        }).join('');
+        this.quickUseSuggestions.classList.remove('hidden');
+    }
+
+    selectQuickUseItem(id) {
+        const item = this.getItem(id);
+        if (!item) return;
+
+        this.selectedQuickUseItem = item;
+        this.quickUseSuggestions.classList.add('hidden');
+        this.quickUseInput.value = '';
+
+        // Show the deduct form
+        this.selectedItemName.textContent = item.name;
+        this.selectedItemQty.textContent = `Current: ${item.quantity} ${item.unit}`;
+
+        // Populate unit dropdown
+        this.populateDeductUnits(item);
+
+        this.quickUseForm.classList.remove('hidden');
+        this.deductAmountInput.value = '';
+        this.deductPreview.textContent = '';
+        this.deductAmountInput.focus();
+    }
+
+    populateDeductUnits(item) {
+        const volumeUnits = ['tsp', 'tbsp', 'cups', 'ml'];
+        const weightUnits = ['oz', 'lbs', 'g', 'kg'];
+
+        let options = [`<option value="${item.unit}">${item.unit}</option>`];
+
+        // Add compatible units
+        if (volumeUnits.includes(item.unit)) {
+            volumeUnits.forEach(u => {
+                if (u !== item.unit) options.push(`<option value="${u}">${u}</option>`);
+            });
+            weightUnits.forEach(u => options.push(`<option value="${u}">${u}</option>`));
+        } else if (weightUnits.includes(item.unit)) {
+            weightUnits.forEach(u => {
+                if (u !== item.unit) options.push(`<option value="${u}">${u}</option>`);
+            });
+            volumeUnits.forEach(u => options.push(`<option value="${u}">${u}</option>`));
+        } else {
+            // For 'items' or other units, just show the same unit
+        }
+
+        this.deductUnitSelect.innerHTML = options.join('');
+    }
+
+    updateDeductPreview() {
+        const amount = parseFloat(this.deductAmountInput.value) || 0;
+        const unit = this.deductUnitSelect.value;
+        const item = this.selectedQuickUseItem;
+
+        if (!item || amount <= 0) {
+            this.deductPreview.textContent = '';
+            return;
+        }
+
+        // Convert to item's unit
+        const convertedAmount = this.convertQuantity(amount, unit, item.unit, item.name);
+
+        if (convertedAmount === null) {
+            this.deductPreview.innerHTML = `<span class="preview-error">Cannot convert ${unit} to ${item.unit}</span>`;
+            return;
+        }
+
+        const newQty = Math.max(0, item.quantity - convertedAmount);
+        const roundedNew = Math.round(newQty * 100) / 100;
+        const roundedDeduct = Math.round(convertedAmount * 100) / 100;
+
+        this.deductPreview.innerHTML = `
+            <span class="preview-calc">${item.quantity} ${item.unit} → ${roundedNew} ${item.unit}</span>
+            <span class="preview-deduct">(-${roundedDeduct} ${item.unit})</span>
+        `;
+    }
+
+    confirmQuickUseDeduct() {
+        const amount = parseFloat(this.deductAmountInput.value) || 0;
+        const unit = this.deductUnitSelect.value;
+        const item = this.selectedQuickUseItem;
+
+        if (!item || amount <= 0) {
+            alert('Please enter an amount to deduct');
+            return;
+        }
+
+        const convertedAmount = this.convertQuantity(amount, unit, item.unit, item.name);
+        if (convertedAmount === null) {
+            alert('Cannot convert these units. Try a different unit.');
+            return;
+        }
+
+        const newQty = Math.max(0, item.quantity - convertedAmount);
+        this.updateItem(item.id, { quantity: Math.round(newQty * 100) / 100 });
+
+        // Reset and refresh
+        this.cancelQuickUseForm();
+        this.render();
+    }
+
+    cancelQuickUseForm() {
+        this.selectedQuickUseItem = null;
+        this.quickUseForm.classList.add('hidden');
+        this.deductAmountInput.value = '';
+        this.deductPreview.textContent = '';
+        this.quickUseInput.value = '';
     }
 
     // Utility functions

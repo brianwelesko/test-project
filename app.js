@@ -647,9 +647,14 @@ class PantryInventory {
             items = items.filter(item => item.category === categoryFilter);
         }
 
-        // Sort items
+        // Sort items - staples always first, then by selected sort option
         const sortOption = this.sortBy.value;
         items.sort((a, b) => {
+            // Staples always come first
+            if (a.isStaple && !b.isStaple) return -1;
+            if (!a.isStaple && b.isStaple) return 1;
+
+            // Then apply normal sort within each group
             switch (sortOption) {
                 case 'name':
                     return a.name.localeCompare(b.name);

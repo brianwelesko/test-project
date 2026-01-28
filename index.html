@@ -15,11 +15,15 @@
         <!-- Quick Deduct Section -->
         <section class="quick-use-section">
             <h2>Quick Deduct</h2>
-            <div class="quick-use-input-wrapper">
-                <input type="text" id="quickUseInput" placeholder="Type item name to deduct..." autocomplete="off">
-                <div id="quickUseSuggestions" class="suggestions-dropdown hidden"></div>
+            <div class="quick-deduct-wrapper">
+                <input type="text" id="quickDeductInput" placeholder="e.g., rice -1c or paprika -2tsp" autocomplete="off">
+                <button id="quickDeductBtn" class="quick-deduct-btn">Deduct</button>
+                <button id="quickDeductMore" class="quick-deduct-more" title="More options">⋯</button>
             </div>
-            <div id="quickUseForm" class="quick-use-form hidden">
+            <div id="quickDeductSuggestions" class="suggestions-dropdown hidden"></div>
+            <div id="quickDeductPreview" class="quick-deduct-preview hidden"></div>
+            <!-- Expanded form (hidden by default) -->
+            <div id="quickDeductExpanded" class="quick-deduct-expanded hidden">
                 <div class="selected-item">
                     <span id="selectedItemName"></span>
                     <span id="selectedItemQty"></span>
@@ -29,7 +33,7 @@
                     <input type="number" id="deductAmount" min="0" step="0.1" placeholder="0">
                     <select id="deductUnit"></select>
                 </div>
-                <div id="deductPreview" class="deduct-preview"></div>
+                <div id="deductPreviewExpanded" class="deduct-preview"></div>
                 <div class="quick-use-actions">
                     <button id="cancelQuickUse" class="btn-cancel">Cancel</button>
                     <button id="confirmDeduct" class="btn-deduct">Deduct</button>

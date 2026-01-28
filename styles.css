@@ -122,33 +122,105 @@ header h1 {
     font-size: 1.2rem;
 }
 
-.quick-use-input-wrapper {
+/* Command-palette style Quick Deduct */
+.quick-deduct-wrapper {
+    display: flex;
+    gap: 8px;
     position: relative;
 }
 
-#quickUseInput {
-    width: 100%;
+#quickDeductInput {
+    flex: 1;
     padding: 12px 16px;
     border: 2px solid #e0e0e0;
     border-radius: 8px;
-    font-size: 1rem;
+    font-size: 16px; /* Prevents iOS zoom */
     transition: border-color 0.3s;
 }
 
-#quickUseInput:focus {
+#quickDeductInput:focus {
     outline: none;
     border-color: #667eea;
 }
 
+.quick-deduct-btn {
+    padding: 12px 20px;
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.3s;
+    white-space: nowrap;
+}
+
+.quick-deduct-btn:hover {
+    background: #218838;
+}
+
+.quick-deduct-more {
+    padding: 12px 14px;
+    background: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.quick-deduct-more:hover {
+    background: #5a6268;
+}
+
+.quick-deduct-preview {
+    margin-top: 10px;
+    padding: 10px 14px;
+    background: #e8f5e9;
+    border-radius: 8px;
+    font-size: 0.95rem;
+}
+
+.quick-deduct-preview .preview-item {
+    font-weight: 600;
+    margin-right: 8px;
+}
+
+.quick-deduct-preview .preview-calc {
+    color: #333;
+}
+
+.quick-deduct-preview .preview-deduct {
+    color: #dc3545;
+    margin-left: 8px;
+}
+
+.quick-deduct-preview .preview-error {
+    color: #dc3545;
+}
+
+.quick-deduct-expanded {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+
+.suggestion-item.highlighted {
+    background: #e8f0ff;
+}
+
+/* Legacy wrapper support */
+.quick-use-input-wrapper {
+    position: relative;
+}
+
 .suggestions-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
+    position: relative;
     background: white;
     border: 2px solid #667eea;
-    border-top: none;
-    border-radius: 0 0 8px 8px;
+    border-radius: 8px;
+    margin-top: 4px;
     max-height: 250px;
     overflow-y: auto;
     z-index: 100;
@@ -311,6 +383,28 @@ header h1 {
 }
 
 @media (max-width: 600px) {
+    .quick-deduct-wrapper {
+        flex-wrap: wrap;
+    }
+
+    #quickDeductInput {
+        flex: 1 1 100%;
+        margin-bottom: 8px;
+    }
+
+    .quick-deduct-btn {
+        flex: 1;
+        padding: 14px 16px;
+    }
+
+    .quick-deduct-more {
+        padding: 14px 16px;
+    }
+
+    .suggestion-item {
+        padding: 14px 16px;
+    }
+
     .deduct-row {
         flex-direction: column;
         align-items: stretch;

@@ -159,6 +159,22 @@ header h1 {
     background: #218838;
 }
 
+.quick-deduct-btn.deduct-mode {
+    background: #dc3545;
+}
+
+.quick-deduct-btn.deduct-mode:hover {
+    background: #c82333;
+}
+
+.quick-deduct-btn.add-mode {
+    background: #28a745;
+}
+
+.quick-deduct-btn.add-mode:hover {
+    background: #218838;
+}
+
 .quick-deduct-more {
     padding: 12px 14px;
     background: #6c757d;
@@ -198,6 +214,16 @@ header h1 {
 
 .quick-deduct-preview .preview-error {
     color: #dc3545;
+}
+
+.quick-deduct-preview .preview-add {
+    color: #28a745;
+    margin-left: 8px;
+}
+
+.quick-deduct-preview .preview-hint {
+    color: #666;
+    font-style: italic;
 }
 
 .quick-deduct-expanded {
@@ -820,6 +846,13 @@ header h1 {
         grid-template-columns: 1fr;
     }
 
+    /* Fix date inputs overflow on mobile */
+    .form-group input[type="date"] {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
     .inventory-header {
         flex-direction: column;
         align-items: flex-start;
@@ -827,10 +860,13 @@ header h1 {
 
     .filter-sort {
         width: 100%;
+        flex-wrap: wrap;
     }
 
     .filter-sort select {
-        flex: 1;
+        flex: 1 1 100%;
+        max-width: 100%;
+        box-sizing: border-box;
     }
 
     .inventory-item {

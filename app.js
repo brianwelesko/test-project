@@ -1168,11 +1168,59 @@ class PantryInventory {
     }
 
     // Quick Deduct functionality (command-palette style)
+    parseCommandInput(input) {
+        // New item: +name amount unit (e.g., "+chicken 3lb")
+        const newItem = input.match(/^\+\s*(.+?)\s+(\d*\.?\d+)\s*([a-zA-Z]+)$/);
+        if (newItem) {
+            return { action: 'add-new', name: newItem[1].trim(), amount: parseFloat(newItem[2]), unit: newItem[3] };
+        }
+
+        // New item partial: +name (no amount yet)
+        const newItemPartial = input.match(/^\+\s*(.+)$/);
+        if (newItemPartial && !newItemPartial[1].match(/\d/)) {
+            return { action: 'add-new-partial', name: newItemPartial[1].trim() };
+        }
+
+        // Restock existing: name +amount unit
+        const restock = input.match(/^(.+?)\s*\+\s*(\d*\.?\d+)\s*([a-zA-Z]+)$/);
+        if (restock) {
+            return { action: 'restock', itemQuery: restock[1].trim(), amount: parseFloat(restock[2]), unit: restock[3] };
+        }
+
+        // Deduct: name -amount unit
+        const deduct = input.match(/^(.+?)\s*-\s*(\d*\.?\d+)\s*([a-zA-Z]+)$/);
+        if (deduct) {
+            return { action: 'deduct', itemQuery: deduct[1].trim(), amount: parseFloat(deduct[2]), unit: deduct[3] };
+        }
+
+        // Partial with number but no unit: name -amount or name +amount
+        const partialDeduct = input.match(/^(.+?)\s*-\s*(\d+\.?\d*)$/);
+        if (partialDeduct) {
+            return { action: 'deduct-partial', itemQuery: partialDeduct[1].trim(), amount: partialDeduct[2] };
+        }
+
+        const partialRestock = input.match(/^(.+?)\s*\+\s*(\d+\.?\d*)$/);
+        if (partialRestock) {
+            return { action: 'restock-partial', itemQuery: partialRestock[1].trim(), amount: partialRestock[2] };
+        }
+
+        // Just operator: name - or name +
+        const justOperator = input.match(/^(.+?)\s*([-+])\s*$/);
+        if (justOperator) {
+            return { action: 'operator-only', itemQuery: justOperator[1].trim(), operator: justOperator[2] };
+        }
+
+        // Just searching
+        return { action: 'search', query: input };
+    }
+
+    // Legacy parser for backward compatibility
     parseQuickDeductInput(input) {
-        // Match: item name, dash, amount, unit (e.g., "rice -1c" or "paprika -2tsp")
-        const match = input.match(/^(.+?)\s*-\s*(\d*\.?\d+)\s*([a-zA-Z]+)$/);
-        if (!match) return null;
-        return { itemQuery: match[1].trim(), amount: parseFloat(match[2]), unit: match[3] };
+        const parsed = this.parseCommandInput(input);
+        if (parsed && parsed.action === 'deduct') {
+            return { itemQuery: parsed.itemQuery, amount: parsed.amount, unit: parsed.unit };
+        }
+        return null;
     }
 
     normalizeUnitShortcut(unit) {
@@ -1187,20 +1235,122 @@ class PantryInventory {
 
     handleQuickDeductInput() {
         const input = this.quickDeductInput.value.trim();
-        const parsed = this.parseQuickDeductInput(input);
+        const parsed = this.parseCommandInput(input);
 
-        if (parsed && parsed.itemQuery.length > 0) {
-            // Has amount+unit - show preview
-            this.quickDeductSuggestions.classList.add('hidden');
-            this.showDeductPreview(parsed);
-        } else if (input.length > 0) {
-            // Just typing item name - show suggestions
-            this.quickDeductPreview.classList.add('hidden');
-            this.showItemSuggestions(input);
-        } else {
+        // Update button based on action
+        this.updateCommandButton(parsed);
+
+        if (!input) {
             this.quickDeductSuggestions.classList.add('hidden');
             this.quickDeductPreview.classList.add('hidden');
+            return;
         }
+
+        // Handle different parsed actions
+        switch (parsed.action) {
+            case 'deduct':
+                this.quickDeductSuggestions.classList.add('hidden');
+                this.showDeductPreview(parsed);
+                break;
+            case 'restock':
+                this.quickDeductSuggestions.classList.add('hidden');
+                this.showRestockPreview(parsed);
+                break;
+            case 'add-new':
+                this.quickDeductSuggestions.classList.add('hidden');
+                this.showAddNewPreview(parsed);
+                break;
+            case 'add-new-partial':
+                this.quickDeductSuggestions.classList.add('hidden');
+                this.showAddNewPartialPreview(parsed);
+                break;
+            case 'operator-only':
+            case 'deduct-partial':
+            case 'restock-partial':
+                this.quickDeductSuggestions.classList.add('hidden');
+                this.showPartialFeedback(parsed);
+                break;
+            case 'search':
+            default:
+                this.quickDeductPreview.classList.add('hidden');
+                this.showItemSuggestions(parsed.query);
+                break;
+        }
+    }
+
+    updateCommandButton(parsed) {
+        if (!parsed || parsed.action === 'search') {
+            this.quickDeductBtn.textContent = 'Go';
+            this.quickDeductBtn.className = 'quick-deduct-btn';
+        } else if (parsed.action.startsWith('deduct')) {
+            this.quickDeductBtn.textContent = 'Use';
+            this.quickDeductBtn.className = 'quick-deduct-btn deduct-mode';
+        } else if (parsed.action.startsWith('restock') || parsed.action.startsWith('add')) {
+            this.quickDeductBtn.textContent = 'Add';
+            this.quickDeductBtn.className = 'quick-deduct-btn add-mode';
+        }
+    }
+
+    showPartialFeedback(parsed) {
+        const item = this.findInventoryMatch(parsed.itemQuery);
+        const itemName = item ? item.name : parsed.itemQuery;
+
+        if (parsed.action === 'operator-only') {
+            const hint = parsed.operator === '-'
+                ? `${itemName}: type amount + unit (1c, 2tsp, 0.5lb)`
+                : `${itemName}: type amount to add (1lb, 2c, 500g)`;
+            this.quickDeductPreview.innerHTML = `<span class="preview-hint">${this.escapeHtml(hint)}</span>`;
+        } else {
+            // Has amount but no unit
+            const verb = parsed.action === 'deduct-partial' ? 'use' : 'add';
+            this.quickDeductPreview.innerHTML = `<span class="preview-hint">${this.escapeHtml(itemName)}: ${parsed.amount}... add unit (t, T, c, oz, lb, g)</span>`;
+        }
+        this.quickDeductPreview.classList.remove('hidden');
+    }
+
+    showRestockPreview(parsed) {
+        const item = this.findInventoryMatch(parsed.itemQuery);
+        const unit = this.normalizeUnitShortcut(parsed.unit);
+
+        if (!item) {
+            this.quickDeductPreview.innerHTML = `<span class="preview-hint">Item "${this.escapeHtml(parsed.itemQuery)}" not found. Use +name to add new.</span>`;
+            this.quickDeductPreview.classList.remove('hidden');
+            return;
+        }
+
+        const converted = this.convertQuantity(parsed.amount, unit, item.unit, item.name);
+
+        if (converted === null) {
+            this.quickDeductPreview.innerHTML = `<span class="preview-error">Cannot convert ${unit} to ${item.unit}</span>`;
+            this.quickDeductPreview.classList.remove('hidden');
+            return;
+        }
+
+        const newQty = item.quantity + converted;
+        const roundedNew = Math.round(newQty * 100) / 100;
+        const roundedAdd = Math.round(converted * 100) / 100;
+
+        this.quickDeductPreview.innerHTML = `
+            <span class="preview-item">${this.escapeHtml(item.name)}:</span>
+            <span class="preview-calc">${item.quantity} ${item.unit} → ${roundedNew} ${item.unit}</span>
+            <span class="preview-add">(+${roundedAdd} ${item.unit})</span>
+        `;
+        this.quickDeductPreview.classList.remove('hidden');
+    }
+
+    showAddNewPreview(parsed) {
+        const unit = this.normalizeUnitShortcut(parsed.unit);
+        this.quickDeductPreview.innerHTML = `
+            <span class="preview-item">New:</span>
+            <span class="preview-calc">${this.escapeHtml(parsed.name)} (${parsed.amount} ${unit})</span>
+            <span class="preview-hint"> — press Enter or tap ⋯ for details</span>
+        `;
+        this.quickDeductPreview.classList.remove('hidden');
+    }
+
+    showAddNewPartialPreview(parsed) {
+        this.quickDeductPreview.innerHTML = `<span class="preview-hint">New item: ${this.escapeHtml(parsed.name)} — add amount + unit (3lb, 2c, 500g)</span>`;
+        this.quickDeductPreview.classList.remove('hidden');
     }
 
     showItemSuggestions(query) {
@@ -1321,13 +1471,27 @@ class PantryInventory {
 
     executeQuickDeduct() {
         const input = this.quickDeductInput.value.trim();
-        const parsed = this.parseQuickDeductInput(input);
+        const parsed = this.parseCommandInput(input);
 
-        if (!parsed) {
-            // Nothing to deduct or invalid format
+        if (!parsed || parsed.action === 'search') {
             return;
         }
 
+        // Handle different actions
+        if (parsed.action === 'deduct') {
+            this.executeDeduct(parsed);
+        } else if (parsed.action === 'restock') {
+            this.executeRestock(parsed);
+        } else if (parsed.action === 'add-new') {
+            this.executeAddNew(parsed);
+        } else if (parsed.action === 'add-new-partial') {
+            // Open expanded form for new item
+            this.openAddNewForm(parsed.name);
+        }
+        // Partial actions don't execute, they just show hints
+    }
+
+    executeDeduct(parsed) {
         const item = this.findInventoryMatch(parsed.itemQuery);
         if (!item) {
             alert(`Item "${parsed.itemQuery}" not found in inventory`);
@@ -1345,10 +1509,60 @@ class PantryInventory {
         const newQty = Math.max(0, item.quantity - converted);
         this.updateItem(item.id, { quantity: Math.round(newQty * 100) / 100 });
 
-        // Clear and refresh
+        this.clearCommandBar();
+        this.render();
+    }
+
+    executeRestock(parsed) {
+        const item = this.findInventoryMatch(parsed.itemQuery);
+        if (!item) {
+            alert(`Item "${parsed.itemQuery}" not found. Use +name to add new items.`);
+            return;
+        }
+
+        const unit = this.normalizeUnitShortcut(parsed.unit);
+        const converted = this.convertQuantity(parsed.amount, unit, item.unit, item.name);
+
+        if (converted === null) {
+            alert(`Cannot convert ${unit} to ${item.unit}`);
+            return;
+        }
+
+        const newQty = item.quantity + converted;
+        this.updateItem(item.id, { quantity: Math.round(newQty * 100) / 100 });
+
+        this.clearCommandBar();
+        this.render();
+    }
+
+    executeAddNew(parsed) {
+        const unit = this.normalizeUnitShortcut(parsed.unit);
+        // Add with default category, user can edit later
+        this.addItem({
+            name: parsed.name,
+            quantity: parsed.amount,
+            unit: unit,
+            category: 'other'
+        });
+
+        this.clearCommandBar();
+        this.render();
+    }
+
+    openAddNewForm(name) {
+        // Pre-fill the main form with the new item name
+        this.nameInput.value = name;
+        this.formTitle.textContent = 'Add New Item';
+        this.form.scrollIntoView({ behavior: 'smooth' });
+        this.quantityInput.focus();
+        this.clearCommandBar();
+    }
+
+    clearCommandBar() {
         this.quickDeductInput.value = '';
         this.quickDeductPreview.classList.add('hidden');
-        this.render();
+        this.quickDeductSuggestions.classList.add('hidden');
+        this.updateCommandButton(null);
     }
 
     // Expanded form methods

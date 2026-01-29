@@ -169,6 +169,225 @@ const LOCATION_NAMES = {
     'other': 'Other'
 };
 
+// Ingredient database for auto-categorization and expiration
+const INGREDIENT_DATABASE = {
+    // Proteins
+    'chicken': { category: 'protein', location: 'fridge', expirationDays: 5 },
+    'chicken breast': { category: 'protein', location: 'fridge', expirationDays: 5 },
+    'chicken thighs': { category: 'protein', location: 'fridge', expirationDays: 5 },
+    'ground beef': { category: 'protein', location: 'fridge', expirationDays: 3 },
+    'beef': { category: 'protein', location: 'fridge', expirationDays: 5 },
+    'steak': { category: 'protein', location: 'fridge', expirationDays: 5 },
+    'pork': { category: 'protein', location: 'fridge', expirationDays: 5 },
+    'pork chops': { category: 'protein', location: 'fridge', expirationDays: 5 },
+    'bacon': { category: 'protein', location: 'fridge', expirationDays: 7 },
+    'sausage': { category: 'protein', location: 'fridge', expirationDays: 5 },
+    'fish': { category: 'protein', location: 'fridge', expirationDays: 2 },
+    'salmon': { category: 'protein', location: 'fridge', expirationDays: 2 },
+    'tuna': { category: 'protein', location: 'fridge', expirationDays: 2 },
+    'shrimp': { category: 'protein', location: 'freezer', expirationDays: 180 },
+    'eggs': { category: 'protein', location: 'fridge', expirationDays: 35 },
+    'tofu': { category: 'protein', location: 'fridge', expirationDays: 7 },
+    'turkey': { category: 'protein', location: 'fridge', expirationDays: 3 },
+    'ground turkey': { category: 'protein', location: 'fridge', expirationDays: 3 },
+    'lamb': { category: 'protein', location: 'fridge', expirationDays: 5 },
+
+    // Dairy
+    'milk': { category: 'dairy', location: 'fridge', expirationDays: 14 },
+    'butter': { category: 'dairy', location: 'fridge', expirationDays: 90 },
+    'cheese': { category: 'dairy', location: 'fridge', expirationDays: 30 },
+    'cheddar': { category: 'dairy', location: 'fridge', expirationDays: 30 },
+    'mozzarella': { category: 'dairy', location: 'fridge', expirationDays: 21 },
+    'parmesan': { category: 'dairy', location: 'fridge', expirationDays: 60 },
+    'cream cheese': { category: 'dairy', location: 'fridge', expirationDays: 21 },
+    'yogurt': { category: 'dairy', location: 'fridge', expirationDays: 14 },
+    'sour cream': { category: 'dairy', location: 'fridge', expirationDays: 21 },
+    'heavy cream': { category: 'dairy', location: 'fridge', expirationDays: 10 },
+    'half and half': { category: 'dairy', location: 'fridge', expirationDays: 10 },
+    'cottage cheese': { category: 'dairy', location: 'fridge', expirationDays: 14 },
+
+    // Produce
+    'lettuce': { category: 'produce', location: 'fridge', expirationDays: 7 },
+    'spinach': { category: 'produce', location: 'fridge', expirationDays: 5 },
+    'kale': { category: 'produce', location: 'fridge', expirationDays: 7 },
+    'arugula': { category: 'produce', location: 'fridge', expirationDays: 5 },
+    'tomato': { category: 'produce', location: 'counter', expirationDays: 7 },
+    'tomatoes': { category: 'produce', location: 'counter', expirationDays: 7 },
+    'onion': { category: 'produce', location: 'pantry', expirationDays: 30 },
+    'onions': { category: 'produce', location: 'pantry', expirationDays: 30 },
+    'garlic': { category: 'produce', location: 'pantry', expirationDays: 30 },
+    'potato': { category: 'produce', location: 'pantry', expirationDays: 21 },
+    'potatoes': { category: 'produce', location: 'pantry', expirationDays: 21 },
+    'sweet potato': { category: 'produce', location: 'pantry', expirationDays: 21 },
+    'carrot': { category: 'produce', location: 'fridge', expirationDays: 21 },
+    'carrots': { category: 'produce', location: 'fridge', expirationDays: 21 },
+    'celery': { category: 'produce', location: 'fridge', expirationDays: 14 },
+    'broccoli': { category: 'produce', location: 'fridge', expirationDays: 7 },
+    'cauliflower': { category: 'produce', location: 'fridge', expirationDays: 7 },
+    'bell pepper': { category: 'produce', location: 'fridge', expirationDays: 10 },
+    'peppers': { category: 'produce', location: 'fridge', expirationDays: 10 },
+    'cucumber': { category: 'produce', location: 'fridge', expirationDays: 7 },
+    'zucchini': { category: 'produce', location: 'fridge', expirationDays: 7 },
+    'squash': { category: 'produce', location: 'fridge', expirationDays: 7 },
+    'mushrooms': { category: 'produce', location: 'fridge', expirationDays: 7 },
+    'asparagus': { category: 'produce', location: 'fridge', expirationDays: 5 },
+    'green beans': { category: 'produce', location: 'fridge', expirationDays: 7 },
+    'corn': { category: 'produce', location: 'fridge', expirationDays: 5 },
+    'cabbage': { category: 'produce', location: 'fridge', expirationDays: 14 },
+    'apple': { category: 'produce', location: 'fridge', expirationDays: 30 },
+    'apples': { category: 'produce', location: 'fridge', expirationDays: 30 },
+    'banana': { category: 'produce', location: 'counter', expirationDays: 7 },
+    'bananas': { category: 'produce', location: 'counter', expirationDays: 7 },
+    'orange': { category: 'produce', location: 'fridge', expirationDays: 21 },
+    'oranges': { category: 'produce', location: 'fridge', expirationDays: 21 },
+    'lemon': { category: 'produce', location: 'fridge', expirationDays: 21 },
+    'lemons': { category: 'produce', location: 'fridge', expirationDays: 21 },
+    'lime': { category: 'produce', location: 'fridge', expirationDays: 21 },
+    'limes': { category: 'produce', location: 'fridge', expirationDays: 21 },
+    'avocado': { category: 'produce', location: 'counter', expirationDays: 5 },
+    'ginger': { category: 'produce', location: 'fridge', expirationDays: 21 },
+    'jalapeño': { category: 'produce', location: 'fridge', expirationDays: 14 },
+    'jalapeno': { category: 'produce', location: 'fridge', expirationDays: 14 },
+    'berries': { category: 'produce', location: 'fridge', expirationDays: 5 },
+    'strawberries': { category: 'produce', location: 'fridge', expirationDays: 5 },
+    'blueberries': { category: 'produce', location: 'fridge', expirationDays: 7 },
+    'grapes': { category: 'produce', location: 'fridge', expirationDays: 10 },
+
+    // Spices
+    'salt': { category: 'spice', location: 'spice-cabinet', expirationDays: 1825 },
+    'pepper': { category: 'spice', location: 'spice-cabinet', expirationDays: 1095 },
+    'black pepper': { category: 'spice', location: 'spice-cabinet', expirationDays: 1095 },
+    'paprika': { category: 'spice', location: 'spice-cabinet', expirationDays: 1095 },
+    'smoked paprika': { category: 'spice', location: 'spice-cabinet', expirationDays: 1095 },
+    'cumin': { category: 'spice', location: 'spice-cabinet', expirationDays: 1095 },
+    'cinnamon': { category: 'spice', location: 'spice-cabinet', expirationDays: 1095 },
+    'nutmeg': { category: 'spice', location: 'spice-cabinet', expirationDays: 1095 },
+    'turmeric': { category: 'spice', location: 'spice-cabinet', expirationDays: 1095 },
+    'cayenne': { category: 'spice', location: 'spice-cabinet', expirationDays: 1095 },
+    'chili powder': { category: 'spice', location: 'spice-cabinet', expirationDays: 1095 },
+    'garlic powder': { category: 'spice', location: 'spice-cabinet', expirationDays: 1095 },
+    'onion powder': { category: 'spice', location: 'spice-cabinet', expirationDays: 1095 },
+    'ginger powder': { category: 'spice', location: 'spice-cabinet', expirationDays: 1095 },
+    'curry powder': { category: 'spice', location: 'spice-cabinet', expirationDays: 1095 },
+    'garam masala': { category: 'spice', location: 'spice-cabinet', expirationDays: 1095 },
+    'coriander': { category: 'spice', location: 'spice-cabinet', expirationDays: 1095 },
+    'cardamom': { category: 'spice', location: 'spice-cabinet', expirationDays: 1095 },
+    'cloves': { category: 'spice', location: 'spice-cabinet', expirationDays: 1095 },
+    'allspice': { category: 'spice', location: 'spice-cabinet', expirationDays: 1095 },
+    'red pepper flakes': { category: 'spice', location: 'spice-cabinet', expirationDays: 1095 },
+
+    // Herbs (dried)
+    'oregano': { category: 'herb', location: 'spice-cabinet', expirationDays: 730 },
+    'basil': { category: 'herb', location: 'spice-cabinet', expirationDays: 730 },
+    'thyme': { category: 'herb', location: 'spice-cabinet', expirationDays: 730 },
+    'rosemary': { category: 'herb', location: 'spice-cabinet', expirationDays: 730 },
+    'parsley': { category: 'herb', location: 'spice-cabinet', expirationDays: 730 },
+    'cilantro': { category: 'herb', location: 'fridge', expirationDays: 7 },
+    'bay leaves': { category: 'herb', location: 'spice-cabinet', expirationDays: 730 },
+    'dill': { category: 'herb', location: 'spice-cabinet', expirationDays: 730 },
+    'sage': { category: 'herb', location: 'spice-cabinet', expirationDays: 730 },
+    'mint': { category: 'herb', location: 'spice-cabinet', expirationDays: 730 },
+    'tarragon': { category: 'herb', location: 'spice-cabinet', expirationDays: 730 },
+    'chives': { category: 'herb', location: 'fridge', expirationDays: 7 },
+
+    // Grains & Pasta
+    'rice': { category: 'grain', location: 'pantry', expirationDays: 730 },
+    'white rice': { category: 'grain', location: 'pantry', expirationDays: 730 },
+    'brown rice': { category: 'grain', location: 'pantry', expirationDays: 180 },
+    'basmati rice': { category: 'grain', location: 'pantry', expirationDays: 730 },
+    'jasmine rice': { category: 'grain', location: 'pantry', expirationDays: 730 },
+    'pasta': { category: 'grain', location: 'pantry', expirationDays: 730 },
+    'spaghetti': { category: 'grain', location: 'pantry', expirationDays: 730 },
+    'penne': { category: 'grain', location: 'pantry', expirationDays: 730 },
+    'noodles': { category: 'grain', location: 'pantry', expirationDays: 730 },
+    'bread': { category: 'grain', location: 'counter', expirationDays: 7 },
+    'tortillas': { category: 'grain', location: 'pantry', expirationDays: 14 },
+    'oats': { category: 'grain', location: 'pantry', expirationDays: 365 },
+    'oatmeal': { category: 'grain', location: 'pantry', expirationDays: 365 },
+    'quinoa': { category: 'grain', location: 'pantry', expirationDays: 365 },
+    'couscous': { category: 'grain', location: 'pantry', expirationDays: 365 },
+    'cereal': { category: 'grain', location: 'pantry', expirationDays: 180 },
+
+    // Baking
+    'flour': { category: 'baking', location: 'pantry', expirationDays: 365 },
+    'all-purpose flour': { category: 'baking', location: 'pantry', expirationDays: 365 },
+    'bread flour': { category: 'baking', location: 'pantry', expirationDays: 365 },
+    'whole wheat flour': { category: 'baking', location: 'pantry', expirationDays: 180 },
+    'sugar': { category: 'baking', location: 'pantry', expirationDays: 730 },
+    'brown sugar': { category: 'baking', location: 'pantry', expirationDays: 730 },
+    'powdered sugar': { category: 'baking', location: 'pantry', expirationDays: 730 },
+    'baking soda': { category: 'baking', location: 'pantry', expirationDays: 540 },
+    'baking powder': { category: 'baking', location: 'pantry', expirationDays: 365 },
+    'vanilla extract': { category: 'baking', location: 'pantry', expirationDays: 1825 },
+    'vanilla': { category: 'baking', location: 'pantry', expirationDays: 1825 },
+    'cocoa powder': { category: 'baking', location: 'pantry', expirationDays: 1095 },
+    'chocolate chips': { category: 'baking', location: 'pantry', expirationDays: 730 },
+    'yeast': { category: 'baking', location: 'fridge', expirationDays: 120 },
+    'cornstarch': { category: 'baking', location: 'pantry', expirationDays: 730 },
+
+    // Oils & Condiments
+    'olive oil': { category: 'oil', location: 'pantry', expirationDays: 730 },
+    'vegetable oil': { category: 'oil', location: 'pantry', expirationDays: 365 },
+    'coconut oil': { category: 'oil', location: 'pantry', expirationDays: 730 },
+    'sesame oil': { category: 'oil', location: 'pantry', expirationDays: 365 },
+    'avocado oil': { category: 'oil', location: 'pantry', expirationDays: 365 },
+    'vinegar': { category: 'oil', location: 'pantry', expirationDays: 1825 },
+    'balsamic vinegar': { category: 'oil', location: 'pantry', expirationDays: 1095 },
+    'apple cider vinegar': { category: 'oil', location: 'pantry', expirationDays: 1825 },
+    'rice vinegar': { category: 'oil', location: 'pantry', expirationDays: 1825 },
+    'soy sauce': { category: 'oil', location: 'pantry', expirationDays: 1095 },
+    'fish sauce': { category: 'oil', location: 'pantry', expirationDays: 1095 },
+    'hot sauce': { category: 'oil', location: 'pantry', expirationDays: 1095 },
+    'sriracha': { category: 'oil', location: 'pantry', expirationDays: 730 },
+    'ketchup': { category: 'oil', location: 'fridge', expirationDays: 180 },
+    'mustard': { category: 'oil', location: 'fridge', expirationDays: 365 },
+    'mayonnaise': { category: 'oil', location: 'fridge', expirationDays: 60 },
+    'honey': { category: 'oil', location: 'pantry', expirationDays: 1825 },
+    'maple syrup': { category: 'oil', location: 'fridge', expirationDays: 365 },
+    'peanut butter': { category: 'oil', location: 'pantry', expirationDays: 270 },
+    'almond butter': { category: 'oil', location: 'pantry', expirationDays: 270 },
+    'worcestershire': { category: 'oil', location: 'pantry', expirationDays: 1095 },
+    'bbq sauce': { category: 'oil', location: 'fridge', expirationDays: 180 },
+    'teriyaki sauce': { category: 'oil', location: 'fridge', expirationDays: 365 },
+    'salsa': { category: 'oil', location: 'fridge', expirationDays: 30 },
+
+    // Canned & Jarred
+    'canned tomatoes': { category: 'canned', location: 'pantry', expirationDays: 730 },
+    'diced tomatoes': { category: 'canned', location: 'pantry', expirationDays: 730 },
+    'crushed tomatoes': { category: 'canned', location: 'pantry', expirationDays: 730 },
+    'tomato paste': { category: 'canned', location: 'pantry', expirationDays: 730 },
+    'tomato sauce': { category: 'canned', location: 'pantry', expirationDays: 730 },
+    'marinara': { category: 'canned', location: 'pantry', expirationDays: 730 },
+    'beans': { category: 'canned', location: 'pantry', expirationDays: 1095 },
+    'black beans': { category: 'canned', location: 'pantry', expirationDays: 1095 },
+    'kidney beans': { category: 'canned', location: 'pantry', expirationDays: 1095 },
+    'pinto beans': { category: 'canned', location: 'pantry', expirationDays: 1095 },
+    'chickpeas': { category: 'canned', location: 'pantry', expirationDays: 1095 },
+    'garbanzo beans': { category: 'canned', location: 'pantry', expirationDays: 1095 },
+    'lentils': { category: 'canned', location: 'pantry', expirationDays: 1095 },
+    'coconut milk': { category: 'canned', location: 'pantry', expirationDays: 730 },
+    'broth': { category: 'canned', location: 'pantry', expirationDays: 730 },
+    'chicken broth': { category: 'canned', location: 'pantry', expirationDays: 730 },
+    'beef broth': { category: 'canned', location: 'pantry', expirationDays: 730 },
+    'vegetable broth': { category: 'canned', location: 'pantry', expirationDays: 730 },
+    'stock': { category: 'canned', location: 'pantry', expirationDays: 730 },
+    'tuna canned': { category: 'canned', location: 'pantry', expirationDays: 1095 },
+    'olives': { category: 'canned', location: 'pantry', expirationDays: 730 },
+    'pickles': { category: 'canned', location: 'fridge', expirationDays: 365 },
+
+    // Frozen
+    'frozen vegetables': { category: 'frozen', location: 'freezer', expirationDays: 240 },
+    'frozen peas': { category: 'frozen', location: 'freezer', expirationDays: 240 },
+    'frozen corn': { category: 'frozen', location: 'freezer', expirationDays: 240 },
+    'frozen broccoli': { category: 'frozen', location: 'freezer', expirationDays: 240 },
+    'frozen fruit': { category: 'frozen', location: 'freezer', expirationDays: 240 },
+    'frozen berries': { category: 'frozen', location: 'freezer', expirationDays: 240 },
+    'ice cream': { category: 'frozen', location: 'freezer', expirationDays: 60 },
+    'frozen pizza': { category: 'frozen', location: 'freezer', expirationDays: 180 },
+    'frozen chicken': { category: 'frozen', location: 'freezer', expirationDays: 270 },
+    'frozen fish': { category: 'frozen', location: 'freezer', expirationDays: 180 }
+};
+
 class PantryInventory {
     constructor() {
         this.storageKey = 'spiceInventory';
@@ -183,6 +402,7 @@ class PantryInventory {
     initializeElements() {
         // Form elements
         this.form = document.getElementById('spiceForm');
+        this.formSection = document.getElementById('formSection');
         this.formTitle = document.getElementById('formTitle');
         this.submitBtn = document.getElementById('submitBtn');
         this.cancelBtn = document.getElementById('cancelBtn');
@@ -196,12 +416,16 @@ class PantryInventory {
         this.purchaseDateInput = document.getElementById('purchaseDate');
         this.expirationDateInput = document.getElementById('expirationDate');
         this.isStapleCheckbox = document.getElementById('isStaple');
-        this.notesInput = document.getElementById('notes');
+        this.boughtFromInput = document.getElementById('boughtFrom');
 
-        // Search elements
-        this.searchInput = document.getElementById('searchInput');
-        this.searchBtn = document.getElementById('searchBtn');
-        this.searchResult = document.getElementById('searchResult');
+        // Recipe section
+        this.recipeSection = document.getElementById('recipeSection');
+
+        // Quick links
+        this.quickLinks = document.querySelectorAll('.command-quick-links a');
+
+        // Live search filter
+        this.currentSearchFilter = '';
 
         // Inventory elements
         this.inventoryList = document.getElementById('inventoryList');
@@ -260,13 +484,17 @@ class PantryInventory {
         this.form.addEventListener('submit', (e) => this.handleSubmit(e));
         this.cancelBtn.addEventListener('click', () => this.cancelEdit());
 
-        // Search events
-        this.searchBtn.addEventListener('click', () => this.handleSearch());
-        this.searchInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
+        // Quick links events
+        this.quickLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
                 e.preventDefault();
-                this.handleSearch();
-            }
+                const command = link.dataset.command;
+                if (command === 'add') {
+                    this.showAddForm();
+                } else if (command === 'recipe') {
+                    this.showRecipeSection();
+                }
+            });
         });
 
         // Filter and sort events
@@ -353,7 +581,7 @@ class PantryInventory {
             purchaseDate: purchaseDate,
             expirationDate: expirationDate,
             isStaple: item.isStaple || false,
-            notes: item.notes ? item.notes.trim() : '',
+            boughtFrom: item.boughtFrom ? item.boughtFrom.trim() : '',
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };
@@ -499,7 +727,7 @@ class PantryInventory {
             purchaseDate: this.purchaseDateInput.value,
             expirationDate: this.expirationDateInput.value,
             isStaple: this.isStapleCheckbox.checked,
-            notes: this.notesInput.value
+            boughtFrom: this.boughtFromInput.value
         };
 
         if (this.editingId) {
@@ -531,7 +759,10 @@ class PantryInventory {
         this.purchaseDateInput.value = item.purchaseDate || '';
         this.expirationDateInput.value = item.expirationDate || '';
         this.isStapleCheckbox.checked = item.isStaple || false;
-        this.notesInput.value = item.notes || '';
+        this.boughtFromInput.value = item.boughtFrom || item.notes || '';
+
+        // Show form section if hidden
+        this.formSection.classList.remove('hidden');
 
         // Scroll to form
         this.form.scrollIntoView({ behavior: 'smooth' });
@@ -652,6 +883,13 @@ class PantryInventory {
     renderInventory() {
         let items = [...this.inventory];
 
+        // Apply live search filter
+        if (this.currentSearchFilter) {
+            items = items.filter(item =>
+                item.name.toLowerCase().includes(this.currentSearchFilter)
+            );
+        }
+
         // Filter by category
         const categoryFilter = this.filterCategory.value;
         if (categoryFilter !== 'all') {
@@ -680,6 +918,13 @@ class PantryInventory {
                     return a.quantity - b.quantity;
                 case 'category':
                     return a.category.localeCompare(b.category);
+                case 'store':
+                    const storeA = (a.boughtFrom || a.notes || '').toLowerCase();
+                    const storeB = (b.boughtFrom || b.notes || '').toLowerCase();
+                    if (!storeA && !storeB) return 0;
+                    if (!storeA) return 1;
+                    if (!storeB) return -1;
+                    return storeA.localeCompare(storeB);
                 case 'updated':
                     return new Date(b.updatedAt) - new Date(a.updatedAt);
                 default:
@@ -719,6 +964,9 @@ class PantryInventory {
             // Format location
             const locationDisplay = item.location ? LOCATION_NAMES[item.location] || item.location : '';
 
+            // Show boughtFrom (with fallback to notes for backward compatibility)
+            const storeInfo = item.boughtFrom || item.notes || '';
+
             return `
                 <div class="inventory-item ${statusClass}" data-id="${item.id}">
                     <div class="item-info">
@@ -729,7 +977,7 @@ class PantryInventory {
                             ${item.isStaple ? '<span class="staple-badge">Staple</span>' : ''}
                         </div>
                         ${expirationDisplay ? `<div class="expiration-info">${expirationDisplay}</div>` : ''}
-                        ${item.notes ? `<div class="item-notes">${this.escapeHtml(item.notes)}</div>` : ''}
+                        ${storeInfo ? `<div class="item-store">From: ${this.escapeHtml(storeInfo)}</div>` : ''}
                     </div>
                     <div class="item-quantity">
                         <div class="amount">${item.quantity}</div>
@@ -1169,10 +1417,33 @@ class PantryInventory {
 
     // Quick Deduct functionality (command-palette style)
     parseCommandInput(input) {
-        // New item: +name amount unit (e.g., "+chicken 3lb")
-        const newItem = input.match(/^\+\s*(.+?)\s+(\d*\.?\d+)\s*([a-zA-Z]+)$/);
-        if (newItem) {
-            return { action: 'add-new', name: newItem[1].trim(), amount: parseFloat(newItem[2]), unit: newItem[3] };
+        // Special commands: "add" or "add something"
+        const addCommand = input.match(/^add(?:\s+(.+))?$/i);
+        if (addCommand) {
+            return { action: 'show-add-form', prefill: addCommand[1] ? addCommand[1].trim() : null };
+        }
+
+        // Special command: "recipe"
+        if (input.toLowerCase() === 'recipe') {
+            return { action: 'show-recipe' };
+        }
+
+        // New item with @location and #category: +name amount unit @location #category
+        // e.g., "+chicken 3lb @fridge #protein"
+        const newItemFull = input.match(/^\+\s*(.+?)\s+(\d*\.?\d+)\s*([a-zA-Z]+)(.*)$/);
+        if (newItemFull) {
+            const extras = newItemFull[4];
+            const locationMatch = extras.match(/@(\S+)/);
+            const categoryMatch = extras.match(/#(\S+)/);
+            const name = newItemFull[1].trim();
+            return {
+                action: 'add-new',
+                name: name,
+                amount: parseFloat(newItemFull[2]),
+                unit: newItemFull[3],
+                location: locationMatch ? this.normalizeLocationShortcut(locationMatch[1]) : null,
+                category: categoryMatch ? this.normalizeCategoryShortcut(categoryMatch[1]) : null
+            };
         }
 
         // New item partial: +name (no amount yet)
@@ -1214,6 +1485,68 @@ class PantryInventory {
         return { action: 'search', query: input };
     }
 
+    // Normalize location shortcuts
+    normalizeLocationShortcut(loc) {
+        const shortcuts = {
+            'fridge': 'fridge', 'refrigerator': 'fridge', 'ref': 'fridge', 'r': 'fridge',
+            'freezer': 'freezer', 'freeze': 'freezer', 'f': 'freezer',
+            'pantry': 'pantry', 'p': 'pantry',
+            'spice': 'spice-cabinet', 'spices': 'spice-cabinet', 'cabinet': 'spice-cabinet', 'sc': 'spice-cabinet',
+            'counter': 'counter', 'c': 'counter',
+            'other': 'other', 'o': 'other'
+        };
+        return shortcuts[loc.toLowerCase()] || loc.toLowerCase();
+    }
+
+    // Normalize category shortcuts
+    normalizeCategoryShortcut(cat) {
+        const shortcuts = {
+            'protein': 'protein', 'meat': 'protein', 'pr': 'protein',
+            'dairy': 'dairy', 'd': 'dairy',
+            'produce': 'produce', 'veg': 'produce', 'vegetable': 'produce', 'fruit': 'produce',
+            'spice': 'spice', 'sp': 'spice',
+            'herb': 'herb', 'h': 'herb',
+            'seasoning': 'seasoning', 'se': 'seasoning',
+            'grain': 'grain', 'pasta': 'grain', 'g': 'grain',
+            'canned': 'canned', 'can': 'canned', 'ca': 'canned',
+            'frozen': 'frozen', 'fr': 'frozen',
+            'oil': 'oil', 'condiment': 'oil', 'sauce': 'oil',
+            'baking': 'baking', 'b': 'baking',
+            'other': 'other', 'o': 'other'
+        };
+        return shortcuts[cat.toLowerCase()] || cat.toLowerCase();
+    }
+
+    // Detect ingredient info from database
+    detectIngredientInfo(name) {
+        const nameLower = name.toLowerCase().trim();
+
+        // Try exact match
+        if (INGREDIENT_DATABASE[nameLower]) {
+            return INGREDIENT_DATABASE[nameLower];
+        }
+
+        // Try partial matches
+        for (const [key, info] of Object.entries(INGREDIENT_DATABASE)) {
+            if (nameLower.includes(key) || key.includes(nameLower)) {
+                return info;
+            }
+        }
+
+        // Try word-by-word match
+        const words = nameLower.split(/\s+/);
+        for (const word of words) {
+            if (word.length < 3) continue;
+            for (const [key, info] of Object.entries(INGREDIENT_DATABASE)) {
+                if (key.includes(word) || word.includes(key)) {
+                    return info;
+                }
+            }
+        }
+
+        return null;
+    }
+
     // Legacy parser for backward compatibility
     parseQuickDeductInput(input) {
         const parsed = this.parseCommandInput(input);
@@ -1243,38 +1576,104 @@ class PantryInventory {
         if (!input) {
             this.quickDeductSuggestions.classList.add('hidden');
             this.quickDeductPreview.classList.add('hidden');
+            this.clearSearchFilter();
             return;
         }
 
         // Handle different parsed actions
         switch (parsed.action) {
+            case 'show-add-form':
+                this.quickDeductSuggestions.classList.add('hidden');
+                this.quickDeductPreview.innerHTML = `<span class="preview-hint">Press Enter to open Add Item form${parsed.prefill ? ` (pre-filled: "${this.escapeHtml(parsed.prefill)}")` : ''}</span>`;
+                this.quickDeductPreview.classList.remove('hidden');
+                this.clearSearchFilter();
+                break;
+            case 'show-recipe':
+                this.quickDeductSuggestions.classList.add('hidden');
+                this.quickDeductPreview.innerHTML = `<span class="preview-hint">Press Enter to open Recipe section</span>`;
+                this.quickDeductPreview.classList.remove('hidden');
+                this.clearSearchFilter();
+                break;
             case 'deduct':
                 this.quickDeductSuggestions.classList.add('hidden');
                 this.showDeductPreview(parsed);
+                this.clearSearchFilter();
                 break;
             case 'restock':
                 this.quickDeductSuggestions.classList.add('hidden');
                 this.showRestockPreview(parsed);
+                this.clearSearchFilter();
                 break;
             case 'add-new':
                 this.quickDeductSuggestions.classList.add('hidden');
                 this.showAddNewPreview(parsed);
+                this.clearSearchFilter();
                 break;
             case 'add-new-partial':
                 this.quickDeductSuggestions.classList.add('hidden');
                 this.showAddNewPartialPreview(parsed);
+                this.clearSearchFilter();
                 break;
             case 'operator-only':
             case 'deduct-partial':
             case 'restock-partial':
                 this.quickDeductSuggestions.classList.add('hidden');
                 this.showPartialFeedback(parsed);
+                this.clearSearchFilter();
                 break;
             case 'search':
             default:
                 this.quickDeductPreview.classList.add('hidden');
                 this.showItemSuggestions(parsed.query);
+                // Live filter inventory
+                this.applySearchFilter(parsed.query);
                 break;
+        }
+    }
+
+    // Show add form section
+    showAddForm(prefillName = null) {
+        this.formSection.classList.remove('hidden');
+        this.recipeSection.classList.add('hidden');
+        this.formTitle.textContent = 'Add New Item';
+        this.submitBtn.textContent = 'Add Item';
+        this.form.reset();
+
+        if (prefillName) {
+            this.nameInput.value = prefillName;
+            // Auto-detect category and location
+            const detected = this.detectIngredientInfo(prefillName);
+            if (detected) {
+                this.categorySelect.value = detected.category;
+                this.locationSelect.value = detected.location;
+            }
+        }
+
+        this.formSection.scrollIntoView({ behavior: 'smooth' });
+        this.nameInput.focus();
+        this.clearCommandBar();
+    }
+
+    // Show recipe section
+    showRecipeSection() {
+        this.recipeSection.classList.remove('hidden');
+        this.formSection.classList.add('hidden');
+        this.recipeSection.scrollIntoView({ behavior: 'smooth' });
+        this.recipeText.focus();
+        this.clearCommandBar();
+    }
+
+    // Apply live search filter to inventory
+    applySearchFilter(query) {
+        this.currentSearchFilter = query.toLowerCase();
+        this.renderInventory();
+    }
+
+    // Clear search filter
+    clearSearchFilter() {
+        if (this.currentSearchFilter !== '') {
+            this.currentSearchFilter = '';
+            this.renderInventory();
         }
     }
 
@@ -1340,10 +1739,24 @@ class PantryInventory {
 
     showAddNewPreview(parsed) {
         const unit = this.normalizeUnitShortcut(parsed.unit);
+        const detected = this.detectIngredientInfo(parsed.name);
+
+        // Use explicit overrides or detected values
+        const category = parsed.category || (detected ? detected.category : 'other');
+        const location = parsed.location || (detected ? detected.location : null);
+
+        let detailsHtml = '';
+        if (detected || parsed.category || parsed.location) {
+            const categoryName = CATEGORY_NAMES[category] || category;
+            const locationName = location ? (LOCATION_NAMES[location] || location) : null;
+            detailsHtml = ` <span class="preview-auto">[${categoryName}${locationName ? ` • ${locationName}` : ''}]</span>`;
+        }
+
         this.quickDeductPreview.innerHTML = `
             <span class="preview-item">New:</span>
             <span class="preview-calc">${this.escapeHtml(parsed.name)} (${parsed.amount} ${unit})</span>
-            <span class="preview-hint"> — press Enter or tap ⋯ for details</span>
+            ${detailsHtml}
+            <span class="preview-hint"> — Enter to add</span>
         `;
         this.quickDeductPreview.classList.remove('hidden');
     }
@@ -1478,7 +1891,11 @@ class PantryInventory {
         }
 
         // Handle different actions
-        if (parsed.action === 'deduct') {
+        if (parsed.action === 'show-add-form') {
+            this.showAddForm(parsed.prefill);
+        } else if (parsed.action === 'show-recipe') {
+            this.showRecipeSection();
+        } else if (parsed.action === 'deduct') {
             this.executeDeduct(parsed);
         } else if (parsed.action === 'restock') {
             this.executeRestock(parsed);
@@ -1537,12 +1954,21 @@ class PantryInventory {
 
     executeAddNew(parsed) {
         const unit = this.normalizeUnitShortcut(parsed.unit);
-        // Add with default category, user can edit later
+
+        // Auto-detect category and location from database
+        const detected = this.detectIngredientInfo(parsed.name);
+
+        // Use explicit overrides (@location, #category) or detected values or defaults
+        const category = parsed.category || (detected ? detected.category : 'other');
+        const location = parsed.location || (detected ? detected.location : '');
+
         this.addItem({
             name: parsed.name,
             quantity: parsed.amount,
             unit: unit,
-            category: 'other'
+            category: category,
+            location: location
+            // Expiration will be auto-calculated in addItem based on category
         });
 
         this.clearCommandBar();

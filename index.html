@@ -15,9 +15,14 @@
         <!-- Quick Actions Command Bar -->
         <section class="quick-use-section">
             <div class="quick-deduct-wrapper">
-                <input type="text" id="quickDeductInput" placeholder="rice -1c to use · rice +2lb to restock · +chicken 3lb to add new" autocomplete="off">
+                <input type="text" id="quickDeductInput" placeholder="Search or type: rice -1c · +chicken 3lb @fridge #protein · add · recipe" autocomplete="off">
                 <button id="quickDeductBtn" class="quick-deduct-btn">Go</button>
                 <button id="quickDeductMore" class="quick-deduct-more" title="More options">⋯</button>
+            </div>
+            <div class="command-quick-links">
+                <span>Quick:</span>
+                <a href="#" data-command="add">Add Item</a>
+                <a href="#" data-command="recipe">Use Recipe</a>
             </div>
             <div id="quickDeductSuggestions" class="suggestions-dropdown hidden"></div>
             <div id="quickDeductPreview" class="quick-deduct-preview hidden"></div>
@@ -40,54 +45,6 @@
             </div>
         </section>
 
-        <!-- Recipe Section -->
-        <section class="recipe-section">
-            <h2>Use a Recipe</h2>
-            <p class="section-description">Paste a recipe or upload a file to automatically deduct ingredients from your inventory.</p>
-
-            <div class="recipe-input-tabs">
-                <button class="tab-btn active" data-tab="paste">Paste Recipe</button>
-                <button class="tab-btn" data-tab="upload">Upload File</button>
-            </div>
-
-            <div id="pasteTab" class="tab-content active">
-                <textarea id="recipeText" placeholder="Paste your recipe here...
-
-Example:
-2 tbsp olive oil
-1 tsp paprika
-1/2 tsp cumin
-3 cloves garlic
-1 cup rice"></textarea>
-            </div>
-
-            <div id="uploadTab" class="tab-content">
-                <div class="file-upload-area" id="dropZone">
-                    <input type="file" id="recipeFile" accept=".txt,.md,.pdf" hidden>
-                    <p>Drag & drop a file here or <button type="button" id="browseBtn">browse</button></p>
-                    <span class="file-types">Supports: .txt, .md</span>
-                </div>
-                <div id="fileName" class="file-name hidden"></div>
-            </div>
-
-            <button id="parseRecipeBtn" class="parse-btn">Parse Recipe</button>
-
-            <!-- Parsed Results -->
-            <div id="parsedResults" class="parsed-results hidden">
-                <h3>Matched Ingredients</h3>
-                <p class="results-description">Review the matches below. Check the items you want to deduct from inventory.</p>
-                <div id="matchedIngredients"></div>
-                <div id="unmatchedIngredients" class="unmatched-section hidden">
-                    <h4>Not in Inventory</h4>
-                    <div id="unmatchedList"></div>
-                </div>
-                <div class="recipe-actions">
-                    <button id="applyRecipeBtn" class="apply-btn">Deduct from Inventory</button>
-                    <button id="cancelRecipeBtn" class="cancel-recipe-btn">Cancel</button>
-                </div>
-            </div>
-        </section>
-
         <!-- Alerts Section -->
         <section id="alertsSection" class="alerts-section hidden">
             <div id="expiringAlerts" class="alerts-group hidden">
@@ -100,8 +57,41 @@ Example:
             </div>
         </section>
 
-        <!-- Add/Edit Form -->
-        <section class="form-section">
+        <!-- Inventory List -->
+        <section class="inventory-section">
+            <div class="inventory-header">
+                <h2>Inventory</h2>
+                <div class="filter-sort">
+                    <select id="filterCategory">
+                        <option value="all">All Categories</option>
+                        <option value="spice">Spices</option>
+                        <option value="herb">Herbs</option>
+                        <option value="seasoning">Seasoning Blends</option>
+                        <option value="produce">Produce</option>
+                        <option value="dairy">Dairy & Refrigerated</option>
+                        <option value="canned">Canned & Jarred</option>
+                        <option value="grain">Grains & Pasta</option>
+                        <option value="frozen">Frozen</option>
+                        <option value="oil">Oils/Vinegars/Condiments</option>
+                        <option value="baking">Baking Supplies</option>
+                        <option value="protein">Proteins</option>
+                        <option value="other">Other</option>
+                    </select>
+                    <select id="sortBy">
+                        <option value="name">Sort by Name</option>
+                        <option value="expiration">Sort by Expiration</option>
+                        <option value="quantity">Sort by Quantity</option>
+                        <option value="category">Sort by Category</option>
+                        <option value="store">Sort by Store</option>
+                        <option value="updated">Sort by Last Updated</option>
+                    </select>
+                </div>
+            </div>
+            <div id="inventoryList" class="inventory-list"></div>
+        </section>
+
+        <!-- Add/Edit Form (hidden by default, revealed via 'add' command) -->
+        <section class="form-section hidden" id="formSection">
             <h2 id="formTitle">Add New Item</h2>
             <form id="spiceForm">
                 <input type="hidden" id="editId">
@@ -179,8 +169,8 @@ Example:
                     </label>
                 </div>
                 <div class="form-group">
-                    <label for="notes">Notes (optional)</label>
-                    <input type="text" id="notes" placeholder="e.g., Bought from Costco">
+                    <label for="boughtFrom">Bought From (optional)</label>
+                    <input type="text" id="boughtFrom" placeholder="e.g., Costco, Trader Joe's">
                 </div>
                 <div class="form-actions">
                     <button type="submit" id="submitBtn">Add Item</button>
@@ -189,45 +179,52 @@ Example:
             </form>
         </section>
 
-        <!-- Search Section -->
-        <section class="search-section">
-            <div class="search-box">
-                <input type="text" id="searchInput" placeholder="Search your pantry..." autocomplete="off">
-                <button id="searchBtn">Search</button>
-            </div>
-            <div id="searchResult" class="search-result hidden"></div>
-        </section>
+        <!-- Recipe Section (hidden by default, revealed via 'recipe' command) -->
+        <section class="recipe-section hidden" id="recipeSection">
+            <h2>Use a Recipe</h2>
+            <p class="section-description">Paste a recipe or upload a file to automatically deduct ingredients from your inventory.</p>
 
-        <!-- Inventory List -->
-        <section class="inventory-section">
-            <div class="inventory-header">
-                <h2>Inventory</h2>
-                <div class="filter-sort">
-                    <select id="filterCategory">
-                        <option value="all">All Categories</option>
-                        <option value="spice">Spices</option>
-                        <option value="herb">Herbs</option>
-                        <option value="seasoning">Seasoning Blends</option>
-                        <option value="produce">Produce</option>
-                        <option value="dairy">Dairy & Refrigerated</option>
-                        <option value="canned">Canned & Jarred</option>
-                        <option value="grain">Grains & Pasta</option>
-                        <option value="frozen">Frozen</option>
-                        <option value="oil">Oils/Vinegars/Condiments</option>
-                        <option value="baking">Baking Supplies</option>
-                        <option value="protein">Proteins</option>
-                        <option value="other">Other</option>
-                    </select>
-                    <select id="sortBy">
-                        <option value="name">Sort by Name</option>
-                        <option value="expiration">Sort by Expiration</option>
-                        <option value="quantity">Sort by Quantity</option>
-                        <option value="category">Sort by Category</option>
-                        <option value="updated">Sort by Last Updated</option>
-                    </select>
+            <div class="recipe-input-tabs">
+                <button class="tab-btn active" data-tab="paste">Paste Recipe</button>
+                <button class="tab-btn" data-tab="upload">Upload File</button>
+            </div>
+
+            <div id="pasteTab" class="tab-content active">
+                <textarea id="recipeText" placeholder="Paste your recipe here...
+
+Example:
+2 tbsp olive oil
+1 tsp paprika
+1/2 tsp cumin
+3 cloves garlic
+1 cup rice"></textarea>
+            </div>
+
+            <div id="uploadTab" class="tab-content">
+                <div class="file-upload-area" id="dropZone">
+                    <input type="file" id="recipeFile" accept=".txt,.md,.pdf" hidden>
+                    <p>Drag & drop a file here or <button type="button" id="browseBtn">browse</button></p>
+                    <span class="file-types">Supports: .txt, .md</span>
+                </div>
+                <div id="fileName" class="file-name hidden"></div>
+            </div>
+
+            <button id="parseRecipeBtn" class="parse-btn">Parse Recipe</button>
+
+            <!-- Parsed Results -->
+            <div id="parsedResults" class="parsed-results hidden">
+                <h3>Matched Ingredients</h3>
+                <p class="results-description">Review the matches below. Check the items you want to deduct from inventory.</p>
+                <div id="matchedIngredients"></div>
+                <div id="unmatchedIngredients" class="unmatched-section hidden">
+                    <h4>Not in Inventory</h4>
+                    <div id="unmatchedList"></div>
+                </div>
+                <div class="recipe-actions">
+                    <button id="applyRecipeBtn" class="apply-btn">Deduct from Inventory</button>
+                    <button id="cancelRecipeBtn" class="cancel-recipe-btn">Cancel</button>
                 </div>
             </div>
-            <div id="inventoryList" class="inventory-list"></div>
         </section>
     </div>
 

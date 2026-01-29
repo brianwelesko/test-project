@@ -141,6 +141,39 @@ header h1 {
 #quickDeductInput:focus {
     outline: none;
     border-color: #667eea;
+    animation: pulse-border 2s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+    0%, 100% { border-color: #667eea; box-shadow: 0 0 0 0 rgba(102, 126, 234, 0); }
+    50% { border-color: #a5b4fc; box-shadow: 0 0 8px 2px rgba(102, 126, 234, 0.3); }
+}
+
+/* Quick Links */
+.command-quick-links {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 10px;
+    font-size: 0.9rem;
+}
+
+.command-quick-links span {
+    color: #888;
+}
+
+.command-quick-links a {
+    color: #667eea;
+    text-decoration: none;
+    padding: 4px 12px;
+    border-radius: 15px;
+    background: #f0f4ff;
+    transition: all 0.2s;
+}
+
+.command-quick-links a:hover {
+    background: #667eea;
+    color: white;
 }
 
 .quick-deduct-btn {
@@ -224,6 +257,12 @@ header h1 {
 .quick-deduct-preview .preview-hint {
     color: #666;
     font-style: italic;
+}
+
+.quick-deduct-preview .preview-auto {
+    color: #667eea;
+    font-size: 0.85em;
+    margin-left: 4px;
 }
 
 .quick-deduct-expanded {
@@ -425,6 +464,15 @@ header h1 {
 
     .quick-deduct-more {
         padding: 14px 16px;
+    }
+
+    .command-quick-links {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .command-quick-links a {
+        padding: 8px 16px;
     }
 
     .suggestion-item {
@@ -755,6 +803,12 @@ header h1 {
     font-size: 0.85rem;
     color: #666;
     font-style: italic;
+}
+
+.item-store {
+    margin-top: 4px;
+    font-size: 0.85rem;
+    color: #666;
 }
 
 .item-quantity {

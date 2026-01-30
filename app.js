@@ -473,6 +473,16 @@ class PantryInventory {
         this.cancelQuickUseBtn = document.getElementById('cancelQuickUse');
         this.confirmDeductBtn = document.getElementById('confirmDeduct');
 
+        // Help panel
+        this.commandHelp = document.getElementById('commandHelp');
+
+        // Item details modal
+        this.itemDetailsModal = document.getElementById('itemDetailsModal');
+        this.closeDetailsBtn = document.getElementById('closeDetails');
+        this.detailsEditBtn = document.getElementById('detailsEditBtn');
+        this.detailsCloseBtn = document.getElementById('detailsCloseBtn');
+        this.currentDetailsItemId = null;
+
         // Store parsed data
         this.parsedRecipeData = null;
         this.selectedQuickUseItem = null;
@@ -493,9 +503,35 @@ class PantryInventory {
                     this.showAddForm();
                 } else if (command === 'recipe') {
                     this.showRecipeSection();
+                } else if (command === 'help') {
+                    this.toggleHelp();
                 }
             });
         });
+
+        // Item details modal events
+        if (this.closeDetailsBtn) {
+            this.closeDetailsBtn.addEventListener('click', () => this.hideItemDetails());
+        }
+        if (this.detailsCloseBtn) {
+            this.detailsCloseBtn.addEventListener('click', () => this.hideItemDetails());
+        }
+        if (this.detailsEditBtn) {
+            this.detailsEditBtn.addEventListener('click', () => {
+                this.hideItemDetails();
+                if (this.currentDetailsItemId) {
+                    this.startEdit(this.currentDetailsItemId);
+                }
+            });
+        }
+        if (this.itemDetailsModal) {
+            this.itemDetailsModal.addEventListener('click', (e) => {
+                // Close if clicking outside modal content
+                if (e.target === this.itemDetailsModal) {
+                    this.hideItemDetails();
+                }
+            });
+        }
 
         // Filter and sort events
         this.filterCategory.addEventListener('change', () => this.render());
@@ -565,17 +601,27 @@ class PantryInventory {
         localStorage.setItem(this.storageKey, JSON.stringify(this.inventory));
     }
 
+    // Capitalize first letter of each word
+    capitalizeWords(str) {
+        return str.trim().split(/\s+/).map(word =>
+            word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        ).join(' ');
+    }
+
     // CRUD Operations
     addItem(item) {
         const purchaseDate = item.purchaseDate || new Date().toISOString().split('T')[0];
         const expirationDate = item.expirationDate || this.autoCalculateExpiration(item.category, purchaseDate);
+        const qty = parseFloat(item.quantity);
+        // Default threshold to 20% of quantity if not specified
+        const threshold = item.threshold ? parseFloat(item.threshold) : Math.round(qty * 0.2 * 10) / 10;
 
         const newItem = {
             id: Date.now().toString(),
-            name: item.name.trim(),
-            quantity: parseFloat(item.quantity),
+            name: this.capitalizeWords(item.name),
+            quantity: qty,
             unit: item.unit,
-            threshold: item.threshold ? parseFloat(item.threshold) : 0,
+            threshold: threshold,
             category: item.category,
             location: item.location || '',
             purchaseDate: purchaseDate,
@@ -774,6 +820,7 @@ class PantryInventory {
         this.submitBtn.textContent = 'Add Item';
         this.cancelBtn.classList.add('hidden');
         this.form.reset();
+        this.formSection.classList.add('hidden');
     }
 
     // Quick quantity update
@@ -968,7 +1015,7 @@ class PantryInventory {
             const storeInfo = item.boughtFrom || item.notes || '';
 
             return `
-                <div class="inventory-item ${statusClass}" data-id="${item.id}">
+                <div class="inventory-item ${statusClass}" data-id="${item.id}" onclick="if(!event.target.closest('.item-actions'))app.showItemDetails('${this.escapeHtml(item.name).replace(/'/g, "\\'")}')">
                     <div class="item-info">
                         <h3>${this.escapeHtml(item.name)}</h3>
                         <div class="meta">
@@ -1413,10 +1460,16 @@ class PantryInventory {
         this.recipeText.value = '';
         this.fileName.classList.add('hidden');
         this.recipeFile.value = '';
+        this.recipeSection.classList.add('hidden');
     }
 
     // Quick Deduct functionality (command-palette style)
     parseCommandInput(input) {
+        // Special command: "help"
+        if (input.toLowerCase() === 'help') {
+            return { action: 'show-help' };
+        }
+
         // Special commands: "add" or "add something"
         const addCommand = input.match(/^add(?:\s+(.+))?$/i);
         if (addCommand) {
@@ -1428,13 +1481,20 @@ class PantryInventory {
             return { action: 'show-recipe' };
         }
 
-        // New item with @location and #category: +name amount unit @location #category
-        // e.g., "+chicken 3lb @fridge #protein"
+        // View command: "view name" or "view partial"
+        const viewCommand = input.match(/^view\s+(.+)$/i);
+        if (viewCommand) {
+            return { action: 'view', itemQuery: viewCommand[1].trim() };
+        }
+
+        // New item with @location, #category, !threshold: +name amount unit @location #category !threshold
+        // e.g., "+chicken 3lb @fridge #protein !0.5"
         const newItemFull = input.match(/^\+\s*(.+?)\s+(\d*\.?\d+)\s*([a-zA-Z]+)(.*)$/);
         if (newItemFull) {
             const extras = newItemFull[4];
             const locationMatch = extras.match(/@(\S+)/);
             const categoryMatch = extras.match(/#(\S+)/);
+            const thresholdMatch = extras.match(/!(\d*\.?\d+)/);
             const name = newItemFull[1].trim();
             return {
                 action: 'add-new',
@@ -1442,7 +1502,8 @@ class PantryInventory {
                 amount: parseFloat(newItemFull[2]),
                 unit: newItemFull[3],
                 location: locationMatch ? this.normalizeLocationShortcut(locationMatch[1]) : null,
-                category: categoryMatch ? this.normalizeCategoryShortcut(categoryMatch[1]) : null
+                category: categoryMatch ? this.normalizeCategoryShortcut(categoryMatch[1]) : null,
+                threshold: thresholdMatch ? parseFloat(thresholdMatch[1]) : null
             };
         }
 
@@ -1582,6 +1643,12 @@ class PantryInventory {
 
         // Handle different parsed actions
         switch (parsed.action) {
+            case 'show-help':
+                this.quickDeductSuggestions.classList.add('hidden');
+                this.quickDeductPreview.innerHTML = `<span class="preview-hint">Press Enter to toggle help</span>`;
+                this.quickDeductPreview.classList.remove('hidden');
+                this.clearSearchFilter();
+                break;
             case 'show-add-form':
                 this.quickDeductSuggestions.classList.add('hidden');
                 this.quickDeductPreview.innerHTML = `<span class="preview-hint">Press Enter to open Add Item form${parsed.prefill ? ` (pre-filled: "${this.escapeHtml(parsed.prefill)}")` : ''}</span>`;
@@ -1592,6 +1659,10 @@ class PantryInventory {
                 this.quickDeductSuggestions.classList.add('hidden');
                 this.quickDeductPreview.innerHTML = `<span class="preview-hint">Press Enter to open Recipe section</span>`;
                 this.quickDeductPreview.classList.remove('hidden');
+                this.clearSearchFilter();
+                break;
+            case 'view':
+                this.showViewSuggestions(parsed.itemQuery);
                 this.clearSearchFilter();
                 break;
             case 'deduct':
@@ -1661,6 +1732,85 @@ class PantryInventory {
         this.recipeSection.scrollIntoView({ behavior: 'smooth' });
         this.recipeText.focus();
         this.clearCommandBar();
+    }
+
+    // Toggle help panel
+    toggleHelp() {
+        this.commandHelp.classList.toggle('hidden');
+        this.clearCommandBar();
+    }
+
+    // Show view suggestions for item lookup
+    showViewSuggestions(query) {
+        const matches = this.inventory.filter(item =>
+            item.name.toLowerCase().includes(query.toLowerCase())
+        ).slice(0, 8);
+
+        if (matches.length === 0) {
+            this.quickDeductSuggestions.classList.add('hidden');
+            this.quickDeductPreview.innerHTML = `<span class="preview-hint">No items match "${this.escapeHtml(query)}"</span>`;
+            this.quickDeductPreview.classList.remove('hidden');
+            return;
+        }
+
+        if (matches.length === 1) {
+            // Single match - show preview
+            const item = matches[0];
+            this.quickDeductSuggestions.classList.add('hidden');
+            this.quickDeductPreview.innerHTML = `<span class="preview-hint">Press Enter to view <strong>${this.escapeHtml(item.name)}</strong></span>`;
+            this.quickDeductPreview.classList.remove('hidden');
+        } else {
+            // Multiple matches - show suggestions
+            this.quickDeductPreview.classList.add('hidden');
+            this.quickDeductSuggestions.innerHTML = matches.map((item, idx) => `
+                <div class="suggestion-item${idx === 0 ? ' highlighted' : ''}" data-name="${this.escapeHtml(item.name)}" data-view="true">
+                    <span class="suggestion-name">view ${this.escapeHtml(item.name)}</span>
+                    <span class="suggestion-qty">${item.quantity} ${item.unit}</span>
+                </div>
+            `).join('');
+            this.quickDeductSuggestions.classList.remove('hidden');
+
+            // Add click handlers
+            this.quickDeductSuggestions.querySelectorAll('.suggestion-item').forEach(el => {
+                el.addEventListener('click', () => {
+                    this.quickDeductInput.value = `view ${el.dataset.name}`;
+                    this.showItemDetails(el.dataset.name);
+                });
+            });
+        }
+    }
+
+    // Show item details modal
+    showItemDetails(query) {
+        const item = this.findInventoryMatch(query);
+        if (!item) {
+            alert(`Item "${query}" not found in inventory`);
+            return;
+        }
+
+        // Populate modal
+        document.getElementById('detailsName').textContent = item.name;
+        document.getElementById('detailsQty').textContent = `${item.quantity} ${item.unit}`;
+        document.getElementById('detailsCategory').textContent = this.formatCategory(item.category);
+        document.getElementById('detailsLocation').textContent = LOCATION_NAMES[item.location] || '-';
+        document.getElementById('detailsThreshold').textContent = item.threshold ? `${item.threshold} ${item.unit}` : 'None';
+        document.getElementById('detailsStore').textContent = item.boughtFrom || item.notes || '-';
+        document.getElementById('detailsPurchase').textContent = item.purchaseDate || '-';
+        document.getElementById('detailsExpiration').textContent = item.expirationDate || '-';
+        document.getElementById('detailsStaple').textContent = item.isStaple ? 'Yes' : 'No';
+
+        // Store item id for edit button
+        this.currentDetailsItemId = item.id;
+
+        // Show modal
+        this.itemDetailsModal.classList.remove('hidden');
+        this.clearCommandBar();
+    }
+
+    // Hide item details modal
+    hideItemDetails() {
+        this.itemDetailsModal.classList.add('hidden');
+        this.currentDetailsItemId = null;
     }
 
     // Apply live search filter to inventory
@@ -1891,10 +2041,14 @@ class PantryInventory {
         }
 
         // Handle different actions
-        if (parsed.action === 'show-add-form') {
+        if (parsed.action === 'show-help') {
+            this.toggleHelp();
+        } else if (parsed.action === 'show-add-form') {
             this.showAddForm(parsed.prefill);
         } else if (parsed.action === 'show-recipe') {
             this.showRecipeSection();
+        } else if (parsed.action === 'view') {
+            this.showItemDetails(parsed.itemQuery);
         } else if (parsed.action === 'deduct') {
             this.executeDeduct(parsed);
         } else if (parsed.action === 'restock') {
@@ -1967,7 +2121,8 @@ class PantryInventory {
             quantity: parsed.amount,
             unit: unit,
             category: category,
-            location: location
+            location: location,
+            threshold: parsed.threshold // Will use default 20% if null
             // Expiration will be auto-calculated in addItem based on category
         });
 

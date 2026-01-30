@@ -1287,7 +1287,8 @@ class PantryInventory {
             'tsp': 1,
             'tbsp': 3,
             'cups': 48,
-            'ml': 0.2029  // 1 ml ≈ 0.2 tsp
+            'ml': 0.2029,  // 1 ml ≈ 0.2 tsp
+            'l': 202.9     // 1 L = 1000 ml ≈ 202.9 tsp
         };
 
         // Weight units and their conversion to grams
@@ -1487,6 +1488,54 @@ class PantryInventory {
             return { action: 'view', itemQuery: viewCommand[1].trim() };
         }
 
+        // DEEP MODE: Just "convert" alone → show conversion panel
+        if (input.toLowerCase() === 'convert') {
+            return { action: 'show-convert-panel' };
+        }
+
+        // Full convert syntax: "convert <amount><unit> [ingredient] to <target>"
+        const convertFull = input.match(/^convert\s+(.+?)\s+to\s+([a-zA-Z]+)$/i);
+        if (convertFull) {
+            const parsed = this.parseConvertExpression(convertFull[1], convertFull[2]);
+            if (parsed) return { action: 'convert', ...parsed };
+        }
+
+        // Convert with ingredient suggestion: "convert 1/4c oli" (no "to" yet)
+        const convertPartial = input.match(/^convert\s+(\d*\.?\d*|\d+\/\d+|[½¼¾⅓⅔⅛⅜⅝⅞])\s*([a-zA-Z]+)\s+([^t].*)$/i);
+        if (convertPartial && !convertPartial[3].match(/^to\s/i)) {
+            return {
+                action: 'convert-suggest',
+                amount: this.parseAmountString(convertPartial[1]),
+                fromUnit: this.normalizeUnitShortcut(convertPartial[2]),
+                ingredientQuery: convertPartial[3].trim()
+            };
+        }
+
+        // Short syntax with explicit target: "<amount><unit> [ingredient] in/to <target>"
+        const convertShort = input.match(/^(.+?)\s+(?:in|to)\s+([a-zA-Z]+)$/i);
+        if (convertShort && !convertShort[1].match(/^(add|view|recipe|help|\+)/i)) {
+            const parsed = this.parseConvertExpression(convertShort[1], convertShort[2]);
+            if (parsed) return { action: 'convert', ...parsed };
+        }
+
+        // QUICK MODE: "<amount><unit> <ingredient>" (no target) → show unit picker
+        const quickConvert = input.match(/^(\d*\.?\d+|\d+\/\d+|[½¼¾⅓⅔⅛⅜⅝⅞])\s*([a-zA-Z]+)\s+([a-zA-Z].*)$/i);
+        if (quickConvert && !quickConvert[3].match(/^(to|in)\s/i)) {
+            const possibleIngredient = quickConvert[3].trim().toLowerCase();
+            // Check if it matches a known ingredient (not an inventory search)
+            const isKnownIngredient = Object.keys(INGREDIENT_DENSITIES).some(name =>
+                !name.startsWith('_') && (name.includes(possibleIngredient) || possibleIngredient.includes(name))
+            );
+            if (isKnownIngredient) {
+                return {
+                    action: 'convert-quick',
+                    amount: this.parseAmountString(quickConvert[1]),
+                    fromUnit: this.normalizeUnitShortcut(quickConvert[2]),
+                    ingredient: quickConvert[3].trim()
+                };
+            }
+        }
+
         // New item with @location, #category, !threshold: +name amount unit @location #category !threshold
         // e.g., "+chicken 3lb @fridge #protein !0.5"
         const newItemFull = input.match(/^\+\s*(.+?)\s+(\d*\.?\d+)\s*([a-zA-Z]+)(.*)$/);
@@ -1622,9 +1671,80 @@ class PantryInventory {
             't': 'tsp', 'T': 'tbsp', 'c': 'cups', 'cup': 'cups',
             'lb': 'lbs', 'tbs': 'tbsp', 'tbsps': 'tbsp',
             'teaspoon': 'tsp', 'teaspoons': 'tsp',
-            'tablespoon': 'tbsp', 'tablespoons': 'tbsp'
+            'tablespoon': 'tbsp', 'tablespoons': 'tbsp',
+            // Extended unit aliases
+            'gram': 'g', 'grams': 'g',
+            'kilogram': 'kg', 'kilograms': 'kg', 'kgs': 'kg',
+            'ounce': 'oz', 'ounces': 'oz',
+            'pound': 'lbs', 'pounds': 'lbs',
+            'milliliter': 'ml', 'milliliters': 'ml', 'mls': 'ml',
+            'liter': 'l', 'liters': 'l', 'litre': 'l', 'litres': 'l'
         };
-        return shortcuts[unit] || unit;
+        return shortcuts[unit] || unit.toLowerCase();
+    }
+
+    // Parse amount string (handles fractions, mixed numbers, decimals)
+    parseAmountString(amountStr) {
+        const fractionMap = {
+            '½': 0.5, '¼': 0.25, '¾': 0.75, '⅓': 0.333, '⅔': 0.667,
+            '⅛': 0.125, '⅜': 0.375, '⅝': 0.625, '⅞': 0.875
+        };
+
+        amountStr = amountStr.trim();
+
+        // Unicode fraction
+        if (fractionMap[amountStr]) {
+            return fractionMap[amountStr];
+        }
+
+        // Mixed number: "1 1/2"
+        const mixedMatch = amountStr.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+        if (mixedMatch) {
+            return parseInt(mixedMatch[1]) + (parseInt(mixedMatch[2]) / parseInt(mixedMatch[3]));
+        }
+
+        // Slash fraction: "1/4"
+        if (amountStr.includes('/')) {
+            const [num, den] = amountStr.split('/').map(s => parseFloat(s.trim()));
+            return num / den;
+        }
+
+        // Decimal or integer
+        return parseFloat(amountStr);
+    }
+
+    // Parse convert expression: "<amount><unit> [ingredient]"
+    parseConvertExpression(expression, targetUnit) {
+        const match = expression.trim().match(
+            /^(\d+\s+\d+\/\d+|\d+\/\d+|[½¼¾⅓⅔⅛⅜⅝⅞]|\d*\.?\d+)\s*([a-zA-Z]+)(?:\s+(.+))?$/i
+        );
+        if (!match) return null;
+
+        const amount = this.parseAmountString(match[1]);
+        if (isNaN(amount) || amount <= 0) return null;
+
+        return {
+            amount,
+            fromUnit: this.normalizeUnitShortcut(match[2]),
+            ingredient: match[3]?.trim() || null,
+            toUnit: this.normalizeUnitShortcut(targetUnit)
+        };
+    }
+
+    // Check if unit is a volume unit
+    isVolumeUnit(unit) {
+        return ['tsp', 'tbsp', 'cups', 'ml', 'l'].includes(unit);
+    }
+
+    // Check if unit is a weight unit
+    isWeightUnit(unit) {
+        return ['g', 'kg', 'oz', 'lbs'].includes(unit);
+    }
+
+    // Format conversion result
+    formatConversionResult(amount, unit) {
+        const rounded = Math.round(amount * 100) / 100;
+        return `${rounded} ${unit}`;
     }
 
     handleQuickDeductInput() {
@@ -1663,6 +1783,25 @@ class PantryInventory {
                 break;
             case 'view':
                 this.showViewSuggestions(parsed.itemQuery);
+                this.clearSearchFilter();
+                break;
+            case 'show-convert-panel':
+                this.quickDeductSuggestions.classList.add('hidden');
+                this.showConvertPanel();
+                this.clearSearchFilter();
+                break;
+            case 'convert':
+                this.quickDeductSuggestions.classList.add('hidden');
+                this.showConvertPreview(parsed);
+                this.clearSearchFilter();
+                break;
+            case 'convert-suggest':
+                this.showConvertIngredientSuggestions(parsed);
+                this.clearSearchFilter();
+                break;
+            case 'convert-quick':
+                this.quickDeductSuggestions.classList.add('hidden');
+                this.showQuickConvertPicker(parsed);
                 this.clearSearchFilter();
                 break;
             case 'deduct':
@@ -1739,6 +1878,180 @@ class PantryInventory {
         this.commandHelp.classList.toggle('hidden');
         this.clearCommandBar();
     }
+
+    // === CONVERSION METHODS ===
+
+    // Toggle the deep mode conversion panel
+    toggleConvertPanel() {
+        const panel = document.getElementById('convertPanel');
+        if (panel) {
+            panel.classList.toggle('hidden');
+        }
+        this.clearCommandBar();
+    }
+
+    // Show the conversion panel (deep mode)
+    showConvertPanel() {
+        this.quickDeductPreview.innerHTML = `
+            <div class="convert-panel-preview">
+                <span class="preview-hint">Press Enter to open conversion reference</span>
+                <div class="convert-quick-ref">
+                    <span><strong>1 cup</strong> = 48 tsp = 16 tbsp = 236 ml</span>
+                    <span><strong>1 lb</strong> = 453.6 g = 16 oz</span>
+                </div>
+            </div>
+        `;
+        this.quickDeductPreview.classList.remove('hidden');
+    }
+
+    // Show convert preview with result
+    showConvertPreview(parsed) {
+        const { amount, fromUnit, toUnit, ingredient } = parsed;
+        const result = this.convertQuantity(amount, fromUnit, toUnit, ingredient || '');
+
+        if (result === null) {
+            // Check if it's volume↔weight without ingredient
+            if (this.isVolumeUnit(fromUnit) !== this.isVolumeUnit(toUnit) &&
+                this.isVolumeUnit(fromUnit) !== this.isWeightUnit(toUnit)) {
+                if (!ingredient) {
+                    this.quickDeductPreview.innerHTML = `
+                        <span class="preview-hint">
+                            Add ingredient for density: <code>convert ${amount}${fromUnit} flour to ${toUnit}</code>
+                        </span>
+                    `;
+                } else {
+                    this.quickDeductPreview.innerHTML = `
+                        <span class="preview-error">Cannot convert ${fromUnit} to ${toUnit} for "${this.escapeHtml(ingredient)}"</span>
+                    `;
+                }
+            } else {
+                this.quickDeductPreview.innerHTML = `
+                    <span class="preview-error">Cannot convert ${fromUnit} to ${toUnit}</span>
+                `;
+            }
+        } else {
+            const formatted = this.formatConversionResult(result, toUnit);
+            const inputDisplay = this.formatConversionResult(amount, fromUnit);
+            this.quickDeductPreview.innerHTML = `
+                <span class="convert-input">${inputDisplay}</span>
+                ${ingredient ? `<span class="convert-ingredient">${this.escapeHtml(ingredient)}</span>` : ''}
+                <span class="convert-arrow">=</span>
+                <span class="convert-output">${formatted}</span>
+                <span class="preview-hint">— Press Enter to copy</span>
+            `;
+        }
+        this.quickDeductPreview.classList.remove('hidden');
+    }
+
+    // Show ingredient suggestions for convert command
+    showConvertIngredientSuggestions(parsed) {
+        const query = parsed.ingredientQuery.toLowerCase();
+
+        // Filter ingredients from density table
+        const matches = Object.keys(INGREDIENT_DENSITIES)
+            .filter(name => !name.startsWith('_') && name.includes(query))
+            .slice(0, 6);
+
+        if (matches.length === 0) {
+            this.quickDeductSuggestions.classList.add('hidden');
+            this.quickDeductPreview.innerHTML = `<span class="preview-hint">Type ingredient, then "to [unit]"</span>`;
+            this.quickDeductPreview.classList.remove('hidden');
+            return;
+        }
+
+        this.quickDeductPreview.classList.add('hidden');
+        this.highlightedSuggestionIndex = -1;
+
+        this.quickDeductSuggestions.innerHTML = matches.map((name, idx) => `
+            <div class="suggestion-item" data-ingredient="${this.escapeHtml(name)}" data-index="${idx}">
+                <span class="suggestion-name">${this.escapeHtml(name)}</span>
+                <span class="suggestion-density">${INGREDIENT_DENSITIES[name]} g/tsp</span>
+            </div>
+        `).join('');
+        this.quickDeductSuggestions.classList.remove('hidden');
+
+        // Click to select ingredient
+        this.quickDeductSuggestions.querySelectorAll('.suggestion-item').forEach(el => {
+            el.addEventListener('click', () => {
+                const base = `convert ${parsed.amount}${parsed.fromUnit} `;
+                this.quickDeductInput.value = base + el.dataset.ingredient + ' to ';
+                this.quickDeductInput.focus();
+                this.handleQuickDeductInput();
+            });
+        });
+    }
+
+    // Show quick convert picker (for quick mode without target unit)
+    showQuickConvertPicker(parsed) {
+        const { amount, fromUnit, ingredient } = parsed;
+        const inputDisplay = this.formatConversionResult(amount, fromUnit);
+
+        // Determine relevant target units based on source unit
+        let targetUnits = [];
+        if (this.isVolumeUnit(fromUnit)) {
+            targetUnits = ['g', 'oz', 'ml', 'tbsp', 'tsp', 'cups'];
+        } else if (this.isWeightUnit(fromUnit)) {
+            targetUnits = ['cups', 'tbsp', 'tsp', 'ml', 'g', 'oz', 'lbs'];
+        }
+        // Remove the source unit from targets
+        targetUnits = targetUnits.filter(u => u !== fromUnit);
+
+        // Build clickable unit buttons
+        const unitButtons = targetUnits.map(unit => {
+            const result = this.convertQuantity(amount, fromUnit, unit, ingredient);
+            if (result !== null) {
+                const formatted = this.formatConversionResult(result, unit);
+                return `<button class="convert-unit-btn" data-unit="${unit}" data-result="${formatted}">${formatted}</button>`;
+            }
+            return '';
+        }).filter(Boolean).join('');
+
+        this.quickDeductPreview.innerHTML = `
+            <div class="quick-convert-picker">
+                <span class="convert-input">${inputDisplay}</span>
+                <span class="convert-ingredient">${this.escapeHtml(ingredient)}</span>
+                <span class="convert-arrow">=</span>
+                <div class="convert-unit-options">${unitButtons}</div>
+            </div>
+        `;
+        this.quickDeductPreview.classList.remove('hidden');
+
+        // Add click handlers to unit buttons
+        this.quickDeductPreview.querySelectorAll('.convert-unit-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const result = btn.dataset.result;
+                navigator.clipboard.writeText(result).then(() => {
+                    this.quickDeductPreview.innerHTML = `
+                        <span class="convert-output">${this.escapeHtml(result)}</span>
+                        <span class="preview-success">✓ Copied to clipboard</span>
+                    `;
+                }).catch(() => {
+                    this.quickDeductPreview.innerHTML = `<span class="convert-output">${this.escapeHtml(result)}</span>`;
+                });
+            });
+        });
+    }
+
+    // Execute conversion and copy to clipboard
+    executeConvert(parsed) {
+        const result = this.convertQuantity(parsed.amount, parsed.fromUnit, parsed.toUnit, parsed.ingredient || '');
+        if (result !== null) {
+            const formatted = this.formatConversionResult(result, parsed.toUnit);
+            navigator.clipboard.writeText(formatted).then(() => {
+                this.quickDeductPreview.innerHTML = `
+                    <span class="convert-output">${this.escapeHtml(formatted)}</span>
+                    <span class="preview-success">✓ Copied to clipboard</span>
+                `;
+                this.quickDeductPreview.classList.remove('hidden');
+            }).catch(() => {
+                this.quickDeductPreview.innerHTML = `<span class="convert-output">${this.escapeHtml(formatted)}</span>`;
+                this.quickDeductPreview.classList.remove('hidden');
+            });
+        }
+        this.clearCommandBar();
+    }
+
+    // === END CONVERSION METHODS ===
 
     // Show view suggestions for item lookup
     showViewSuggestions(query) {
@@ -2043,6 +2356,13 @@ class PantryInventory {
         // Handle different actions
         if (parsed.action === 'show-help') {
             this.toggleHelp();
+        } else if (parsed.action === 'show-convert-panel') {
+            this.toggleConvertPanel();
+        } else if (parsed.action === 'convert') {
+            this.executeConvert(parsed);
+        } else if (parsed.action === 'convert-quick') {
+            // Quick mode needs a target unit - don't execute, just show picker
+            return;
         } else if (parsed.action === 'show-add-form') {
             this.showAddForm(parsed.prefill);
         } else if (parsed.action === 'show-recipe') {

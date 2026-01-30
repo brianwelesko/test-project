@@ -215,6 +215,117 @@ header h1 {
     font-size: 0.85em;
 }
 
+/* Convert help section */
+.convert-help-section {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.convert-help-section h5 {
+    margin: 0 0 6px 0;
+    color: #667eea;
+    font-size: 0.9em;
+}
+
+.convert-help-section ul {
+    margin: 0;
+    padding-left: 0;
+}
+
+/* Conversion preview styles */
+.convert-input {
+    font-weight: 600;
+    color: #333;
+}
+
+.convert-ingredient {
+    color: #667eea;
+    font-style: italic;
+    margin: 0 4px;
+}
+
+.convert-arrow {
+    color: #888;
+    margin: 0 8px;
+}
+
+.convert-output {
+    font-weight: bold;
+    color: #28a745;
+    font-size: 1.1em;
+}
+
+.preview-success {
+    color: #28a745;
+    margin-left: 8px;
+}
+
+.preview-error {
+    color: #dc3545;
+}
+
+/* Quick convert unit picker */
+.quick-convert-picker {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.convert-unit-options {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.convert-unit-btn {
+    padding: 6px 12px;
+    border: 1px solid #667eea;
+    background: white;
+    color: #667eea;
+    border-radius: 16px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.convert-unit-btn:hover {
+    background: #667eea;
+    color: white;
+}
+
+/* Convert panel preview */
+.convert-panel-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.convert-quick-ref {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.convert-quick-ref span {
+    background: #f0f0f0;
+    padding: 4px 10px;
+    border-radius: 12px;
+}
+
+/* Ingredient suggestion with density */
+.suggestion-density {
+    color: #888;
+    font-size: 0.8em;
+    background: #f0f0f0;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: auto;
+}
+
 .quick-deduct-btn {
     padding: 12px 20px;
     background: #28a745;

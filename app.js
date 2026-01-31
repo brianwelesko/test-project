@@ -1522,11 +1522,14 @@ class PantryInventory {
         const quickConvert = input.match(/^(\d*\.?\d+|\d+\/\d+|[½¼¾⅓⅔⅛⅜⅝⅞])\s*([a-zA-Z]+)\s+([a-zA-Z].*)$/i);
         if (quickConvert && !quickConvert[3].match(/^(to|in)\s/i)) {
             const possibleIngredient = quickConvert[3].trim().toLowerCase();
-            // Check if it matches a known ingredient (not an inventory search)
-            const isKnownIngredient = Object.keys(INGREDIENT_DENSITIES).some(name =>
+            // Check if it matches a known ingredient from density table OR inventory
+            const isInDensityTable = Object.keys(INGREDIENT_DENSITIES).some(name =>
                 !name.startsWith('_') && (name.includes(possibleIngredient) || possibleIngredient.includes(name))
             );
-            if (isKnownIngredient) {
+            const isInInventory = this.inventory.some(item =>
+                item.name.toLowerCase().includes(possibleIngredient) || possibleIngredient.includes(item.name.toLowerCase())
+            );
+            if (isInDensityTable || isInInventory) {
                 return {
                     action: 'convert-quick',
                     amount: this.parseAmountString(quickConvert[1]),
@@ -1881,23 +1884,31 @@ class PantryInventory {
 
     // === CONVERSION METHODS ===
 
-    // Toggle the deep mode conversion panel
+    // Toggle the deep mode conversion panel (prefill command bar)
     toggleConvertPanel() {
-        const panel = document.getElementById('convertPanel');
-        if (panel) {
-            panel.classList.toggle('hidden');
-        }
-        this.clearCommandBar();
+        // Instead of opening a panel, prefill the command bar with "convert "
+        // so user can immediately start typing the conversion
+        this.quickDeductInput.value = 'convert ';
+        this.quickDeductInput.focus();
+        this.handleQuickDeductInput();
     }
 
-    // Show the conversion panel (deep mode)
+    // Show the conversion panel (deep mode) - shows helpful reference + examples
     showConvertPanel() {
+        // Get a few inventory items as conversion examples
+        const inventoryExamples = this.inventory.slice(0, 3).map(item =>
+            `<code>${item.quantity}${item.unit} ${item.name.toLowerCase()}</code>`
+        ).join(', ');
+
         this.quickDeductPreview.innerHTML = `
             <div class="convert-panel-preview">
-                <span class="preview-hint">Press Enter to open conversion reference</span>
                 <div class="convert-quick-ref">
                     <span><strong>1 cup</strong> = 48 tsp = 16 tbsp = 236 ml</span>
                     <span><strong>1 lb</strong> = 453.6 g = 16 oz</span>
+                </div>
+                <div class="convert-examples-hint">
+                    <span class="preview-hint">Try: <code>1/4c flour to g</code> or <code>100g sugar to cups</code></span>
+                    ${inventoryExamples ? `<span class="preview-hint">Your items: ${inventoryExamples}</span>` : ''}
                 </div>
             </div>
         `;
@@ -1943,16 +1954,39 @@ class PantryInventory {
         this.quickDeductPreview.classList.remove('hidden');
     }
 
-    // Show ingredient suggestions for convert command
+    // Show ingredient suggestions for convert command (includes inventory items)
     showConvertIngredientSuggestions(parsed) {
         const query = parsed.ingredientQuery.toLowerCase();
 
-        // Filter ingredients from density table
-        const matches = Object.keys(INGREDIENT_DENSITIES)
+        // Combine inventory items AND density database for suggestions
+        const inventoryMatches = this.inventory
+            .filter(item => item.name.toLowerCase().includes(query))
+            .map(item => ({
+                name: item.name,
+                density: this.getIngredientDensity(item.name),
+                fromInventory: true
+            }));
+
+        const densityMatches = Object.keys(INGREDIENT_DENSITIES)
             .filter(name => !name.startsWith('_') && name.includes(query))
+            .map(name => ({
+                name: name,
+                density: INGREDIENT_DENSITIES[name],
+                fromInventory: false
+            }));
+
+        // Combine and dedupe (inventory first, then density table)
+        const seen = new Set();
+        const allMatches = [...inventoryMatches, ...densityMatches]
+            .filter(item => {
+                const key = item.name.toLowerCase();
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            })
             .slice(0, 6);
 
-        if (matches.length === 0) {
+        if (allMatches.length === 0) {
             this.quickDeductSuggestions.classList.add('hidden');
             this.quickDeductPreview.innerHTML = `<span class="preview-hint">Type ingredient, then "to [unit]"</span>`;
             this.quickDeductPreview.classList.remove('hidden');
@@ -1962,10 +1996,10 @@ class PantryInventory {
         this.quickDeductPreview.classList.add('hidden');
         this.highlightedSuggestionIndex = -1;
 
-        this.quickDeductSuggestions.innerHTML = matches.map((name, idx) => `
-            <div class="suggestion-item" data-ingredient="${this.escapeHtml(name)}" data-index="${idx}">
-                <span class="suggestion-name">${this.escapeHtml(name)}</span>
-                <span class="suggestion-density">${INGREDIENT_DENSITIES[name]} g/tsp</span>
+        this.quickDeductSuggestions.innerHTML = allMatches.map((item, idx) => `
+            <div class="suggestion-item" data-ingredient="${this.escapeHtml(item.name)}" data-index="${idx}">
+                <span class="suggestion-name">${this.escapeHtml(item.name)}${item.fromInventory ? ' <small>✓</small>' : ''}</span>
+                <span class="suggestion-density">${item.density} g/tsp</span>
             </div>
         `).join('');
         this.quickDeductSuggestions.classList.remove('hidden');

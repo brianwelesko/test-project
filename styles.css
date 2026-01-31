@@ -316,6 +316,20 @@ header h1 {
     border-radius: 12px;
 }
 
+.convert-examples-hint {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.convert-examples-hint code {
+    background: #e9ecef;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+}
+
 /* Ingredient suggestion with density */
 .suggestion-density {
     color: #888;
@@ -336,6 +350,14 @@ header h1 {
     cursor: pointer;
     transition: background 0.3s;
     white-space: nowrap;
+}
+
+.quick-deduct-btn .btn-text {
+    display: inline;
+}
+
+.quick-deduct-btn .btn-icon {
+    display: none;
 }
 
 .quick-deduct-btn:hover {
@@ -598,35 +620,72 @@ header h1 {
 }
 
 @media (max-width: 600px) {
+    body {
+        padding: 8px;
+    }
+
+    header {
+        margin-bottom: 12px;
+    }
+
+    header h1 {
+        font-size: 1.5rem;
+    }
+
+    .quick-use-section {
+        padding: 10px;
+        margin-bottom: 10px;
+    }
+
     .quick-deduct-wrapper {
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
+        gap: 6px;
     }
 
     #quickDeductInput {
-        flex: 1 1 100%;
-        margin-bottom: 8px;
+        flex: 1;
+        padding: 12px;
+        font-size: 16px; /* Prevents iOS zoom on focus */
     }
 
+    /* Hide text, show icon on mobile */
     .quick-deduct-btn {
-        flex: 1;
-        padding: 14px 16px;
+        padding: 12px 14px;
+        min-width: auto;
+    }
+
+    .quick-deduct-btn .btn-text {
+        display: none;
+    }
+
+    .quick-deduct-btn .btn-icon {
+        display: inline;
     }
 
     .quick-deduct-more {
-        padding: 14px 16px;
+        padding: 12px;
+        display: none; /* Hide more button on mobile */
     }
 
     .command-quick-links {
         justify-content: center;
-        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 6px;
+        font-size: 0.8rem;
     }
 
     .command-quick-links a {
-        padding: 8px 16px;
+        padding: 4px 10px;
+        font-size: 0.8rem;
     }
 
     .suggestion-item {
-        padding: 14px 16px;
+        padding: 12px;
+    }
+
+    .quick-deduct-preview {
+        padding: 8px 10px;
+        font-size: 0.9rem;
     }
 
     .deduct-row {

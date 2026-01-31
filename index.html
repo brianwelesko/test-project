@@ -15,15 +15,14 @@
         <!-- Quick Actions Command Bar -->
         <section class="quick-use-section">
             <div class="quick-deduct-wrapper">
-                <input type="text" id="quickDeductInput" placeholder="Search or type: rice -1c · +chicken 3lb @fridge #protein · add · recipe" autocomplete="off">
-                <button id="quickDeductBtn" class="quick-deduct-btn">Go</button>
+                <input type="text" id="quickDeductInput" placeholder="Search, convert, add..." autocomplete="off" autofocus>
+                <button id="quickDeductBtn" class="quick-deduct-btn"><span class="btn-text">Go</span><span class="btn-icon">→</span></button>
                 <button id="quickDeductMore" class="quick-deduct-more" title="More options">⋯</button>
             </div>
             <div class="command-quick-links">
-                <span>Quick:</span>
-                <a href="#" data-command="add">Add Item</a>
-                <a href="#" data-command="recipe">Use Recipe</a>
-                <a href="#" data-command="help">Help</a>
+                <a href="#" data-command="add">+Add</a>
+                <a href="#" data-command="recipe">Recipe</a>
+                <a href="#" data-command="help">?</a>
             </div>
             <div id="commandHelp" class="command-help hidden">
                 <h4>Command Syntax</h4>

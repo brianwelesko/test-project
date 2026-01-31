@@ -24,6 +24,20 @@
                 <a href="#" data-command="recipe">Recipe</a>
                 <a href="#" data-command="help">?</a>
             </div>
+            <!-- Compact Alerts Bar -->
+            <div id="alertsBar" class="alerts-bar hidden">
+                <div class="alert-group low-stock-group">
+                    <span class="alert-icon">⚠️</span>
+                    <span class="alert-label">Low:</span>
+                    <span id="lowStockItems" class="alert-items"></span>
+                </div>
+                <div class="alert-divider">|</div>
+                <div class="alert-group expiring-group">
+                    <span class="alert-icon">⏰</span>
+                    <span class="alert-label">Exp:</span>
+                    <span id="expiringItems" class="alert-items"></span>
+                </div>
+            </div>
             <div id="commandHelp" class="command-help hidden">
                 <h4>Command Syntax</h4>
                 <ul>
@@ -46,6 +60,29 @@
                         <li><code>convert 500g flour to cups</code> — Weight to volume</li>
                         <li><code>convert 2T to ml</code> — Simple volume conversion</li>
                         <li><code>convert</code> — Open conversion reference</li>
+                    </ul>
+                </div>
+                <div class="convert-help-section">
+                    <h5>Inventory Actions</h5>
+                    <ul>
+                        <li><code>sort</code> — Sort by urgency (low stock + expiring first)</li>
+                        <li><code>sort name</code> — Sort alphabetically</li>
+                        <li><code>sort exp</code> — Sort by expiration</li>
+                        <li><code>sort qty</code> — Sort by quantity</li>
+                        <li><code>delete rice</code> — Delete item (Enter twice to confirm)</li>
+                        <li><code>edit rice</code> — Edit item</li>
+                        <li><code>set rice 5</code> — Set quantity to 5</li>
+                        <li><code>staple rice</code> — Toggle staple status</li>
+                    </ul>
+                </div>
+                <div class="convert-help-section">
+                    <h5>Filters</h5>
+                    <ul>
+                        <li><code>@fridge</code> — Show fridge items only</li>
+                        <li><code>#protein</code> — Show protein items only</li>
+                        <li><code>low</code> — Show low stock items</li>
+                        <li><code>expiring</code> — Show expiring items</li>
+                        <li><code>clear</code> — Clear all filters</li>
                     </ul>
                 </div>
                 <p><strong>Units:</strong> t=tsp, T=tbsp, c=cups, oz, lb, g, kg, ml, l</p>

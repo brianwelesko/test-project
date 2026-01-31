@@ -394,6 +394,12 @@ class PantryInventory {
         this.inventory = this.loadInventory();
         this.editingId = null;
 
+        // New state for command bar enhancements
+        this.pendingDeleteId = null;
+        this.currentLocationFilter = null;
+        this.currentSpecialFilter = null;
+        this.currentSortMode = null;
+
         this.initializeElements();
         this.bindEvents();
         this.render();
@@ -663,6 +669,24 @@ class PantryInventory {
         return 'fresh';
     }
 
+    // Get urgency score for sorting (higher = more urgent)
+    getItemUrgency(item) {
+        let urgency = 0;
+        const days = this.getDaysUntilExpiration(item);
+
+        // Expired items are most urgent
+        if (days !== null && days < 0) urgency += 100;
+        // Expiring within 3 days
+        else if (days !== null && days <= 3) urgency += 50;
+        // Expiring within 7 days
+        else if (days !== null && days <= 7) urgency += 20;
+
+        // Low stock adds urgency
+        if (item.threshold > 0 && item.quantity <= item.threshold) urgency += 30;
+
+        return urgency;
+    }
+
     // Get items expiring within N days
     getExpiringItems(withinDays = 5) {
         return this.inventory.filter(item => {
@@ -875,7 +899,70 @@ class PantryInventory {
     // Rendering
     render() {
         this.renderAlerts();
+        this.renderAlertsBar();
         this.renderInventory();
+    }
+
+    // Compact alerts bar (inline above inventory)
+    renderAlertsBar() {
+        const alertsBar = document.getElementById('alertsBar');
+        const lowStockItemsEl = document.getElementById('lowStockItems');
+        const expiringItemsEl = document.getElementById('expiringItems');
+
+        if (!alertsBar) return;
+
+        const lowStockItems = this.getLowStockItems();
+        const expiringItems = this.getExpiringItems(7);
+
+        const hasAlerts = lowStockItems.length > 0 || expiringItems.length > 0;
+
+        if (!hasAlerts) {
+            alertsBar.classList.add('hidden');
+            return;
+        }
+
+        alertsBar.classList.remove('hidden');
+
+        // Render low stock items (compact)
+        if (lowStockItems.length > 0) {
+            alertsBar.querySelector('.low-stock-group').classList.remove('hidden');
+            lowStockItemsEl.innerHTML = lowStockItems.slice(0, 5).map(item => {
+                const displayQty = item.quantity % 1 === 0 ? item.quantity : item.quantity.toFixed(1);
+                return `<span class="alert-item" data-id="${item.id}" title="Click to view">${this.escapeHtml(item.name)} (${displayQty}${item.unit})</span>`;
+            }).join('') + (lowStockItems.length > 5 ? `<span class="alert-more">+${lowStockItems.length - 5} more</span>` : '');
+        } else {
+            alertsBar.querySelector('.low-stock-group').classList.add('hidden');
+        }
+
+        // Render expiring items (compact)
+        if (expiringItems.length > 0) {
+            alertsBar.querySelector('.expiring-group').classList.remove('hidden');
+            expiringItemsEl.innerHTML = expiringItems.slice(0, 5).map(item => {
+                const days = this.getDaysUntilExpiration(item);
+                const daysText = days <= 0 ? 'exp!' : days === 1 ? '1d' : `${days}d`;
+                const urgentClass = days <= 1 ? 'urgent' : '';
+                return `<span class="alert-item ${urgentClass}" data-id="${item.id}" title="Click to view">${this.escapeHtml(item.name)} (${daysText})</span>`;
+            }).join('') + (expiringItems.length > 5 ? `<span class="alert-more">+${expiringItems.length - 5} more</span>` : '');
+        } else {
+            alertsBar.querySelector('.expiring-group').classList.add('hidden');
+        }
+
+        // Show/hide divider based on both groups
+        const divider = alertsBar.querySelector('.alert-divider');
+        if (divider) {
+            divider.classList.toggle('hidden', lowStockItems.length === 0 || expiringItems.length === 0);
+        }
+
+        // Add click handlers for alert items
+        alertsBar.querySelectorAll('.alert-item[data-id]').forEach(el => {
+            el.onclick = () => {
+                const id = parseInt(el.dataset.id);
+                const item = this.inventory.find(i => i.id === id);
+                if (item) {
+                    this.showItemDetails(item);
+                }
+            };
+        });
     }
 
     renderAlerts() {
@@ -937,18 +1024,41 @@ class PantryInventory {
             );
         }
 
-        // Filter by category
+        // Filter by category (dropdown)
         const categoryFilter = this.filterCategory.value;
-        if (categoryFilter !== 'all') {
+        if (categoryFilter && categoryFilter !== 'all') {
             items = items.filter(item => item.category === categoryFilter);
         }
 
+        // Filter by location (command bar)
+        if (this.currentLocationFilter) {
+            items = items.filter(item => item.location === this.currentLocationFilter);
+        }
+
+        // Special filters (command bar: low, expiring)
+        if (this.currentSpecialFilter === 'low-stock') {
+            items = items.filter(item => item.threshold > 0 && item.quantity <= item.threshold);
+        } else if (this.currentSpecialFilter === 'expiring') {
+            items = items.filter(item => {
+                const days = this.getDaysUntilExpiration(item);
+                return days !== null && days <= 7;
+            });
+        }
+
         // Sort items - staples always first, then by selected sort option
-        const sortOption = this.sortBy.value;
+        const sortOption = this.currentSortMode || this.sortBy.value;
         items.sort((a, b) => {
             // Staples always come first
             if (a.isStaple && !b.isStaple) return -1;
             if (!a.isStaple && b.isStaple) return 1;
+
+            // Urgency sort: expired > expiring soon > low stock > alphabetical
+            if (sortOption === 'urgency') {
+                const urgencyA = this.getItemUrgency(a);
+                const urgencyB = this.getItemUrgency(b);
+                if (urgencyA !== urgencyB) return urgencyB - urgencyA;
+                return a.name.localeCompare(b.name);
+            }
 
             // Then apply normal sort within each group
             switch (sortOption) {
@@ -1482,6 +1592,66 @@ class PantryInventory {
             return { action: 'show-recipe' };
         }
 
+        // Sort command: "sort" or "sort name/qty/exp/etc"
+        const sortCommand = input.match(/^sort(?:\s+(\w+))?$/i);
+        if (sortCommand) {
+            return { action: 'sort', sortBy: sortCommand[1] ? sortCommand[1].toLowerCase() : 'urgency' };
+        }
+
+        // Delete command: "delete/del/rm item"
+        const deleteCommand = input.match(/^(delete|del|rm)\s+(.+)$/i);
+        if (deleteCommand) {
+            return { action: 'delete', itemQuery: deleteCommand[2].trim() };
+        }
+
+        // Edit command: "edit/e item"
+        const editCommand = input.match(/^(edit|e)\s+(.+)$/i);
+        if (editCommand) {
+            return { action: 'edit', itemQuery: editCommand[2].trim() };
+        }
+
+        // Set quantity command: "set item amount [unit]"
+        const setQtyCommand = input.match(/^set\s+(.+?)\s+(\d*\.?\d+)(?:\s*([a-zA-Z]+))?$/i);
+        if (setQtyCommand) {
+            return {
+                action: 'set-qty',
+                itemQuery: setQtyCommand[1].trim(),
+                amount: parseFloat(setQtyCommand[2]),
+                unit: setQtyCommand[3] ? this.normalizeUnitShortcut(setQtyCommand[3]) : null
+            };
+        }
+
+        // Staple toggle: "staple/star item"
+        const stapleCommand = input.match(/^(staple|star)\s+(.+)$/i);
+        if (stapleCommand) {
+            return { action: 'toggle-staple', itemQuery: stapleCommand[2].trim() };
+        }
+
+        // Filter by location: "@fridge", "@pantry", etc.
+        const locationFilter = input.match(/^@(\w+)$/i);
+        if (locationFilter) {
+            return { action: 'filter-location', location: this.normalizeLocationShortcut(locationFilter[1]) };
+        }
+
+        // Filter by category: "#protein", "#dairy", etc.
+        const categoryFilter = input.match(/^#(\w+)$/i);
+        if (categoryFilter) {
+            return { action: 'filter-category', category: this.normalizeCategoryShortcut(categoryFilter[1]) };
+        }
+
+        // Filter shortcuts: "low" for low stock, "expiring" for expiring items
+        if (input.toLowerCase() === 'low') {
+            return { action: 'filter-low-stock' };
+        }
+        if (input.toLowerCase() === 'expiring' || input.toLowerCase() === 'exp') {
+            return { action: 'filter-expiring' };
+        }
+
+        // Clear filters: "all" or "clear"
+        if (input.toLowerCase() === 'all' || input.toLowerCase() === 'clear') {
+            return { action: 'clear-filters' };
+        }
+
         // View command: "view name" or "view partial"
         const viewCommand = input.match(/^view\s+(.+)$/i);
         if (viewCommand) {
@@ -1834,6 +2004,49 @@ class PantryInventory {
                 this.showPartialFeedback(parsed);
                 this.clearSearchFilter();
                 break;
+            case 'sort':
+                this.quickDeductSuggestions.classList.add('hidden');
+                this.showSortPreview(parsed);
+                this.clearSearchFilter();
+                break;
+            case 'delete':
+                this.showDeleteSuggestions(parsed);
+                this.clearSearchFilter();
+                break;
+            case 'edit':
+                this.showEditSuggestions(parsed);
+                this.clearSearchFilter();
+                break;
+            case 'set-qty':
+                this.quickDeductSuggestions.classList.add('hidden');
+                this.showSetQtyPreview(parsed);
+                this.clearSearchFilter();
+                break;
+            case 'toggle-staple':
+                this.showStaplePreview(parsed);
+                this.clearSearchFilter();
+                break;
+            case 'filter-location':
+                this.quickDeductSuggestions.classList.add('hidden');
+                this.showFilterPreview('location', parsed.location);
+                break;
+            case 'filter-category':
+                this.quickDeductSuggestions.classList.add('hidden');
+                this.showFilterPreview('category', parsed.category);
+                break;
+            case 'filter-low-stock':
+                this.quickDeductSuggestions.classList.add('hidden');
+                this.showFilterPreview('low-stock');
+                break;
+            case 'filter-expiring':
+                this.quickDeductSuggestions.classList.add('hidden');
+                this.showFilterPreview('expiring');
+                break;
+            case 'clear-filters':
+                this.quickDeductSuggestions.classList.add('hidden');
+                this.quickDeductPreview.innerHTML = `<span class="preview-hint">Press Enter to show all items</span>`;
+                this.quickDeductPreview.classList.remove('hidden');
+                break;
             case 'search':
             default:
                 this.quickDeductPreview.classList.add('hidden');
@@ -2086,6 +2299,333 @@ class PantryInventory {
     }
 
     // === END CONVERSION METHODS ===
+
+    // === SORT/DELETE/EDIT/FILTER METHODS ===
+
+    // Sort preview
+    showSortPreview(parsed) {
+        const sortLabels = {
+            'urgency': 'urgency (expiring + low stock first)',
+            'name': 'name (A-Z)',
+            'n': 'name (A-Z)',
+            'exp': 'expiration (soonest first)',
+            'expiration': 'expiration (soonest first)',
+            'e': 'expiration (soonest first)',
+            'qty': 'quantity (lowest first)',
+            'quantity': 'quantity (lowest first)',
+            'q': 'quantity (lowest first)',
+            'cat': 'category',
+            'category': 'category',
+            'c': 'category',
+            'store': 'store',
+            's': 'store',
+            'recent': 'recently updated',
+            'r': 'recently updated',
+            'updated': 'recently updated'
+        };
+        const label = sortLabels[parsed.sortBy] || parsed.sortBy;
+        this.quickDeductPreview.innerHTML = `<span class="preview-hint">Sort by <strong>${label}</strong> — Press Enter</span>`;
+        this.quickDeductPreview.classList.remove('hidden');
+    }
+
+    // Execute sort
+    executeSort(parsed) {
+        const sortMap = {
+            'urgency': 'urgency',
+            'name': 'name', 'n': 'name',
+            'exp': 'expiration', 'expiration': 'expiration', 'e': 'expiration',
+            'qty': 'quantity', 'quantity': 'quantity', 'q': 'quantity',
+            'cat': 'category', 'category': 'category', 'c': 'category',
+            'store': 'store', 's': 'store',
+            'recent': 'updated', 'r': 'updated', 'updated': 'updated'
+        };
+        const sortValue = sortMap[parsed.sortBy] || 'name';
+
+        // Add urgency option to the dropdown if not already there
+        if (sortValue === 'urgency') {
+            this.currentSortMode = 'urgency';
+        } else {
+            this.sortBy.value = sortValue;
+            this.currentSortMode = null;
+        }
+
+        this.clearCommandBar();
+        this.render();
+    }
+
+    // Delete suggestions/preview
+    showDeleteSuggestions(parsed) {
+        const matches = this.inventory.filter(item =>
+            item.name.toLowerCase().includes(parsed.itemQuery.toLowerCase())
+        ).slice(0, 5);
+
+        if (matches.length === 0) {
+            this.quickDeductSuggestions.classList.add('hidden');
+            this.quickDeductPreview.innerHTML = `<span class="preview-error">No items match "${this.escapeHtml(parsed.itemQuery)}"</span>`;
+            this.quickDeductPreview.classList.remove('hidden');
+            return;
+        }
+
+        if (matches.length === 1) {
+            // Single match - show delete preview
+            const item = matches[0];
+            this.quickDeductSuggestions.classList.add('hidden');
+            if (this.pendingDeleteId === item.id) {
+                // Second Enter - ready to delete
+                this.quickDeductPreview.innerHTML = `
+                    <span class="preview-warning">⚠️ DELETE "${this.escapeHtml(item.name)}"? Press Enter again to confirm</span>
+                `;
+            } else {
+                // First Enter - show warning
+                this.quickDeductPreview.innerHTML = `
+                    <span class="preview-hint">Delete <strong>${this.escapeHtml(item.name)}</strong> (${item.quantity} ${item.unit})? Press Enter</span>
+                `;
+            }
+            this.quickDeductPreview.classList.remove('hidden');
+            return;
+        }
+
+        // Multiple matches - show suggestions
+        this.quickDeductPreview.classList.add('hidden');
+        this.pendingDeleteId = null;
+        this.quickDeductSuggestions.innerHTML = matches.map((item, idx) => `
+            <div class="suggestion-item delete-suggestion" data-id="${item.id}" data-name="${this.escapeHtml(item.name)}" data-index="${idx}">
+                <span class="suggestion-name">${this.escapeHtml(item.name)}</span>
+                <span class="suggestion-qty">${item.quantity} ${item.unit}</span>
+            </div>
+        `).join('');
+        this.quickDeductSuggestions.classList.remove('hidden');
+
+        // Click to select
+        this.quickDeductSuggestions.querySelectorAll('.suggestion-item').forEach(el => {
+            el.addEventListener('click', () => {
+                this.quickDeductInput.value = `delete ${el.dataset.name}`;
+                this.handleQuickDeductInput();
+            });
+        });
+    }
+
+    // Execute delete (with double-Enter confirmation)
+    executeDelete(parsed) {
+        const item = this.findInventoryMatch(parsed.itemQuery);
+        if (!item) {
+            return;
+        }
+
+        if (this.pendingDeleteId === item.id) {
+            // Second Enter - actually delete
+            this.deleteItem(item.id);
+            this.pendingDeleteId = null;
+            this.quickDeductPreview.innerHTML = `<span class="preview-success">✓ Deleted "${this.escapeHtml(item.name)}"</span>`;
+            this.quickDeductPreview.classList.remove('hidden');
+            this.clearCommandBar();
+            this.render();
+            setTimeout(() => this.quickDeductPreview.classList.add('hidden'), 2000);
+        } else {
+            // First Enter - set pending and update preview
+            this.pendingDeleteId = item.id;
+            this.quickDeductPreview.innerHTML = `
+                <span class="preview-warning">⚠️ DELETE "${this.escapeHtml(item.name)}"? Press Enter again to confirm</span>
+            `;
+            this.quickDeductPreview.classList.remove('hidden');
+        }
+    }
+
+    // Edit suggestions
+    showEditSuggestions(parsed) {
+        const matches = this.inventory.filter(item =>
+            item.name.toLowerCase().includes(parsed.itemQuery.toLowerCase())
+        ).slice(0, 5);
+
+        if (matches.length === 0) {
+            this.quickDeductSuggestions.classList.add('hidden');
+            this.quickDeductPreview.innerHTML = `<span class="preview-error">No items match "${this.escapeHtml(parsed.itemQuery)}"</span>`;
+            this.quickDeductPreview.classList.remove('hidden');
+            return;
+        }
+
+        if (matches.length === 1) {
+            const item = matches[0];
+            this.quickDeductSuggestions.classList.add('hidden');
+            this.quickDeductPreview.innerHTML = `
+                <span class="preview-hint">Edit <strong>${this.escapeHtml(item.name)}</strong> — Press Enter to open form</span>
+            `;
+            this.quickDeductPreview.classList.remove('hidden');
+            return;
+        }
+
+        // Multiple matches
+        this.quickDeductPreview.classList.add('hidden');
+        this.quickDeductSuggestions.innerHTML = matches.map((item, idx) => `
+            <div class="suggestion-item" data-id="${item.id}" data-name="${this.escapeHtml(item.name)}" data-index="${idx}">
+                <span class="suggestion-name">${this.escapeHtml(item.name)}</span>
+                <span class="suggestion-qty">${item.quantity} ${item.unit}</span>
+            </div>
+        `).join('');
+        this.quickDeductSuggestions.classList.remove('hidden');
+
+        this.quickDeductSuggestions.querySelectorAll('.suggestion-item').forEach(el => {
+            el.addEventListener('click', () => {
+                this.quickDeductInput.value = `edit ${el.dataset.name}`;
+                this.handleQuickDeductInput();
+            });
+        });
+    }
+
+    // Execute edit
+    executeEdit(parsed) {
+        const item = this.findInventoryMatch(parsed.itemQuery);
+        if (!item) {
+            return;
+        }
+        this.clearCommandBar();
+        this.startEdit(item.id);
+    }
+
+    // Set quantity preview
+    showSetQtyPreview(parsed) {
+        const item = this.findInventoryMatch(parsed.itemQuery);
+        if (!item) {
+            this.quickDeductPreview.innerHTML = `<span class="preview-error">No items match "${this.escapeHtml(parsed.itemQuery)}"</span>`;
+            this.quickDeductPreview.classList.remove('hidden');
+            return;
+        }
+
+        const newUnit = parsed.unit || item.unit;
+        this.quickDeductPreview.innerHTML = `
+            <span class="preview-hint">
+                Set <strong>${this.escapeHtml(item.name)}</strong> to ${parsed.amount} ${newUnit}
+                <span class="preview-calc">(was ${item.quantity} ${item.unit})</span>
+                — Press Enter
+            </span>
+        `;
+        this.quickDeductPreview.classList.remove('hidden');
+    }
+
+    // Execute set quantity
+    executeSetQty(parsed) {
+        const item = this.findInventoryMatch(parsed.itemQuery);
+        if (!item) {
+            return;
+        }
+
+        const newUnit = parsed.unit || item.unit;
+        let newQty = parsed.amount;
+
+        // Convert if different unit
+        if (newUnit !== item.unit) {
+            const converted = this.convertQuantity(parsed.amount, newUnit, item.unit, item.name);
+            if (converted !== null) {
+                newQty = converted;
+            }
+        }
+
+        this.updateItem(item.id, { quantity: Math.round(newQty * 100) / 100 });
+        this.quickDeductPreview.innerHTML = `<span class="preview-success">✓ Set ${this.escapeHtml(item.name)} to ${parsed.amount} ${newUnit}</span>`;
+        this.quickDeductPreview.classList.remove('hidden');
+        this.clearCommandBar();
+        this.render();
+        setTimeout(() => this.quickDeductPreview.classList.add('hidden'), 2000);
+    }
+
+    // Staple toggle preview
+    showStaplePreview(parsed) {
+        const item = this.findInventoryMatch(parsed.itemQuery);
+        if (!item) {
+            this.quickDeductPreview.innerHTML = `<span class="preview-error">No items match "${this.escapeHtml(parsed.itemQuery)}"</span>`;
+            this.quickDeductPreview.classList.remove('hidden');
+            return;
+        }
+
+        const action = item.isStaple ? 'Remove staple status from' : 'Mark as staple:';
+        this.quickDeductPreview.innerHTML = `
+            <span class="preview-hint">${action} <strong>${this.escapeHtml(item.name)}</strong> — Press Enter</span>
+        `;
+        this.quickDeductPreview.classList.remove('hidden');
+    }
+
+    // Execute staple toggle
+    executeToggleStaple(parsed) {
+        const item = this.findInventoryMatch(parsed.itemQuery);
+        if (!item) {
+            return;
+        }
+
+        this.updateItem(item.id, { isStaple: !item.isStaple });
+        const status = !item.isStaple ? 'marked as staple' : 'removed from staples';
+        this.quickDeductPreview.innerHTML = `<span class="preview-success">✓ ${this.escapeHtml(item.name)} ${status}</span>`;
+        this.quickDeductPreview.classList.remove('hidden');
+        this.clearCommandBar();
+        this.render();
+        setTimeout(() => this.quickDeductPreview.classList.add('hidden'), 2000);
+    }
+
+    // Filter preview
+    showFilterPreview(type, value) {
+        let label;
+        switch (type) {
+            case 'location':
+                label = `items in <strong>${LOCATION_NAMES[value] || value}</strong>`;
+                break;
+            case 'category':
+                label = `<strong>${CATEGORY_NAMES[value] || value}</strong> items`;
+                break;
+            case 'low-stock':
+                label = `<strong>low stock</strong> items`;
+                break;
+            case 'expiring':
+                label = `<strong>expiring</strong> items`;
+                break;
+            default:
+                label = value;
+        }
+        this.quickDeductPreview.innerHTML = `<span class="preview-hint">Show ${label} — Press Enter</span>`;
+        this.quickDeductPreview.classList.remove('hidden');
+    }
+
+    // Execute filters
+    executeFilterLocation(parsed) {
+        this.filterCategory.value = '';
+        this.currentLocationFilter = parsed.location;
+        this.currentSpecialFilter = null;
+        this.clearCommandBar();
+        this.render();
+    }
+
+    executeFilterCategory(parsed) {
+        this.filterCategory.value = parsed.category;
+        this.currentLocationFilter = null;
+        this.currentSpecialFilter = null;
+        this.clearCommandBar();
+        this.render();
+    }
+
+    executeFilterLowStock() {
+        this.filterCategory.value = '';
+        this.currentLocationFilter = null;
+        this.currentSpecialFilter = 'low-stock';
+        this.clearCommandBar();
+        this.render();
+    }
+
+    executeFilterExpiring() {
+        this.filterCategory.value = '';
+        this.currentLocationFilter = null;
+        this.currentSpecialFilter = 'expiring';
+        this.clearCommandBar();
+        this.render();
+    }
+
+    executeClearFilters() {
+        this.filterCategory.value = '';
+        this.currentLocationFilter = null;
+        this.currentSpecialFilter = null;
+        this.currentSortMode = null;
+        this.clearCommandBar();
+        this.render();
+    }
+
+    // === END SORT/DELETE/EDIT/FILTER METHODS ===
 
     // Show view suggestions for item lookup
     showViewSuggestions(query) {
@@ -2412,6 +2952,26 @@ class PantryInventory {
         } else if (parsed.action === 'add-new-partial') {
             // Open expanded form for new item
             this.openAddNewForm(parsed.name);
+        } else if (parsed.action === 'sort') {
+            this.executeSort(parsed);
+        } else if (parsed.action === 'delete') {
+            this.executeDelete(parsed);
+        } else if (parsed.action === 'edit') {
+            this.executeEdit(parsed);
+        } else if (parsed.action === 'set-qty') {
+            this.executeSetQty(parsed);
+        } else if (parsed.action === 'toggle-staple') {
+            this.executeToggleStaple(parsed);
+        } else if (parsed.action === 'filter-location') {
+            this.executeFilterLocation(parsed);
+        } else if (parsed.action === 'filter-category') {
+            this.executeFilterCategory(parsed);
+        } else if (parsed.action === 'filter-low-stock') {
+            this.executeFilterLowStock();
+        } else if (parsed.action === 'filter-expiring') {
+            this.executeFilterExpiring();
+        } else if (parsed.action === 'clear-filters') {
+            this.executeClearFilters();
         }
         // Partial actions don't execute, they just show hints
     }

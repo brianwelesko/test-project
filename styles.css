@@ -176,6 +176,144 @@ header h1 {
     color: white;
 }
 
+/* Compact Alerts Bar */
+.alerts-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    border-radius: 8px;
+    margin-top: 10px;
+    font-size: 0.85rem;
+    flex-wrap: wrap;
+}
+
+.alerts-bar .alert-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.alerts-bar .alert-icon {
+    font-size: 0.9em;
+}
+
+.alerts-bar .alert-label {
+    font-weight: 600;
+    color: #92400e;
+}
+
+.alerts-bar .alert-items {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.alerts-bar .alert-item {
+    background: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid #e5e7eb;
+}
+
+.alerts-bar .alert-item:hover {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+}
+
+.alerts-bar .alert-item.urgent {
+    background: #fef2f2;
+    border-color: #fca5a5;
+    color: #991b1b;
+}
+
+.alerts-bar .alert-item.urgent:hover {
+    background: #dc3545;
+    color: white;
+}
+
+.alerts-bar .alert-divider {
+    color: #d1d5db;
+}
+
+.alerts-bar .low-stock-group .alert-label {
+    color: #dc3545;
+}
+
+.alerts-bar .expiring-group .alert-label {
+    color: #92400e;
+}
+
+.alerts-bar .alert-more {
+    color: #6b7280;
+    font-size: 0.8em;
+    font-style: italic;
+}
+
+@media (max-width: 600px) {
+    .alerts-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+        padding: 8px 10px;
+    }
+
+    .alerts-bar .alert-divider {
+        display: none;
+    }
+}
+
+/* Preview warning for delete confirmation */
+.preview-warning {
+    background: #fef2f2 !important;
+    border: 2px solid #dc3545;
+}
+
+.preview-warning .preview-item {
+    color: #dc3545;
+}
+
+.quick-deduct-preview.preview-warning::before {
+    content: "⚠️ ";
+}
+
+/* Delete suggestion item styling */
+.suggestion-item.delete-suggestion {
+    background: #fef2f2;
+    border-left: 3px solid #dc3545;
+}
+
+.suggestion-item.delete-suggestion:hover {
+    background: #fee2e2;
+}
+
+/* Set quantity preview */
+.preview-set-qty {
+    color: #667eea;
+    font-weight: 600;
+}
+
+/* Staple toggle preview */
+.preview-staple {
+    color: #28a745;
+}
+
+/* Filter active indicator */
+.filter-active-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background: #667eea;
+    color: white;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    margin-left: 8px;
+}
+
 /* Help Panel */
 .command-help {
     background: #f8f9fa;

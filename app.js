@@ -959,7 +959,7 @@ class PantryInventory {
                 const id = parseInt(el.dataset.id);
                 const item = this.inventory.find(i => i.id === id);
                 if (item) {
-                    this.showItemDetails(item);
+                    this.showItemDetails(item.name);
                 }
             };
         });
@@ -1014,6 +1014,31 @@ class PantryInventory {
         }
     }
 
+    updateFilterIndicator() {
+        const indicator = document.getElementById('filterIndicator');
+        if (!indicator) return;
+
+        const filters = [];
+        if (this.currentLocationFilter) {
+            filters.push(`@${this.currentLocationFilter}`);
+        }
+        if (this.currentSpecialFilter === 'low-stock') {
+            filters.push('low stock');
+        } else if (this.currentSpecialFilter === 'expiring') {
+            filters.push('expiring');
+        }
+        if (this.currentSortMode === 'urgency') {
+            filters.push('sorted by urgency');
+        }
+
+        if (filters.length > 0) {
+            indicator.textContent = `(${filters.join(', ')})`;
+            indicator.classList.remove('hidden');
+        } else {
+            indicator.classList.add('hidden');
+        }
+    }
+
     renderInventory() {
         let items = [...this.inventory];
 
@@ -1044,6 +1069,9 @@ class PantryInventory {
                 return days !== null && days <= 7;
             });
         }
+
+        // Update filter indicator
+        this.updateFilterIndicator();
 
         // Sort items - staples always first, then by selected sort option
         const sortOption = this.currentSortMode || this.sortBy.value;
@@ -2029,23 +2057,28 @@ class PantryInventory {
             case 'filter-location':
                 this.quickDeductSuggestions.classList.add('hidden');
                 this.showFilterPreview('location', parsed.location);
+                this.clearSearchFilter();
                 break;
             case 'filter-category':
                 this.quickDeductSuggestions.classList.add('hidden');
                 this.showFilterPreview('category', parsed.category);
+                this.clearSearchFilter();
                 break;
             case 'filter-low-stock':
                 this.quickDeductSuggestions.classList.add('hidden');
                 this.showFilterPreview('low-stock');
+                this.clearSearchFilter();
                 break;
             case 'filter-expiring':
                 this.quickDeductSuggestions.classList.add('hidden');
                 this.showFilterPreview('expiring');
+                this.clearSearchFilter();
                 break;
             case 'clear-filters':
                 this.quickDeductSuggestions.classList.add('hidden');
                 this.quickDeductPreview.innerHTML = `<span class="preview-hint">Press Enter to show all items</span>`;
                 this.quickDeductPreview.classList.remove('hidden');
+                this.clearSearchFilter();
                 break;
             case 'search':
             default:

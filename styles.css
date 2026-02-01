@@ -314,6 +314,17 @@ header h1 {
     margin-left: 8px;
 }
 
+/* Inventory filter indicator */
+.filter-indicator {
+    font-size: 0.7em;
+    font-weight: normal;
+    color: #667eea;
+    background: #f0f4ff;
+    padding: 4px 10px;
+    border-radius: 12px;
+    margin-left: 8px;
+}
+
 /* Help Panel */
 .command-help {
     background: #f8f9fa;

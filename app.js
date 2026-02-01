@@ -801,6 +801,13 @@ class PantryInventory {
         };
 
         if (this.editingId) {
+            // Auto-recalculate expiration if purchase date changed but expiration wasn't manually adjusted
+            const originalItem = this.inventory.find(i => i.id === parseInt(this.editingId));
+            if (originalItem &&
+                itemData.purchaseDate !== originalItem.purchaseDate &&
+                itemData.expirationDate === originalItem.expirationDate) {
+                itemData.expirationDate = this.autoCalculateExpiration(itemData.category, itemData.purchaseDate);
+            }
             this.updateItem(this.editingId, itemData);
             this.cancelEdit();
         } else {
@@ -899,70 +906,7 @@ class PantryInventory {
     // Rendering
     render() {
         this.renderAlerts();
-        this.renderAlertsBar();
         this.renderInventory();
-    }
-
-    // Compact alerts bar (inline above inventory)
-    renderAlertsBar() {
-        const alertsBar = document.getElementById('alertsBar');
-        const lowStockItemsEl = document.getElementById('lowStockItems');
-        const expiringItemsEl = document.getElementById('expiringItems');
-
-        if (!alertsBar) return;
-
-        const lowStockItems = this.getLowStockItems();
-        const expiringItems = this.getExpiringItems(7);
-
-        const hasAlerts = lowStockItems.length > 0 || expiringItems.length > 0;
-
-        if (!hasAlerts) {
-            alertsBar.classList.add('hidden');
-            return;
-        }
-
-        alertsBar.classList.remove('hidden');
-
-        // Render low stock items (compact)
-        if (lowStockItems.length > 0) {
-            alertsBar.querySelector('.low-stock-group').classList.remove('hidden');
-            lowStockItemsEl.innerHTML = lowStockItems.slice(0, 5).map(item => {
-                const displayQty = item.quantity % 1 === 0 ? item.quantity : item.quantity.toFixed(1);
-                return `<span class="alert-item" data-id="${item.id}" title="Click to view">${this.escapeHtml(item.name)} (${displayQty}${item.unit})</span>`;
-            }).join('') + (lowStockItems.length > 5 ? `<span class="alert-more">+${lowStockItems.length - 5} more</span>` : '');
-        } else {
-            alertsBar.querySelector('.low-stock-group').classList.add('hidden');
-        }
-
-        // Render expiring items (compact)
-        if (expiringItems.length > 0) {
-            alertsBar.querySelector('.expiring-group').classList.remove('hidden');
-            expiringItemsEl.innerHTML = expiringItems.slice(0, 5).map(item => {
-                const days = this.getDaysUntilExpiration(item);
-                const daysText = days <= 0 ? 'exp!' : days === 1 ? '1d' : `${days}d`;
-                const urgentClass = days <= 1 ? 'urgent' : '';
-                return `<span class="alert-item ${urgentClass}" data-id="${item.id}" title="Click to view">${this.escapeHtml(item.name)} (${daysText})</span>`;
-            }).join('') + (expiringItems.length > 5 ? `<span class="alert-more">+${expiringItems.length - 5} more</span>` : '');
-        } else {
-            alertsBar.querySelector('.expiring-group').classList.add('hidden');
-        }
-
-        // Show/hide divider based on both groups
-        const divider = alertsBar.querySelector('.alert-divider');
-        if (divider) {
-            divider.classList.toggle('hidden', lowStockItems.length === 0 || expiringItems.length === 0);
-        }
-
-        // Add click handlers for alert items
-        alertsBar.querySelectorAll('.alert-item[data-id]').forEach(el => {
-            el.onclick = () => {
-                const id = parseInt(el.dataset.id);
-                const item = this.inventory.find(i => i.id === id);
-                if (item) {
-                    this.showItemDetails(item.name);
-                }
-            };
-        });
     }
 
     renderAlerts() {

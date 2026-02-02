@@ -1047,20 +1047,21 @@ class PantryInventory {
         // Update filter indicator
         this.updateFilterIndicator();
 
-        // Sort items - staples always first, then by selected sort option
+        // Sort items - urgency overrides staples grouping, otherwise staples first
         const sortOption = this.currentSortMode || this.sortBy.value;
         items.sort((a, b) => {
-            // Staples always come first
-            if (a.isStaple && !b.isStaple) return -1;
-            if (!a.isStaple && b.isStaple) return 1;
-
             // Urgency sort: expired > expiring soon > low stock > alphabetical
+            // This must come BEFORE staples check to properly prioritize expiring items
             if (sortOption === 'urgency') {
                 const urgencyA = this.getItemUrgency(a);
                 const urgencyB = this.getItemUrgency(b);
                 if (urgencyA !== urgencyB) return urgencyB - urgencyA;
                 return a.name.localeCompare(b.name);
             }
+
+            // For non-urgency sorts, staples come first
+            if (a.isStaple && !b.isStaple) return -1;
+            if (!a.isStaple && b.isStaple) return 1;
 
             // Then apply normal sort within each group
             switch (sortOption) {
@@ -1657,6 +1658,11 @@ class PantryInventory {
             return { action: 'filter-expiring' };
         }
 
+        // Close all modules: "close"
+        if (input.toLowerCase() === 'close') {
+            return { action: 'close-all' };
+        }
+
         // Clear filters: "all" or "clear"
         if (input.toLowerCase() === 'all' || input.toLowerCase() === 'clear') {
             return { action: 'clear-filters' };
@@ -2059,6 +2065,12 @@ class PantryInventory {
             case 'clear-filters':
                 this.quickDeductSuggestions.classList.add('hidden');
                 this.quickDeductPreview.innerHTML = `<span class="preview-hint">Press Enter to show all items</span>`;
+                this.quickDeductPreview.classList.remove('hidden');
+                this.clearSearchFilter();
+                break;
+            case 'close-all':
+                this.quickDeductSuggestions.classList.add('hidden');
+                this.quickDeductPreview.innerHTML = `<span class="preview-hint">Press Enter to close all open panels</span>`;
                 this.quickDeductPreview.classList.remove('hidden');
                 this.clearSearchFilter();
                 break;
@@ -2640,6 +2652,31 @@ class PantryInventory {
         this.render();
     }
 
+    closeAllModules() {
+        // Close form section (Add/Edit)
+        this.formSection.classList.add('hidden');
+        this.cancelEdit();
+
+        // Close recipe section
+        this.recipeSection.classList.add('hidden');
+        this.cancelRecipe();
+
+        // Close help panel
+        this.commandHelp.classList.add('hidden');
+
+        // Close filter modal
+        this.filterModal.classList.add('hidden');
+
+        // Close item details modal
+        this.itemDetailsModal.classList.add('hidden');
+
+        // Reset body overflow
+        document.body.style.overflow = '';
+
+        // Clear command bar
+        this.clearCommandBar();
+    }
+
     // === END SORT/DELETE/EDIT/FILTER METHODS ===
 
     // Show view suggestions for item lookup
@@ -3051,6 +3088,8 @@ class PantryInventory {
             this.executeFilterExpiring();
         } else if (parsed.action === 'clear-filters') {
             this.executeClearFilters();
+        } else if (parsed.action === 'close-all') {
+            this.closeAllModules();
         }
         // Partial actions don't execute, they just show hints
     }

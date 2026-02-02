@@ -137,9 +137,56 @@
                         <option value="updated">Sort by Last Updated</option>
                     </select>
                 </div>
+                <!-- Mobile Filter Button -->
+                <button id="mobileFilterBtn" class="mobile-filter-btn">Filter</button>
             </div>
             <div id="inventoryList" class="inventory-list"></div>
         </section>
+
+        <!-- Mobile Filter Modal -->
+        <div id="filterModal" class="filter-modal hidden">
+            <div class="filter-modal-content">
+                <div class="filter-modal-header">
+                    <h3>Filter & Sort</h3>
+                    <button id="closeFilterModal" class="close-filter-btn">&times;</button>
+                </div>
+                <div class="filter-modal-body">
+                    <div class="filter-group">
+                        <label for="filterCategoryMobile">Category</label>
+                        <select id="filterCategoryMobile">
+                            <option value="all">All Categories</option>
+                            <option value="spice">Spices</option>
+                            <option value="herb">Herbs</option>
+                            <option value="seasoning">Seasoning Blends</option>
+                            <option value="produce">Produce</option>
+                            <option value="dairy">Dairy & Refrigerated</option>
+                            <option value="canned">Canned & Jarred</option>
+                            <option value="grain">Grains & Pasta</option>
+                            <option value="frozen">Frozen</option>
+                            <option value="oil">Oils/Vinegars/Condiments</option>
+                            <option value="baking">Baking Supplies</option>
+                            <option value="protein">Proteins</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="sortByMobile">Sort By</label>
+                        <select id="sortByMobile">
+                            <option value="name">Name</option>
+                            <option value="expiration">Expiration</option>
+                            <option value="quantity">Quantity</option>
+                            <option value="category">Category</option>
+                            <option value="store">Store</option>
+                            <option value="updated">Last Updated</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="filter-modal-actions">
+                    <button id="clearFiltersBtn" class="btn-clear-filters">Clear</button>
+                    <button id="applyFiltersBtn" class="btn-apply-filters">Apply</button>
+                </div>
+            </div>
+        </div>
 
         <!-- Add/Edit Form (hidden by default, revealed via 'add' command) -->
         <section class="form-section hidden" id="formSection">

@@ -489,6 +489,15 @@ class PantryInventory {
         this.detailsCloseBtn = document.getElementById('detailsCloseBtn');
         this.currentDetailsItemId = null;
 
+        // Mobile filter modal
+        this.mobileFilterBtn = document.getElementById('mobileFilterBtn');
+        this.filterModal = document.getElementById('filterModal');
+        this.closeFilterModalBtn = document.getElementById('closeFilterModal');
+        this.filterCategoryMobile = document.getElementById('filterCategoryMobile');
+        this.sortByMobile = document.getElementById('sortByMobile');
+        this.applyFiltersBtn = document.getElementById('applyFiltersBtn');
+        this.clearFiltersBtn = document.getElementById('clearFiltersBtn');
+
         // Store parsed data
         this.parsedRecipeData = null;
         this.selectedQuickUseItem = null;
@@ -542,6 +551,27 @@ class PantryInventory {
         // Filter and sort events
         this.filterCategory.addEventListener('change', () => this.render());
         this.sortBy.addEventListener('change', () => this.render());
+
+        // Mobile filter modal events
+        if (this.mobileFilterBtn) {
+            this.mobileFilterBtn.addEventListener('click', () => this.showFilterModal());
+        }
+        if (this.closeFilterModalBtn) {
+            this.closeFilterModalBtn.addEventListener('click', () => this.hideFilterModal());
+        }
+        if (this.filterModal) {
+            this.filterModal.addEventListener('click', (e) => {
+                if (e.target === this.filterModal) {
+                    this.hideFilterModal();
+                }
+            });
+        }
+        if (this.applyFiltersBtn) {
+            this.applyFiltersBtn.addEventListener('click', () => this.applyMobileFilters());
+        }
+        if (this.clearFiltersBtn) {
+            this.clearFiltersBtn.addEventListener('click', () => this.clearMobileFilters());
+        }
 
         // Recipe events
         this.tabBtns.forEach(btn => {
@@ -1097,7 +1127,7 @@ class PantryInventory {
             const storeInfo = item.boughtFrom || item.notes || '';
 
             return `
-                <div class="inventory-item ${statusClass}" data-id="${item.id}" onclick="if(!event.target.closest('.item-actions'))app.showItemDetails('${this.escapeHtml(item.name).replace(/'/g, "\\'")}')">
+                <div class="inventory-item ${statusClass}" data-id="${item.id}" onclick="if(!event.target.closest('.item-actions') && !event.target.closest('.overflow-menu'))app.showItemDetails('${this.escapeHtml(item.name).replace(/'/g, "\\'")}')">
                     <div class="item-info">
                         <h3>${this.escapeHtml(item.name)}</h3>
                         <div class="meta">
@@ -1112,10 +1142,18 @@ class PantryInventory {
                         <div class="amount">${item.quantity}</div>
                         <div class="unit">${item.unit}</div>
                     </div>
-                    <div class="item-actions">
+                    <div class="item-actions desktop-only">
                         <button class="btn-update-qty" onclick="app.showQuickUpdate('${item.id}')">Update Qty</button>
                         <button class="btn-edit" onclick="app.startEdit('${item.id}')">Edit</button>
                         <button class="btn-delete" onclick="app.confirmDelete('${item.id}')">Delete</button>
+                    </div>
+                    <div class="overflow-menu mobile-only">
+                        <button class="overflow-btn" onclick="event.stopPropagation(); app.toggleOverflowMenu('${item.id}')">•••</button>
+                        <div id="overflow-${item.id}" class="overflow-dropdown hidden">
+                            <button onclick="app.showQuickUpdate('${item.id}'); app.closeAllOverflowMenus();">Update Qty</button>
+                            <button onclick="app.startEdit('${item.id}'); app.closeAllOverflowMenus();">Edit</button>
+                            <button class="delete-action" onclick="app.confirmDelete('${item.id}'); app.closeAllOverflowMenus();">Delete</button>
+                        </div>
                     </div>
                 </div>
             `;
@@ -2675,6 +2713,70 @@ class PantryInventory {
     hideItemDetails() {
         this.itemDetailsModal.classList.add('hidden');
         this.currentDetailsItemId = null;
+    }
+
+    // Mobile Filter Modal Methods
+    showFilterModal() {
+        // Sync mobile selects with desktop values
+        if (this.filterCategoryMobile) {
+            this.filterCategoryMobile.value = this.filterCategory.value;
+        }
+        if (this.sortByMobile) {
+            this.sortByMobile.value = this.sortBy.value;
+        }
+        this.filterModal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
+    hideFilterModal() {
+        this.filterModal.classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+
+    applyMobileFilters() {
+        this.filterCategory.value = this.filterCategoryMobile.value;
+        this.sortBy.value = this.sortByMobile.value;
+        this.render();
+        this.hideFilterModal();
+    }
+
+    clearMobileFilters() {
+        this.filterCategoryMobile.value = 'all';
+        this.sortByMobile.value = 'name';
+        this.filterCategory.value = 'all';
+        this.sortBy.value = 'name';
+        this.currentLocationFilter = null;
+        this.currentSpecialFilter = null;
+        this.currentSortMode = null;
+        this.render();
+        this.hideFilterModal();
+    }
+
+    // Overflow Menu Methods
+    toggleOverflowMenu(itemId) {
+        this.closeAllOverflowMenus();
+        const dropdown = document.getElementById(`overflow-${itemId}`);
+        if (dropdown) {
+            dropdown.classList.toggle('hidden');
+            if (!dropdown.classList.contains('hidden')) {
+                setTimeout(() => {
+                    document.addEventListener('click', this.handleOverflowClickOutside);
+                }, 0);
+            }
+        }
+    }
+
+    closeAllOverflowMenus() {
+        document.querySelectorAll('.overflow-dropdown').forEach(dropdown => {
+            dropdown.classList.add('hidden');
+        });
+        document.removeEventListener('click', this.handleOverflowClickOutside);
+    }
+
+    handleOverflowClickOutside = (event) => {
+        if (!event.target.closest('.overflow-menu')) {
+            this.closeAllOverflowMenus();
+        }
     }
 
     // Apply live search filter to inventory

@@ -1649,21 +1649,22 @@ header h1 {
 
 /* ========== MOBILE UI OPTIMIZATIONS ========== */
 
-/* Mobile Filter Button - Hidden by default */
+/* Mobile Filter Button - Hidden by default, hamburger style */
 .mobile-filter-btn {
     display: none;
-    padding: 10px 16px;
-    background: #667eea;
-    color: white;
+    padding: 8px 12px;
+    background: #f0f0f0;
+    color: #333;
     border: none;
-    border-radius: 8px;
-    font-size: 0.9rem;
+    border-radius: 6px;
+    font-size: 1.2rem;
     cursor: pointer;
-    transition: background 0.3s;
+    transition: background 0.2s;
+    line-height: 1;
 }
 
 .mobile-filter-btn:hover {
-    background: #5a6fd6;
+    background: #e0e0e0;
 }
 
 /* Filter Modal - Bottom Drawer */
@@ -1845,11 +1846,19 @@ header h1 {
 
 /* ========== MOBILE RESPONSIVE OVERRIDES ========== */
 @media (max-width: 600px) {
-    /* Show mobile filter button, hide desktop dropdowns */
+    /* Show mobile filter button inline, hide desktop dropdowns */
     .mobile-filter-btn {
         display: block;
-        width: 100%;
-        margin-top: 10px;
+    }
+
+    .inventory-header {
+        flex-direction: row;
+        flex-wrap: nowrap;
+        align-items: center;
+    }
+
+    .inventory-header h2 {
+        flex: 1;
     }
 
     .filter-sort {

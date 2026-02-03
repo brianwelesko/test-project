@@ -2791,15 +2791,18 @@ class PantryInventory {
 
     // Overflow Menu Methods
     toggleOverflowMenu(itemId) {
-        this.closeAllOverflowMenus();
         const dropdown = document.getElementById(`overflow-${itemId}`);
         if (dropdown) {
-            dropdown.classList.toggle('hidden');
-            if (!dropdown.classList.contains('hidden')) {
-                setTimeout(() => {
-                    document.addEventListener('click', this.handleOverflowClickOutside);
-                }, 0);
+            const wasOpen = !dropdown.classList.contains('hidden');
+            this.closeAllOverflowMenus();
+            if (wasOpen) {
+                // Was already open, just close it (already done above)
+                return;
             }
+            dropdown.classList.remove('hidden');
+            setTimeout(() => {
+                document.addEventListener('click', this.handleOverflowClickOutside);
+            }, 0);
         }
     }
 

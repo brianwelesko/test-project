@@ -1462,9 +1462,9 @@ class PantryInventory {
                     <div class="overflow-menu mobile-only">
                         <button class="overflow-btn" onclick="event.stopPropagation(); app.toggleOverflowMenu('${item.id}')">•••</button>
                         <div id="overflow-${item.id}" class="overflow-dropdown hidden">
-                            <button onclick="app.showQuickUpdate('${item.id}'); app.closeAllOverflowMenus();">Update Qty</button>
-                            <button onclick="app.startEdit('${item.id}'); app.closeAllOverflowMenus();">Edit</button>
-                            <button class="delete-action" onclick="app.confirmDelete('${item.id}'); app.closeAllOverflowMenus();">Delete</button>
+                            <button onclick="event.stopPropagation(); app.showQuickUpdate('${item.id}'); app.closeAllOverflowMenus();">Update Qty</button>
+                            <button onclick="event.stopPropagation(); app.startEdit('${item.id}'); app.closeAllOverflowMenus();">Edit</button>
+                            <button class="delete-action" onclick="event.stopPropagation(); app.confirmDelete('${item.id}'); app.closeAllOverflowMenus();">Delete</button>
                         </div>
                     </div>
                 </div>

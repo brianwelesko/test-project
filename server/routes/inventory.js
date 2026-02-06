@@ -30,6 +30,10 @@ router.post('/', (req, res) => {
   try {
     const item = req.body;
 
+    if (!item || !item.name) {
+      return res.status(400).json({ error: 'Item name is required' });
+    }
+
     const result = db.prepare(`
       INSERT INTO inventory_items (
         user_id, name, quantity, unit, category, location,
@@ -49,11 +53,11 @@ router.post('/', (req, res) => {
       item.isStaple ? 1 : 0
     );
 
-    const newItem = db.prepare('SELECT * FROM inventory_items WHERE id = ?').get(result.lastInsertRowid);
+    const newItem = db.prepare('SELECT * FROM inventory_items WHERE id = ?').get(Number(result.lastInsertRowid));
     res.status(201).json(formatItemForClient(newItem));
   } catch (err) {
     console.error('Add item error:', err);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: err.message || 'Server error' });
   }
 });
 

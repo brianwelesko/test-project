@@ -388,10 +388,286 @@ const INGREDIENT_DATABASE = {
     'frozen fish': { category: 'frozen', location: 'freezer', expirationDays: 180 }
 };
 
+// ===== API CLIENT =====
+const API = {
+    baseUrl: '/api',
+    token: localStorage.getItem('authToken'),
+
+    async request(endpoint, options = {}) {
+        const headers = {
+            'Content-Type': 'application/json',
+            ...options.headers
+        };
+
+        if (this.token) {
+            headers['Authorization'] = `Bearer ${this.token}`;
+        }
+
+        const response = await fetch(`${this.baseUrl}${endpoint}`, {
+            ...options,
+            headers
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Request failed');
+        }
+
+        return data;
+    },
+
+    setToken(token) {
+        this.token = token;
+        if (token) {
+            localStorage.setItem('authToken', token);
+        } else {
+            localStorage.removeItem('authToken');
+        }
+    },
+
+    // Auth
+    async login(email, password) {
+        const data = await this.request('/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ email, password })
+        });
+        this.setToken(data.token);
+        return data;
+    },
+
+    async signup(email, password) {
+        const data = await this.request('/auth/signup', {
+            method: 'POST',
+            body: JSON.stringify({ email, password })
+        });
+        this.setToken(data.token);
+        return data;
+    },
+
+    async getMe() {
+        return this.request('/auth/me');
+    },
+
+    logout() {
+        this.setToken(null);
+    },
+
+    // Inventory
+    async getInventory() {
+        return this.request('/inventory');
+    },
+
+    async addItem(item) {
+        return this.request('/inventory', {
+            method: 'POST',
+            body: JSON.stringify(item)
+        });
+    },
+
+    async updateItem(id, item) {
+        return this.request(`/inventory/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(item)
+        });
+    },
+
+    async deleteItem(id) {
+        return this.request(`/inventory/${id}`, {
+            method: 'DELETE'
+        });
+    },
+
+    async syncItems(items) {
+        return this.request('/inventory/sync', {
+            method: 'POST',
+            body: JSON.stringify({ items })
+        });
+    }
+};
+
+// ===== AUTH MANAGER =====
+const AuthManager = {
+    init() {
+        this.authSection = document.getElementById('authSection');
+        this.mainApp = document.getElementById('mainApp');
+        this.loginForm = document.getElementById('loginForm');
+        this.signupForm = document.getElementById('signupForm');
+        this.loginError = document.getElementById('loginError');
+        this.signupError = document.getElementById('signupError');
+        this.logoutBtn = document.getElementById('logoutBtn');
+        this.migrationModal = document.getElementById('migrationModal');
+        this.migrationCount = document.getElementById('migrationCount');
+
+        this.bindEvents();
+        this.checkAuth();
+    },
+
+    bindEvents() {
+        // Tab switching
+        document.querySelectorAll('.auth-tab').forEach(tab => {
+            tab.addEventListener('click', () => this.switchTab(tab.dataset.tab));
+        });
+
+        // Login form
+        this.loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.handleLogin();
+        });
+
+        // Signup form
+        this.signupForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.handleSignup();
+        });
+
+        // Logout
+        this.logoutBtn.addEventListener('click', () => this.handleLogout());
+
+        // Migration
+        document.getElementById('skipMigration').addEventListener('click', () => {
+            this.migrationModal.classList.add('hidden');
+            this.clearLocalData();
+            this.startApp();
+        });
+
+        document.getElementById('doMigration').addEventListener('click', async () => {
+            await this.migrateData();
+        });
+    },
+
+    switchTab(tab) {
+        document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+        document.querySelector(`.auth-tab[data-tab="${tab}"]`).classList.add('active');
+
+        if (tab === 'login') {
+            this.loginForm.classList.remove('hidden');
+            this.signupForm.classList.add('hidden');
+        } else {
+            this.loginForm.classList.add('hidden');
+            this.signupForm.classList.remove('hidden');
+        }
+
+        this.loginError.classList.add('hidden');
+        this.signupError.classList.add('hidden');
+    },
+
+    async checkAuth() {
+        if (!API.token) {
+            this.showAuth();
+            return;
+        }
+
+        try {
+            await API.getMe();
+            this.showApp();
+        } catch (err) {
+            API.logout();
+            this.showAuth();
+        }
+    },
+
+    showAuth() {
+        this.authSection.classList.remove('hidden');
+        this.mainApp.classList.add('hidden');
+    },
+
+    showApp() {
+        this.authSection.classList.add('hidden');
+        this.mainApp.classList.remove('hidden');
+
+        // Check for local data to migrate
+        const localData = localStorage.getItem('spiceInventory');
+        if (localData) {
+            const items = JSON.parse(localData);
+            if (items.length > 0) {
+                this.migrationCount.textContent = items.length;
+                this.migrationModal.classList.remove('hidden');
+                return;
+            }
+        }
+
+        this.startApp();
+    },
+
+    startApp() {
+        if (!window.app) {
+            window.app = new PantryInventory();
+        } else {
+            window.app.loadFromAPI();
+        }
+    },
+
+    async handleLogin() {
+        const email = document.getElementById('loginEmail').value;
+        const password = document.getElementById('loginPassword').value;
+
+        try {
+            this.loginError.classList.add('hidden');
+            await API.login(email, password);
+            this.showApp();
+        } catch (err) {
+            this.loginError.textContent = err.message;
+            this.loginError.classList.remove('hidden');
+        }
+    },
+
+    async handleSignup() {
+        const email = document.getElementById('signupEmail').value;
+        const password = document.getElementById('signupPassword').value;
+        const confirm = document.getElementById('signupConfirm').value;
+
+        if (password !== confirm) {
+            this.signupError.textContent = 'Passwords do not match';
+            this.signupError.classList.remove('hidden');
+            return;
+        }
+
+        try {
+            this.signupError.classList.add('hidden');
+            await API.signup(email, password);
+            this.showApp();
+        } catch (err) {
+            this.signupError.textContent = err.message;
+            this.signupError.classList.remove('hidden');
+        }
+    },
+
+    handleLogout() {
+        API.logout();
+        window.app = null;
+        this.showAuth();
+    },
+
+    async migrateData() {
+        const localData = localStorage.getItem('spiceInventory');
+        if (!localData) {
+            this.migrationModal.classList.add('hidden');
+            this.startApp();
+            return;
+        }
+
+        try {
+            const items = JSON.parse(localData);
+            await API.syncItems(items);
+            this.clearLocalData();
+            this.migrationModal.classList.add('hidden');
+            this.startApp();
+        } catch (err) {
+            console.error('Migration failed:', err);
+            alert('Failed to migrate data. Please try again.');
+        }
+    },
+
+    clearLocalData() {
+        localStorage.removeItem('spiceInventory');
+    }
+};
+
 class PantryInventory {
     constructor() {
         this.storageKey = 'spiceInventory';
-        this.inventory = this.loadInventory();
+        this.inventory = [];
         this.editingId = null;
 
         // New state for command bar enhancements
@@ -402,7 +678,18 @@ class PantryInventory {
 
         this.initializeElements();
         this.bindEvents();
-        this.render();
+        this.loadFromAPI();
+    }
+
+    async loadFromAPI() {
+        try {
+            this.inventory = await API.getInventory();
+            this.render();
+        } catch (err) {
+            console.error('Failed to load inventory:', err);
+            this.inventory = [];
+            this.render();
+        }
     }
 
     initializeElements() {
@@ -627,14 +914,15 @@ class PantryInventory {
         });
     }
 
-    // Local Storage Operations
+    // Storage Operations (now uses API, localStorage only for offline fallback)
     loadInventory() {
-        const data = localStorage.getItem(this.storageKey);
-        return data ? JSON.parse(data) : [];
+        // Only used for initial empty state - actual load happens in loadFromAPI
+        return [];
     }
 
     saveInventory() {
-        localStorage.setItem(this.storageKey, JSON.stringify(this.inventory));
+        // No-op - individual operations now go through API
+        // Kept for compatibility with existing code structure
     }
 
     // Capitalize first letter of each word
@@ -645,7 +933,7 @@ class PantryInventory {
     }
 
     // CRUD Operations
-    addItem(item) {
+    async addItem(item) {
         const purchaseDate = item.purchaseDate || new Date().toISOString().split('T')[0];
         const expirationDate = item.expirationDate || this.autoCalculateExpiration(item.category, purchaseDate);
         const qty = parseFloat(item.quantity);
@@ -653,7 +941,6 @@ class PantryInventory {
         const threshold = item.threshold ? parseFloat(item.threshold) : Math.round(qty * 0.2 * 10) / 10;
 
         const newItem = {
-            id: Date.now().toString(),
             name: this.capitalizeWords(item.name),
             quantity: qty,
             unit: item.unit,
@@ -663,13 +950,22 @@ class PantryInventory {
             purchaseDate: purchaseDate,
             expirationDate: expirationDate,
             isStaple: item.isStaple || false,
-            boughtFrom: item.boughtFrom ? item.boughtFrom.trim() : '',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
+            boughtFrom: item.boughtFrom ? item.boughtFrom.trim() : ''
         };
-        this.inventory.push(newItem);
-        this.saveInventory();
-        return newItem;
+
+        try {
+            const savedItem = await API.addItem(newItem);
+            this.inventory.push(savedItem);
+            return savedItem;
+        } catch (err) {
+            console.error('Failed to add item:', err);
+            // Fallback: add locally with temp ID
+            newItem.id = Date.now().toString();
+            newItem.createdAt = new Date().toISOString();
+            newItem.updatedAt = new Date().toISOString();
+            this.inventory.push(newItem);
+            return newItem;
+        }
     }
 
     // Auto-calculate expiration date based on category
@@ -727,23 +1023,38 @@ class PantryInventory {
         });
     }
 
-    updateItem(id, updates) {
+    async updateItem(id, updates) {
         const index = this.inventory.findIndex(item => item.id === id);
         if (index !== -1) {
-            this.inventory[index] = {
+            const updatedItem = {
                 ...this.inventory[index],
                 ...updates,
                 updatedAt: new Date().toISOString()
             };
-            this.saveInventory();
-            return this.inventory[index];
+
+            try {
+                const savedItem = await API.updateItem(id, updatedItem);
+                this.inventory[index] = savedItem;
+                return savedItem;
+            } catch (err) {
+                console.error('Failed to update item:', err);
+                // Fallback: update locally
+                this.inventory[index] = updatedItem;
+                return updatedItem;
+            }
         }
         return null;
     }
 
-    deleteItem(id) {
-        this.inventory = this.inventory.filter(item => item.id !== id);
-        this.saveInventory();
+    async deleteItem(id) {
+        try {
+            await API.deleteItem(id);
+            this.inventory = this.inventory.filter(item => item.id !== id);
+        } catch (err) {
+            console.error('Failed to delete item:', err);
+            // Fallback: delete locally anyway
+            this.inventory = this.inventory.filter(item => item.id !== id);
+        }
     }
 
     getItem(id) {
@@ -814,7 +1125,7 @@ class PantryInventory {
     }
 
     // Form handling
-    handleSubmit(e) {
+    async handleSubmit(e) {
         e.preventDefault();
 
         const itemData = {
@@ -838,10 +1149,10 @@ class PantryInventory {
                 itemData.expirationDate === originalItem.expirationDate) {
                 itemData.expirationDate = this.autoCalculateExpiration(itemData.category, itemData.purchaseDate);
             }
-            this.updateItem(this.editingId, itemData);
+            await this.updateItem(this.editingId, itemData);
             this.cancelEdit();
         } else {
-            this.addItem(itemData);
+            await this.addItem(itemData);
         }
 
         this.form.reset();
@@ -911,10 +1222,10 @@ class PantryInventory {
         input.focus();
         input.select();
 
-        overlay.querySelector('#saveQuantityBtn').addEventListener('click', () => {
+        overlay.querySelector('#saveQuantityBtn').addEventListener('click', async () => {
             const newQty = parseFloat(input.value);
             if (!isNaN(newQty) && newQty >= 0) {
-                this.updateItem(id, { quantity: newQty });
+                await this.updateItem(id, { quantity: newQty });
                 this.render();
             }
             overlay.remove();
@@ -1161,10 +1472,10 @@ class PantryInventory {
         }).join('');
     }
 
-    confirmDelete(id) {
+    async confirmDelete(id) {
         const item = this.getItem(id);
         if (item && confirm(`Are you sure you want to delete "${item.name}"?`)) {
-            this.deleteItem(id);
+            await this.deleteItem(id);
             this.render();
         }
     }
@@ -1552,20 +1863,21 @@ class PantryInventory {
         }
     }
 
-    applyRecipeDeductions() {
+    async applyRecipeDeductions() {
         if (!this.parsedRecipeData) return;
 
         const { matched } = this.parsedRecipeData;
         let deductedCount = 0;
 
-        matched.forEach((m, index) => {
+        for (let index = 0; index < matched.length; index++) {
+            const m = matched[index];
             const checkbox = document.getElementById(`match-${index}`);
             if (checkbox && checkbox.checked && m.canConvert) {
                 const newQty = Math.max(0, m.inventoryItem.quantity - m.deductAmount);
-                this.updateItem(m.inventoryItem.id, { quantity: newQty });
+                await this.updateItem(m.inventoryItem.id, { quantity: newQty });
                 deductedCount++;
             }
-        });
+        }
 
         if (deductedCount > 0) {
             alert(`Updated ${deductedCount} item(s) in your inventory.`);
@@ -2433,7 +2745,7 @@ class PantryInventory {
     }
 
     // Execute delete (with double-Enter confirmation)
-    executeDelete(parsed) {
+    async executeDelete(parsed) {
         const item = this.findInventoryMatch(parsed.itemQuery);
         if (!item) {
             return;
@@ -2441,7 +2753,7 @@ class PantryInventory {
 
         if (this.pendingDeleteId === item.id) {
             // Second Enter - actually delete
-            this.deleteItem(item.id);
+            await this.deleteItem(item.id);
             this.pendingDeleteId = null;
             this.quickDeductPreview.innerHTML = `<span class="preview-success">✓ Deleted "${this.escapeHtml(item.name)}"</span>`;
             this.quickDeductPreview.classList.remove('hidden');
@@ -2530,7 +2842,7 @@ class PantryInventory {
     }
 
     // Execute set quantity
-    executeSetQty(parsed) {
+    async executeSetQty(parsed) {
         const item = this.findInventoryMatch(parsed.itemQuery);
         if (!item) {
             return;
@@ -2547,7 +2859,7 @@ class PantryInventory {
             }
         }
 
-        this.updateItem(item.id, { quantity: Math.round(newQty * 100) / 100 });
+        await this.updateItem(item.id, { quantity: Math.round(newQty * 100) / 100 });
         this.quickDeductPreview.innerHTML = `<span class="preview-success">✓ Set ${this.escapeHtml(item.name)} to ${parsed.amount} ${newUnit}</span>`;
         this.quickDeductPreview.classList.remove('hidden');
         this.clearCommandBar();
@@ -2572,13 +2884,13 @@ class PantryInventory {
     }
 
     // Execute staple toggle
-    executeToggleStaple(parsed) {
+    async executeToggleStaple(parsed) {
         const item = this.findInventoryMatch(parsed.itemQuery);
         if (!item) {
             return;
         }
 
-        this.updateItem(item.id, { isStaple: !item.isStaple });
+        await this.updateItem(item.id, { isStaple: !item.isStaple });
         const status = !item.isStaple ? 'marked as staple' : 'removed from staples';
         this.quickDeductPreview.innerHTML = `<span class="preview-success">✓ ${this.escapeHtml(item.name)} ${status}</span>`;
         this.quickDeductPreview.classList.remove('hidden');
@@ -3097,7 +3409,7 @@ class PantryInventory {
         // Partial actions don't execute, they just show hints
     }
 
-    executeDeduct(parsed) {
+    async executeDeduct(parsed) {
         const item = this.findInventoryMatch(parsed.itemQuery);
         if (!item) {
             alert(`Item "${parsed.itemQuery}" not found in inventory`);
@@ -3113,13 +3425,13 @@ class PantryInventory {
         }
 
         const newQty = Math.max(0, item.quantity - converted);
-        this.updateItem(item.id, { quantity: Math.round(newQty * 100) / 100 });
+        await this.updateItem(item.id, { quantity: Math.round(newQty * 100) / 100 });
 
         this.clearCommandBar();
         this.render();
     }
 
-    executeRestock(parsed) {
+    async executeRestock(parsed) {
         const item = this.findInventoryMatch(parsed.itemQuery);
         if (!item) {
             alert(`Item "${parsed.itemQuery}" not found. Use +name to add new items.`);
@@ -3135,13 +3447,13 @@ class PantryInventory {
         }
 
         const newQty = item.quantity + converted;
-        this.updateItem(item.id, { quantity: Math.round(newQty * 100) / 100 });
+        await this.updateItem(item.id, { quantity: Math.round(newQty * 100) / 100 });
 
         this.clearCommandBar();
         this.render();
     }
 
-    executeAddNew(parsed) {
+    async executeAddNew(parsed) {
         const unit = this.normalizeUnitShortcut(parsed.unit);
 
         // Auto-detect category and location from database
@@ -3151,7 +3463,7 @@ class PantryInventory {
         const category = parsed.category || (detected ? detected.category : 'other');
         const location = parsed.location || (detected ? detected.location : '');
 
-        this.addItem({
+        await this.addItem({
             name: parsed.name,
             quantity: parsed.amount,
             unit: unit,
@@ -3258,7 +3570,7 @@ class PantryInventory {
         `;
     }
 
-    confirmExpandedDeduct() {
+    async confirmExpandedDeduct() {
         const amount = parseFloat(this.deductAmountInput.value) || 0;
         const unit = this.deductUnitSelect.value;
         const item = this.selectedQuickUseItem;
@@ -3275,7 +3587,7 @@ class PantryInventory {
         }
 
         const newQty = Math.max(0, item.quantity - convertedAmount);
-        this.updateItem(item.id, { quantity: Math.round(newQty * 100) / 100 });
+        await this.updateItem(item.id, { quantity: Math.round(newQty * 100) / 100 });
 
         this.cancelExpandedForm();
         this.render();
@@ -3314,5 +3626,5 @@ class PantryInventory {
 
 // Initialize the application when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    window.app = new PantryInventory();
+    AuthManager.init();
 });

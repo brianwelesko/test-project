@@ -32,7 +32,7 @@ router.post('/signup', async (req, res) => {
       hashedPassword
     );
 
-    const user = { id: result.lastInsertRowid, email: email.toLowerCase() };
+    const user = { id: Number(result.lastInsertRowid), email: email.toLowerCase() };
     const token = generateToken(user);
 
     res.status(201).json({ user: { id: user.id, email: user.email }, token });

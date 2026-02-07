@@ -1020,7 +1020,7 @@ class PantryInventory {
     }
 
     async updateItem(id, updates) {
-        const index = this.inventory.findIndex(item => item.id === id);
+        const index = this.inventory.findIndex(item => String(item.id) === String(id));
         if (index !== -1) {
             const updatedItem = {
                 ...this.inventory[index],
@@ -1044,7 +1044,7 @@ class PantryInventory {
     async deleteItem(id) {
         try {
             await API.deleteItem(id);
-            this.inventory = this.inventory.filter(item => item.id !== id);
+            this.inventory = this.inventory.filter(item => String(item.id) !== String(id));
         } catch (err) {
             console.error('Failed to delete item:', err);
             alert('Failed to delete item. Please check your connection and try again.');
@@ -1053,7 +1053,8 @@ class PantryInventory {
     }
 
     getItem(id) {
-        return this.inventory.find(item => item.id === id);
+        // Convert both to strings for comparison since onclick passes string IDs
+        return this.inventory.find(item => String(item.id) === String(id));
     }
 
     // Search functionality

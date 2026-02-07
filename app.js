@@ -959,12 +959,8 @@ class PantryInventory {
             return savedItem;
         } catch (err) {
             console.error('Failed to add item:', err);
-            // Fallback: add locally with temp ID
-            newItem.id = Date.now().toString();
-            newItem.createdAt = new Date().toISOString();
-            newItem.updatedAt = new Date().toISOString();
-            this.inventory.push(newItem);
-            return newItem;
+            alert('Failed to save item. Please check your connection and try again.');
+            throw err;
         }
     }
 
@@ -1038,9 +1034,8 @@ class PantryInventory {
                 return savedItem;
             } catch (err) {
                 console.error('Failed to update item:', err);
-                // Fallback: update locally
-                this.inventory[index] = updatedItem;
-                return updatedItem;
+                alert('Failed to update item. Please check your connection and try again.');
+                throw err;
             }
         }
         return null;
@@ -1052,8 +1047,8 @@ class PantryInventory {
             this.inventory = this.inventory.filter(item => item.id !== id);
         } catch (err) {
             console.error('Failed to delete item:', err);
-            // Fallback: delete locally anyway
-            this.inventory = this.inventory.filter(item => item.id !== id);
+            alert('Failed to delete item. Please check your connection and try again.');
+            throw err;
         }
     }
 

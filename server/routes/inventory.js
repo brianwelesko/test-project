@@ -1,5 +1,5 @@
 const express = require('express');
-const db = require('../db');
+const { query, pool } = require('../db');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -8,16 +8,16 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Get all inventory items for user
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const items = db.prepare(`
+    const result = await query(`
       SELECT * FROM inventory_items
-      WHERE user_id = ?
+      WHERE user_id = $1
       ORDER BY name ASC
-    `).all(req.user.id);
+    `, [req.user.id]);
 
     // Convert to client format (camelCase)
-    const formatted = items.map(formatItemForClient);
+    const formatted = result.rows.map(formatItemForClient);
     res.json(formatted);
   } catch (err) {
     console.error('Get inventory error:', err);
@@ -26,7 +26,7 @@ router.get('/', (req, res) => {
 });
 
 // Add new item
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const item = req.body;
 
@@ -34,12 +34,13 @@ router.post('/', (req, res) => {
       return res.status(400).json({ error: 'Item name is required' });
     }
 
-    const result = db.prepare(`
+    const result = await query(`
       INSERT INTO inventory_items (
         user_id, name, quantity, unit, category, location,
         threshold, purchase_date, expiration_date, bought_from, is_staple
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      RETURNING *
+    `, [
       req.user.id,
       item.name,
       item.quantity || 0,
@@ -51,10 +52,9 @@ router.post('/', (req, res) => {
       item.expirationDate || null,
       item.boughtFrom || null,
       item.isStaple ? 1 : 0
-    );
+    ]);
 
-    const newItem = db.prepare('SELECT * FROM inventory_items WHERE id = ?').get(Number(result.lastInsertRowid));
-    res.status(201).json(formatItemForClient(newItem));
+    res.status(201).json(formatItemForClient(result.rows[0]));
   } catch (err) {
     console.error('Add item error:', err);
     res.status(500).json({ error: err.message || 'Server error' });
@@ -62,24 +62,28 @@ router.post('/', (req, res) => {
 });
 
 // Update item
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const item = req.body;
 
     // Verify ownership
-    const existing = db.prepare('SELECT * FROM inventory_items WHERE id = ? AND user_id = ?').get(id, req.user.id);
-    if (!existing) {
+    const existingResult = await query(
+      'SELECT * FROM inventory_items WHERE id = $1 AND user_id = $2',
+      [id, req.user.id]
+    );
+    if (!existingResult.rows[0]) {
       return res.status(404).json({ error: 'Item not found' });
     }
 
-    db.prepare(`
+    const result = await query(`
       UPDATE inventory_items SET
-        name = ?, quantity = ?, unit = ?, category = ?, location = ?,
-        threshold = ?, purchase_date = ?, expiration_date = ?, bought_from = ?,
-        is_staple = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ? AND user_id = ?
-    `).run(
+        name = $1, quantity = $2, unit = $3, category = $4, location = $5,
+        threshold = $6, purchase_date = $7, expiration_date = $8, bought_from = $9,
+        is_staple = $10, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $11 AND user_id = $12
+      RETURNING *
+    `, [
       item.name,
       item.quantity,
       item.unit,
@@ -92,10 +96,9 @@ router.put('/:id', (req, res) => {
       item.isStaple ? 1 : 0,
       id,
       req.user.id
-    );
+    ]);
 
-    const updated = db.prepare('SELECT * FROM inventory_items WHERE id = ?').get(id);
-    res.json(formatItemForClient(updated));
+    res.json(formatItemForClient(result.rows[0]));
   } catch (err) {
     console.error('Update item error:', err);
     res.status(500).json({ error: 'Server error' });
@@ -103,13 +106,16 @@ router.put('/:id', (req, res) => {
 });
 
 // Delete item
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = db.prepare('DELETE FROM inventory_items WHERE id = ? AND user_id = ?').run(id, req.user.id);
+    const result = await query(
+      'DELETE FROM inventory_items WHERE id = $1 AND user_id = $2',
+      [id, req.user.id]
+    );
 
-    if (result.changes === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ error: 'Item not found' });
     }
 
@@ -121,7 +127,8 @@ router.delete('/:id', (req, res) => {
 });
 
 // Bulk sync (for initial migration from localStorage)
-router.post('/sync', (req, res) => {
+router.post('/sync', async (req, res) => {
+  const client = await pool.connect();
   try {
     const { items } = req.body;
 
@@ -129,38 +136,39 @@ router.post('/sync', (req, res) => {
       return res.status(400).json({ error: 'Items array required' });
     }
 
-    const insert = db.prepare(`
-      INSERT INTO inventory_items (
-        user_id, name, quantity, unit, category, location,
-        threshold, purchase_date, expiration_date, bought_from, is_staple
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    await client.query('BEGIN');
 
-    const insertMany = db.transaction((items) => {
-      for (const item of items) {
-        insert.run(
-          req.user.id,
-          item.name,
-          item.quantity || 0,
-          item.unit || 'items',
-          item.category || 'other',
-          item.location || 'pantry',
-          item.threshold || 0.2,
-          item.purchaseDate || null,
-          item.expirationDate || null,
-          item.boughtFrom || null,
-          item.isStaple ? 1 : 0
-        );
-      }
-    });
+    for (const item of items) {
+      await client.query(`
+        INSERT INTO inventory_items (
+          user_id, name, quantity, unit, category, location,
+          threshold, purchase_date, expiration_date, bought_from, is_staple
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      `, [
+        req.user.id,
+        item.name,
+        item.quantity || 0,
+        item.unit || 'items',
+        item.category || 'other',
+        item.location || 'pantry',
+        item.threshold || 0.2,
+        item.purchaseDate || null,
+        item.expirationDate || null,
+        item.boughtFrom || null,
+        item.isStaple ? 1 : 0
+      ]);
+    }
 
-    insertMany(items);
+    await client.query('COMMIT');
 
-    const allItems = db.prepare('SELECT * FROM inventory_items WHERE user_id = ?').all(req.user.id);
-    res.json(allItems.map(formatItemForClient));
+    const allItems = await query('SELECT * FROM inventory_items WHERE user_id = $1', [req.user.id]);
+    res.json(allItems.rows.map(formatItemForClient));
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error('Sync error:', err);
     res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
   }
 });
 

@@ -1,6 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const db = require('../db');
+const { query } = require('../db');
 const { generateToken, authenticateToken } = require('../middleware/auth');
 const { triggerDigestForUser, getAlertsForUser } = require('../services/scheduler');
 
@@ -20,19 +20,19 @@ router.post('/signup', async (req, res) => {
     }
 
     // Check if user exists
-    const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase());
-    if (existing) {
+    const existingResult = await query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
+    if (existingResult.rows[0]) {
       return res.status(409).json({ error: 'Email already registered' });
     }
 
     // Hash password and create user
     const hashedPassword = await bcrypt.hash(password, 10);
-    const result = db.prepare('INSERT INTO users (email, password) VALUES (?, ?)').run(
-      email.toLowerCase(),
-      hashedPassword
+    const result = await query(
+      'INSERT INTO users (email, password) VALUES ($1, $2) RETURNING id',
+      [email.toLowerCase(), hashedPassword]
     );
 
-    const user = { id: Number(result.lastInsertRowid), email: email.toLowerCase() };
+    const user = { id: result.rows[0].id, email: email.toLowerCase() };
     const token = generateToken(user);
 
     res.status(201).json({ user: { id: user.id, email: user.email }, token });
@@ -52,7 +52,8 @@ router.post('/login', async (req, res) => {
     }
 
     // Find user
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase());
+    const userResult = await query('SELECT * FROM users WHERE email = $1', [email.toLowerCase()]);
+    const user = userResult.rows[0];
     if (!user) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
@@ -77,9 +78,9 @@ router.get('/me', authenticateToken, (req, res) => {
 });
 
 // Get current alerts
-router.get('/alerts', authenticateToken, (req, res) => {
+router.get('/alerts', authenticateToken, async (req, res) => {
   try {
-    const alerts = getAlertsForUser(req.user.id);
+    const alerts = await getAlertsForUser(req.user.id);
     res.json(alerts);
   } catch (err) {
     console.error('Alerts error:', err);

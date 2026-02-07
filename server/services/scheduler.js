@@ -1,5 +1,5 @@
 const cron = require('node-cron');
-const db = require('../db');
+const { query } = require('../db');
 const { sendDigestEmail } = require('./email');
 
 // How many days before expiration to alert
@@ -24,10 +24,11 @@ function startScheduler() {
 async function sendDailyDigests() {
   try {
     // Get all users
-    const users = db.prepare('SELECT id, email FROM users').all();
+    const usersResult = await query('SELECT id, email FROM users');
+    const users = usersResult.rows;
 
     for (const user of users) {
-      const alerts = getAlertsForUser(user.id);
+      const alerts = await getAlertsForUser(user.id);
 
       // Only send if there are alerts
       if (alerts.expiringItems.length > 0 || alerts.lowStockItems.length > 0) {
@@ -42,8 +43,9 @@ async function sendDailyDigests() {
   }
 }
 
-function getAlertsForUser(userId) {
-  const items = db.prepare('SELECT * FROM inventory_items WHERE user_id = ?').all(userId);
+async function getAlertsForUser(userId) {
+  const itemsResult = await query('SELECT * FROM inventory_items WHERE user_id = $1', [userId]);
+  const items = itemsResult.rows;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -96,7 +98,7 @@ function getAlertsForUser(userId) {
 
 // Export for manual triggering (e.g., API endpoint)
 async function triggerDigestForUser(userId, userEmail) {
-  const alerts = getAlertsForUser(userId);
+  const alerts = await getAlertsForUser(userId);
   if (alerts.expiringItems.length > 0 || alerts.lowStockItems.length > 0) {
     return await sendDigestEmail(userEmail, alerts);
   }

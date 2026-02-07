@@ -3107,15 +3107,19 @@ class PantryInventory {
                 return;
             }
             dropdown.classList.remove('hidden');
-            setTimeout(() => {
+            // Add class to parent item for z-index fix
+            dropdown.closest('.inventory-item')?.classList.add('menu-open');
+            // Use requestAnimationFrame to ensure the current click event completes
+            requestAnimationFrame(() => {
                 document.addEventListener('click', this.handleOverflowClickOutside);
-            }, 0);
+            });
         }
     }
 
     closeAllOverflowMenus() {
         document.querySelectorAll('.overflow-dropdown').forEach(dropdown => {
             dropdown.classList.add('hidden');
+            dropdown.closest('.inventory-item')?.classList.remove('menu-open');
         });
         document.removeEventListener('click', this.handleOverflowClickOutside);
     }

@@ -986,6 +986,11 @@ header h1 {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
+.inventory-item.menu-open {
+    z-index: 100;
+    position: relative;
+}
+
 .inventory-item.low-stock {
     background: #fff5f5;
     border-left: 4px solid #dc3545;
@@ -1814,7 +1819,7 @@ header h1 {
     border-radius: 8px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     min-width: 140px;
-    z-index: 999;
+    z-index: 1000;
     overflow: hidden;
     margin-top: 4px;
 }
@@ -2119,6 +2124,21 @@ header h1 {
 
 .logout-btn:hover {
     background: rgba(255, 255, 255, 0.3);
+}
+
+@media (max-width: 600px) {
+    .logout-btn {
+        position: absolute;
+        right: 10px;
+        top: 10px;
+        transform: none;
+        padding: 6px 10px;
+        font-size: 0.75rem;
+    }
+
+    header h1 {
+        padding-right: 70px;
+    }
 }
 
 header {

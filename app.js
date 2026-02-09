@@ -551,6 +551,25 @@ const API = {
             method: 'POST',
             body: JSON.stringify({ items })
         });
+    },
+
+    // Receipt Corrections (learning system)
+    async getCorrections() {
+        return this.request('/corrections');
+    },
+
+    async saveCorrection(correction) {
+        return this.request('/corrections', {
+            method: 'POST',
+            body: JSON.stringify(correction)
+        });
+    },
+
+    async saveCorrections(corrections) {
+        return this.request('/corrections/bulk', {
+            method: 'POST',
+            body: JSON.stringify({ corrections })
+        });
     }
 };
 
@@ -3122,6 +3141,10 @@ class PantryInventory {
 
         // Copy text button
         scanCopyText.addEventListener('click', () => this.copyScanText());
+
+        // Use as grocery receipt button
+        const scanUseAsGrocery = document.getElementById('scanUseAsGrocery');
+        scanUseAsGrocery.addEventListener('click', () => this.useScanAsGrocery());
     }
 
     closeScanModal() {
@@ -3209,6 +3232,388 @@ class PantryInventory {
             copyBtn.textContent = originalText;
         }, 1500);
     }
+
+    // === GROCERY RECEIPT PARSING METHODS ===
+
+    async useScanAsGrocery() {
+        const resultText = document.getElementById('scanResultText').value;
+        if (!resultText.trim()) {
+            alert('No text to parse');
+            return;
+        }
+
+        // Load user's previous corrections for smart parsing
+        await this.loadCorrections();
+
+        // Parse the receipt text
+        const parsedItems = this.parseGroceryReceipt(resultText);
+
+        if (parsedItems.length === 0) {
+            alert('No grocery items detected. Try adjusting the image or manually copying the text.');
+            return;
+        }
+
+        // Show review modal
+        this.showGroceryReviewModal(parsedItems);
+    }
+
+    async loadCorrections() {
+        if (this.corrections) return; // Already loaded
+
+        try {
+            this.corrections = await API.getCorrections();
+        } catch (err) {
+            console.error('Failed to load corrections:', err);
+            this.corrections = [];
+        }
+    }
+
+    parseGroceryReceipt(text) {
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        const items = [];
+
+        // Common receipt patterns
+        const pricePattern = /\$?\d+\.\d{2}$/;
+        const qtyPricePattern = /^(\d+)\s*[@x]\s*\$?(\d+\.\d{2})/i;
+        const leadingQtyPattern = /^(\d+)\s+(.+)/;
+        const weightPattern = /(\d+\.?\d*)\s*(lb|lbs|oz|kg|g)\b/i;
+
+        // Skip patterns (headers, totals, etc.)
+        const skipPatterns = [
+            /^(subtotal|total|tax|change|cash|credit|debit|visa|mastercard|amex)/i,
+            /^(thank|welcome|store|receipt|date|time|transaction|#|phone)/i,
+            /^\*+$/,
+            /^-+$/,
+            /^\d{2}[\/\-]\d{2}[\/\-]\d{2,4}/,  // Dates
+            /^\d{1,2}:\d{2}/,  // Times
+            /^[\d\s\-\(\)]+$/  // Just numbers (phone, card numbers)
+        ];
+
+        for (const line of lines) {
+            // Skip non-item lines
+            if (skipPatterns.some(p => p.test(line))) continue;
+            if (line.length < 2) continue;
+
+            let itemName = line;
+            let quantity = 1;
+            let unit = 'items';
+            let price = null;
+
+            // Extract price from end
+            const priceMatch = line.match(pricePattern);
+            if (priceMatch) {
+                price = parseFloat(priceMatch[0].replace('$', ''));
+                itemName = line.replace(pricePattern, '').trim();
+            }
+
+            // Check for quantity x price format (e.g., "2 @ $3.99")
+            const qtyPriceMatch = itemName.match(qtyPricePattern);
+            if (qtyPriceMatch) {
+                quantity = parseInt(qtyPriceMatch[1]);
+                itemName = itemName.replace(qtyPricePattern, '').trim();
+            }
+
+            // Check for leading quantity (e.g., "2 Bananas")
+            const leadingQtyMatch = itemName.match(leadingQtyPattern);
+            if (leadingQtyMatch && !itemName.match(/^\d+\s*(oz|lb|kg|g)\b/i)) {
+                quantity = parseInt(leadingQtyMatch[1]);
+                itemName = leadingQtyMatch[2].trim();
+            }
+
+            // Check for weight (e.g., "2.5 lbs")
+            const weightMatch = itemName.match(weightPattern);
+            if (weightMatch) {
+                quantity = parseFloat(weightMatch[1]);
+                unit = this.normalizeUnit(weightMatch[2]);
+                itemName = itemName.replace(weightPattern, '').trim();
+            }
+
+            // Clean up item name
+            itemName = this.cleanGroceryItemName(itemName);
+
+            if (!itemName || itemName.length < 2) continue;
+
+            // Apply any learned corrections
+            const correction = this.findCorrection(itemName);
+            if (correction) {
+                const correctedItem = {
+                    originalText: itemName,
+                    name: correction.correctedName,
+                    quantity: correction.correctedQuantity || quantity,
+                    unit: correction.correctedUnit || unit,
+                    category: correction.correctedCategory || this.guessCategory(correction.correctedName),
+                    price: price,
+                    wasAutoCorrect: true
+                };
+                items.push(correctedItem);
+            } else {
+                items.push({
+                    originalText: itemName,
+                    name: this.capitalizeWords(itemName),
+                    quantity: quantity,
+                    unit: unit,
+                    category: this.guessCategory(itemName),
+                    price: price,
+                    wasAutoCorrect: false
+                });
+            }
+        }
+
+        return items;
+    }
+
+    cleanGroceryItemName(name) {
+        // Remove common receipt artifacts
+        return name
+            .replace(/\s+/g, ' ')                    // Normalize whitespace
+            .replace(/^[\d\s\.\-]+/, '')             // Remove leading numbers/dots
+            .replace(/[#\*]+$/, '')                  // Remove trailing symbols
+            .replace(/\s*F$/, '')                    // Remove tax indicator "F"
+            .replace(/\s*T$/, '')                    // Remove taxable indicator
+            .replace(/\([^)]*\)$/, '')               // Remove trailing parenthetical
+            .replace(/^\s*ORG\s+/i, 'Organic ')      // Expand ORG abbreviation
+            .trim();
+    }
+
+    findCorrection(text) {
+        if (!this.corrections || this.corrections.length === 0) return null;
+
+        const normalized = text.toLowerCase().trim();
+
+        // Exact match first
+        let match = this.corrections.find(c =>
+            c.originalText.toLowerCase() === normalized
+        );
+
+        if (match) return match;
+
+        // Fuzzy match: check if original contains the text or vice versa
+        match = this.corrections.find(c => {
+            const orig = c.originalText.toLowerCase();
+            return orig.includes(normalized) || normalized.includes(orig);
+        });
+
+        return match;
+    }
+
+    guessCategory(itemName) {
+        const name = itemName.toLowerCase();
+
+        const categoryPatterns = {
+            'produce': /\b(apple|banana|orange|lemon|lime|tomato|potato|onion|garlic|lettuce|spinach|carrot|celery|pepper|cucumber|avocado|berry|berries|grape|melon|mango|peach|pear|plum|broccoli|cauliflower|cabbage|kale|mushroom|zucchini|squash|corn|bean|pea|organic|fresh|fruit|vegetable|produce)\b/i,
+            'dairy': /\b(milk|cheese|yogurt|butter|cream|egg|eggs|cottage|sour cream|half|cheddar|mozzarella|parmesan)\b/i,
+            'meat': /\b(chicken|beef|pork|turkey|bacon|sausage|ham|steak|ground|meat|lamb|fish|salmon|tuna|shrimp|seafood)\b/i,
+            'bakery': /\b(bread|bagel|muffin|croissant|roll|bun|cake|cookie|pastry|donut|pie|tortilla)\b/i,
+            'frozen': /\b(frozen|ice cream|pizza|fries|nugget|popsicle)\b/i,
+            'beverages': /\b(water|juice|soda|coffee|tea|wine|beer|drink|cola|sprite|pepsi|coke)\b/i,
+            'pantry': /\b(rice|pasta|cereal|flour|sugar|oil|sauce|soup|can|canned|spice|salt|pepper|vinegar|honey|syrup|peanut|almond|nut)\b/i,
+            'snacks': /\b(chip|chips|cracker|pretzel|popcorn|candy|chocolate|snack|bar|granola)\b/i,
+            'condiments': /\b(ketchup|mustard|mayo|mayonnaise|dressing|relish|salsa|hot sauce)\b/i,
+            'cleaning': /\b(soap|detergent|cleaner|bleach|sponge|paper towel|tissue|trash bag|dishwasher)\b/i,
+            'personal': /\b(shampoo|conditioner|toothpaste|deodorant|lotion|razor|band-aid|medicine|vitamin)\b/i
+        };
+
+        for (const [category, pattern] of Object.entries(categoryPatterns)) {
+            if (pattern.test(name)) {
+                return category;
+            }
+        }
+
+        return 'other';
+    }
+
+    showGroceryReviewModal(items) {
+        this.parsedGroceryItems = items;
+
+        // Initialize modal if needed
+        if (!this.groceryReviewModalInitialized) {
+            this.initializeGroceryReviewModal();
+        }
+
+        // Populate items
+        const listEl = document.getElementById('groceryItemsList');
+        listEl.innerHTML = items.map((item, idx) => this.renderGroceryItemRow(item, idx)).join('');
+
+        // Add input event listeners for tracking changes
+        listEl.querySelectorAll('input, select').forEach(el => {
+            el.addEventListener('change', () => this.markGroceryItemCorrected(el));
+        });
+
+        // Show modal
+        const modal = document.getElementById('groceryReviewModal');
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+
+        // Close scan modal
+        this.closeScanModal();
+    }
+
+    renderGroceryItemRow(item, idx) {
+        const unitOptions = ['items', 'lbs', 'oz', 'kg', 'g', 'gal', 'L', 'ml', 'cups', 'pcs', 'bags', 'boxes', 'cans', 'bottles', 'jars', 'bunches'];
+        const categoryOptions = ['produce', 'dairy', 'meat', 'bakery', 'frozen', 'beverages', 'pantry', 'snacks', 'condiments', 'cleaning', 'personal', 'other'];
+
+        return `
+            <div class="grocery-item-row${item.wasAutoCorrect ? ' corrected' : ''}" data-idx="${idx}">
+                <input type="checkbox" class="grocery-item-checkbox" checked>
+                <input type="text" class="grocery-item-name" value="${this.escapeHtml(item.name)}" data-field="name">
+                <input type="number" class="grocery-item-qty" value="${item.quantity}" min="0" step="0.1" data-field="quantity">
+                <select class="grocery-item-unit" data-field="unit">
+                    ${unitOptions.map(u => `<option value="${u}"${u === item.unit ? ' selected' : ''}>${u}</option>`).join('')}
+                </select>
+                <select class="grocery-item-category" data-field="category">
+                    ${categoryOptions.map(c => `<option value="${c}"${c === item.category ? ' selected' : ''}>${c}</option>`).join('')}
+                </select>
+                <button class="grocery-item-remove" onclick="app.removeGroceryItem(${idx})">×</button>
+                ${item.originalText !== item.name ? `<div class="grocery-item-original">Original: "${this.escapeHtml(item.originalText)}"</div>` : ''}
+            </div>
+        `;
+    }
+
+    markGroceryItemCorrected(el) {
+        const row = el.closest('.grocery-item-row');
+        const idx = parseInt(row.dataset.idx);
+        const field = el.dataset.field;
+
+        if (field && this.parsedGroceryItems[idx]) {
+            const newValue = field === 'quantity' ? parseFloat(el.value) : el.value;
+            this.parsedGroceryItems[idx][field] = newValue;
+            this.parsedGroceryItems[idx].wasEdited = true;
+            row.classList.add('corrected');
+        }
+    }
+
+    removeGroceryItem(idx) {
+        const row = document.querySelector(`.grocery-item-row[data-idx="${idx}"]`);
+        if (row) {
+            row.remove();
+            this.parsedGroceryItems[idx] = null;
+        }
+    }
+
+    initializeGroceryReviewModal() {
+        this.groceryReviewModalInitialized = true;
+
+        const modal = document.getElementById('groceryReviewModal');
+        const closeBtn = document.getElementById('closeGroceryReview');
+        const addBtn = document.getElementById('groceryAddSelected');
+        const cancelBtn = document.getElementById('groceryCancel');
+
+        closeBtn.addEventListener('click', () => this.closeGroceryReviewModal());
+        cancelBtn.addEventListener('click', () => this.closeGroceryReviewModal());
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) this.closeGroceryReviewModal();
+        });
+
+        addBtn.addEventListener('click', () => this.addGroceryItemsToInventory());
+    }
+
+    closeGroceryReviewModal() {
+        const modal = document.getElementById('groceryReviewModal');
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+        this.parsedGroceryItems = null;
+    }
+
+    async addGroceryItemsToInventory() {
+        const rows = document.querySelectorAll('.grocery-item-row');
+        const itemsToAdd = [];
+        const correctionsToSave = [];
+
+        rows.forEach((row, idx) => {
+            const checkbox = row.querySelector('.grocery-item-checkbox');
+            if (!checkbox.checked) return;
+
+            const item = this.parsedGroceryItems[idx];
+            if (!item) return;
+
+            // Get current values from form
+            const name = row.querySelector('.grocery-item-name').value.trim();
+            const quantity = parseFloat(row.querySelector('.grocery-item-qty').value) || 1;
+            const unit = row.querySelector('.grocery-item-unit').value;
+            const category = row.querySelector('.grocery-item-category').value;
+
+            itemsToAdd.push({
+                name,
+                quantity,
+                unit,
+                category
+            });
+
+            // If user edited this item, save correction for learning
+            if (item.wasEdited || name !== item.originalText) {
+                correctionsToSave.push({
+                    originalText: item.originalText,
+                    correctedName: name,
+                    correctedQuantity: quantity,
+                    correctedUnit: unit,
+                    correctedCategory: category
+                });
+            }
+        });
+
+        if (itemsToAdd.length === 0) {
+            alert('No items selected');
+            return;
+        }
+
+        const addBtn = document.getElementById('groceryAddSelected');
+        addBtn.disabled = true;
+        addBtn.textContent = 'Adding...';
+
+        try {
+            // Save corrections first (non-blocking)
+            if (correctionsToSave.length > 0) {
+                API.saveCorrections(correctionsToSave).catch(err =>
+                    console.error('Failed to save corrections:', err)
+                );
+                // Update local cache
+                if (this.corrections) {
+                    this.corrections = [...this.corrections, ...correctionsToSave];
+                }
+            }
+
+            // Add items to inventory (update existing or create new)
+            let added = 0;
+            let updated = 0;
+
+            for (const item of itemsToAdd) {
+                // Check if item already exists
+                const existing = this.inventory.find(i =>
+                    i.name.toLowerCase() === item.name.toLowerCase() &&
+                    i.unit === item.unit
+                );
+
+                if (existing) {
+                    // Update quantity
+                    const newQty = existing.quantity + item.quantity;
+                    await this.updateItem(existing.id, { ...existing, quantity: newQty });
+                    updated++;
+                } else {
+                    // Add new item
+                    await this.addItem(item);
+                    added++;
+                }
+            }
+
+            this.closeGroceryReviewModal();
+            this.render();
+
+            // Show success message
+            const msg = [];
+            if (added > 0) msg.push(`${added} new item${added > 1 ? 's' : ''} added`);
+            if (updated > 0) msg.push(`${updated} item${updated > 1 ? 's' : ''} updated`);
+            alert(msg.join(', '));
+
+        } catch (err) {
+            console.error('Failed to add grocery items:', err);
+            alert('Failed to add items: ' + err.message);
+        } finally {
+            addBtn.disabled = false;
+            addBtn.textContent = 'Add Selected to Inventory';
+        }
+    }
+
+    // === END GROCERY RECEIPT METHODS ===
 
     // === END SCAN/CAPTURE METHODS ===
 

@@ -38,6 +38,22 @@ async function initializeDatabase() {
 
     CREATE INDEX IF NOT EXISTS idx_inventory_user ON inventory_items(user_id);
     CREATE INDEX IF NOT EXISTS idx_inventory_expiration ON inventory_items(expiration_date);
+
+    CREATE TABLE IF NOT EXISTS receipt_corrections (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      original_text TEXT NOT NULL,
+      corrected_name TEXT NOT NULL,
+      corrected_quantity REAL,
+      corrected_unit TEXT,
+      corrected_category TEXT,
+      use_count INTEGER DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_corrections_user ON receipt_corrections(user_id);
+    CREATE INDEX IF NOT EXISTS idx_corrections_original ON receipt_corrections(original_text);
   `);
   console.log('Database initialized');
 }

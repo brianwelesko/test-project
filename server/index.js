@@ -6,6 +6,7 @@ const path = require('path');
 const { initializeDatabase } = require('./db');
 const authRoutes = require('./routes/auth');
 const inventoryRoutes = require('./routes/inventory');
+const correctionsRoutes = require('./routes/corrections');
 const { startScheduler } = require('./services/scheduler');
 
 const app = express();
@@ -21,6 +22,7 @@ app.use(express.static(path.join(__dirname, '..')));
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/inventory', inventoryRoutes);
+app.use('/api/corrections', correctionsRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

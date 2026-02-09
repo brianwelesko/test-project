@@ -457,9 +457,28 @@ Example:
                 <h4>Extracted Text</h4>
                 <textarea id="scanResultText" readonly></textarea>
                 <div class="scan-actions">
-                    <button id="scanUseAsRecipe" class="scan-btn-primary">Use as Recipe</button>
-                    <button id="scanCopyText" class="scan-btn-secondary">Copy Text</button>
+                    <button id="scanUseAsGrocery" class="scan-btn-primary">Add to Inventory</button>
+                    <button id="scanUseAsRecipe" class="scan-btn-secondary">Use as Recipe</button>
+                    <button id="scanCopyText" class="scan-btn-tertiary">Copy</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grocery Receipt Review Modal -->
+    <div id="groceryReviewModal" class="grocery-review-modal hidden">
+        <div class="grocery-review-content">
+            <button id="closeGroceryReview" class="close-scan-btn">&times;</button>
+            <h3>Review Grocery Items</h3>
+            <p class="grocery-review-description">Edit items before adding to inventory. Your corrections help improve future parsing.</p>
+
+            <div id="groceryItemsList" class="grocery-items-list">
+                <!-- Items will be populated dynamically -->
+            </div>
+
+            <div class="grocery-review-actions">
+                <button id="groceryAddSelected" class="scan-btn-primary">Add Selected to Inventory</button>
+                <button id="groceryCancel" class="scan-btn-secondary">Cancel</button>
             </div>
         </div>
     </div>

@@ -388,6 +388,38 @@ const INGREDIENT_DATABASE = {
     'frozen fish': { category: 'frozen', location: 'freezer', expirationDays: 180 }
 };
 
+// ===== LAZY-LOADED TESSERACT OCR =====
+// Only loads the 3MB Tesseract library when scan/capture is first used
+let tesseractWorker = null;
+let tesseractLoading = false;
+
+async function loadTesseract() {
+    if (tesseractWorker) {
+        return tesseractWorker;
+    }
+
+    if (tesseractLoading) {
+        // Wait for existing load to complete
+        while (tesseractLoading) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        return tesseractWorker;
+    }
+
+    tesseractLoading = true;
+    try {
+        // Dynamically import Tesseract.js only when needed
+        const Tesseract = await import('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js');
+        tesseractWorker = await Tesseract.createWorker('eng');
+        return tesseractWorker;
+    } catch (error) {
+        console.error('Failed to load Tesseract:', error);
+        throw new Error('Failed to load OCR library. Please check your internet connection.');
+    } finally {
+        tesseractLoading = false;
+    }
+}
+
 // ===== API CLIENT =====
 const API = {
     baseUrl: '/api',
@@ -1911,6 +1943,11 @@ class PantryInventory {
             return { action: 'show-recipe' };
         }
 
+        // Special commands: "scan" or "capture" - opens camera/image OCR
+        if (input.toLowerCase() === 'scan' || input.toLowerCase() === 'capture') {
+            return { action: 'show-scan' };
+        }
+
         // Sort command: "sort" or "sort name/qty/exp/etc"
         const sortCommand = input.match(/^sort(?:\s+(\w+))?$/i);
         if (sortCommand) {
@@ -2978,6 +3015,10 @@ class PantryInventory {
         // Close item details modal
         this.itemDetailsModal.classList.add('hidden');
 
+        // Close scan modal
+        const scanModal = document.getElementById('scanModal');
+        if (scanModal) scanModal.classList.add('hidden');
+
         // Reset body overflow
         document.body.style.overflow = '';
 
@@ -2985,7 +3026,155 @@ class PantryInventory {
         this.clearCommandBar();
     }
 
-    // === END SORT/DELETE/EDIT/FILTER METHODS ===
+    // === SCAN/CAPTURE METHODS (Lazy-loaded Tesseract) ===
+
+    showScanModal() {
+        // Get or create scan modal elements
+        this.scanModal = document.getElementById('scanModal');
+        if (!this.scanModal) {
+            console.error('Scan modal not found');
+            return;
+        }
+
+        // Initialize scan modal event listeners if not already done
+        if (!this.scanModalInitialized) {
+            this.initializeScanModal();
+        }
+
+        this.scanModal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        this.clearCommandBar();
+    }
+
+    initializeScanModal() {
+        this.scanModalInitialized = true;
+
+        const closeScanBtn = document.getElementById('closeScanModal');
+        const scanFileInput = document.getElementById('scanFileInput');
+        const scanCameraBtn = document.getElementById('scanCameraBtn');
+        const scanUploadBtn = document.getElementById('scanUploadBtn');
+        const scanProcessBtn = document.getElementById('scanProcessBtn');
+        const scanUseAsRecipe = document.getElementById('scanUseAsRecipe');
+        const scanCopyText = document.getElementById('scanCopyText');
+
+        // Close modal
+        closeScanBtn.addEventListener('click', () => this.closeScanModal());
+        this.scanModal.addEventListener('click', (e) => {
+            if (e.target === this.scanModal) this.closeScanModal();
+        });
+
+        // Camera button (uses file input with capture attribute)
+        scanCameraBtn.addEventListener('click', () => {
+            scanFileInput.setAttribute('capture', 'environment');
+            scanFileInput.click();
+        });
+
+        // Upload button (removes capture to show file picker)
+        scanUploadBtn.addEventListener('click', () => {
+            scanFileInput.removeAttribute('capture');
+            scanFileInput.click();
+        });
+
+        // Handle file selection
+        scanFileInput.addEventListener('change', (e) => this.handleScanFileSelect(e));
+
+        // Process image button
+        scanProcessBtn.addEventListener('click', () => this.processScanImage());
+
+        // Use as recipe button
+        scanUseAsRecipe.addEventListener('click', () => this.useScanAsRecipe());
+
+        // Copy text button
+        scanCopyText.addEventListener('click', () => this.copyScanText());
+    }
+
+    closeScanModal() {
+        this.scanModal.classList.add('hidden');
+        document.body.style.overflow = '';
+
+        // Reset scan modal state
+        document.getElementById('scanPreview').classList.add('hidden');
+        document.getElementById('scanLoading').classList.add('hidden');
+        document.getElementById('scanResults').classList.add('hidden');
+        document.getElementById('scanFileInput').value = '';
+    }
+
+    handleScanFileSelect(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const previewImg = document.getElementById('scanPreviewImg');
+            previewImg.src = event.target.result;
+            document.getElementById('scanPreview').classList.remove('hidden');
+            document.getElementById('scanResults').classList.add('hidden');
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async processScanImage() {
+        const previewImg = document.getElementById('scanPreviewImg');
+        const loadingEl = document.getElementById('scanLoading');
+        const loadingText = document.getElementById('scanLoadingText');
+        const resultsEl = document.getElementById('scanResults');
+        const resultText = document.getElementById('scanResultText');
+
+        // Show loading state
+        loadingEl.classList.remove('hidden');
+        loadingText.textContent = 'Loading OCR engine...';
+
+        try {
+            // Lazy load Tesseract (only loads 3MB on first use)
+            const worker = await loadTesseract();
+
+            loadingText.textContent = 'Processing image...';
+
+            // Perform OCR
+            const result = await worker.recognize(previewImg.src);
+
+            // Show results
+            loadingEl.classList.add('hidden');
+            resultText.value = result.data.text;
+            resultsEl.classList.remove('hidden');
+
+        } catch (error) {
+            loadingEl.classList.add('hidden');
+            alert('OCR failed: ' + error.message);
+            console.error('OCR error:', error);
+        }
+    }
+
+    useScanAsRecipe() {
+        const resultText = document.getElementById('scanResultText').value;
+        if (!resultText.trim()) {
+            alert('No text to use');
+            return;
+        }
+
+        // Close scan modal
+        this.closeScanModal();
+
+        // Open recipe section and paste text
+        this.showRecipeSection();
+        document.getElementById('recipeText').value = resultText;
+    }
+
+    copyScanText() {
+        const resultText = document.getElementById('scanResultText');
+        resultText.select();
+        document.execCommand('copy');
+
+        // Visual feedback
+        const copyBtn = document.getElementById('scanCopyText');
+        const originalText = copyBtn.textContent;
+        copyBtn.textContent = 'Copied!';
+        setTimeout(() => {
+            copyBtn.textContent = originalText;
+        }, 1500);
+    }
+
+    // === END SCAN/CAPTURE METHODS ===
 
     // Show view suggestions for item lookup
     showViewSuggestions(query) {
@@ -3372,6 +3561,8 @@ class PantryInventory {
             this.showAddForm(parsed.prefill);
         } else if (parsed.action === 'show-recipe') {
             this.showRecipeSection();
+        } else if (parsed.action === 'show-scan') {
+            this.showScanModal();
         } else if (parsed.action === 'view') {
             this.showItemDetails(parsed.itemQuery);
         } else if (parsed.action === 'deduct') {

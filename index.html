@@ -94,6 +94,7 @@
                     <li><code>view rice</code> — View item details</li>
                     <li><code>add</code> or <code>add paprika</code> — Open Add form</li>
                     <li><code>recipe</code> — Open Recipe section</li>
+                    <li><code>scan</code> or <code>capture</code> — Scan label/receipt (OCR)</li>
                     <li><code>help</code> — Toggle this help panel</li>
                 </ul>
                 <div class="convert-help-section">
@@ -425,6 +426,40 @@ Example:
             <div class="details-actions">
                 <button id="detailsEditBtn" class="btn-edit">Edit</button>
                 <button id="detailsCloseBtn" class="btn-cancel">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scan/Capture Modal -->
+    <div id="scanModal" class="scan-modal hidden">
+        <div class="scan-modal-content">
+            <button id="closeScanModal" class="close-scan-btn">&times;</button>
+            <h3>Scan Label or Receipt</h3>
+            <p class="scan-description">Take a photo or upload an image to extract ingredient text.</p>
+
+            <div class="scan-input-area">
+                <input type="file" id="scanFileInput" accept="image/*" capture="environment" hidden>
+                <button id="scanCameraBtn" class="scan-btn-primary">Take Photo</button>
+                <button id="scanUploadBtn" class="scan-btn-secondary">Upload Image</button>
+            </div>
+
+            <div id="scanPreview" class="scan-preview hidden">
+                <img id="scanPreviewImg" alt="Scan preview">
+                <button id="scanProcessBtn" class="scan-btn-process">Process Image</button>
+            </div>
+
+            <div id="scanLoading" class="scan-loading hidden">
+                <div class="scan-spinner"></div>
+                <p id="scanLoadingText">Loading OCR engine...</p>
+            </div>
+
+            <div id="scanResults" class="scan-results hidden">
+                <h4>Extracted Text</h4>
+                <textarea id="scanResultText" readonly></textarea>
+                <div class="scan-actions">
+                    <button id="scanUseAsRecipe" class="scan-btn-primary">Use as Recipe</button>
+                    <button id="scanCopyText" class="scan-btn-secondary">Copy Text</button>
+                </div>
             </div>
         </div>
     </div>

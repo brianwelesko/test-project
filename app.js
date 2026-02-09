@@ -392,6 +392,42 @@ const INGREDIENT_DATABASE = {
 // Only loads the 3MB Tesseract library when scan/capture is first used
 let tesseractWorker = null;
 let tesseractLoading = false;
+let tesseractLoadPromise = null;
+
+function loadTesseractScript() {
+    // Return existing promise if already loading
+    if (tesseractLoadPromise) {
+        return tesseractLoadPromise;
+    }
+
+    // Check if already loaded globally
+    if (window.Tesseract) {
+        return Promise.resolve(window.Tesseract);
+    }
+
+    tesseractLoadPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+        script.async = true;
+
+        script.onload = () => {
+            if (window.Tesseract) {
+                resolve(window.Tesseract);
+            } else {
+                reject(new Error('Tesseract failed to initialize'));
+            }
+        };
+
+        script.onerror = () => {
+            tesseractLoadPromise = null;
+            reject(new Error('Failed to load OCR library. Please check your internet connection.'));
+        };
+
+        document.head.appendChild(script);
+    });
+
+    return tesseractLoadPromise;
+}
 
 async function loadTesseract() {
     if (tesseractWorker) {
@@ -408,13 +444,13 @@ async function loadTesseract() {
 
     tesseractLoading = true;
     try {
-        // Dynamically import Tesseract.js only when needed
-        const Tesseract = await import('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js');
+        // Load Tesseract.js via script tag (better mobile browser support)
+        const Tesseract = await loadTesseractScript();
         tesseractWorker = await Tesseract.createWorker('eng');
         return tesseractWorker;
     } catch (error) {
         console.error('Failed to load Tesseract:', error);
-        throw new Error('Failed to load OCR library. Please check your internet connection.');
+        throw error;
     } finally {
         tesseractLoading = false;
     }

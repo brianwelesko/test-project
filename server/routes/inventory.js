@@ -37,8 +37,9 @@ router.post('/', async (req, res) => {
     const result = await query(`
       INSERT INTO inventory_items (
         user_id, name, quantity, unit, category, location,
-        threshold, purchase_date, expiration_date, bought_from, is_staple
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        threshold, purchase_date, expiration_date, bought_from, is_staple,
+        last_price, previous_price
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *
     `, [
       req.user.id,
@@ -51,7 +52,9 @@ router.post('/', async (req, res) => {
       item.purchaseDate || null,
       item.expirationDate || null,
       item.boughtFrom || null,
-      item.isStaple ? 1 : 0
+      item.isStaple ? 1 : 0,
+      item.last_price || null,
+      item.previous_price || null
     ]);
 
     res.status(201).json(formatItemForClient(result.rows[0]));
@@ -80,8 +83,8 @@ router.put('/:id', async (req, res) => {
       UPDATE inventory_items SET
         name = $1, quantity = $2, unit = $3, category = $4, location = $5,
         threshold = $6, purchase_date = $7, expiration_date = $8, bought_from = $9,
-        is_staple = $10, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $11 AND user_id = $12
+        is_staple = $10, last_price = $11, previous_price = $12, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $13 AND user_id = $14
       RETURNING *
     `, [
       item.name,
@@ -94,6 +97,8 @@ router.put('/:id', async (req, res) => {
       item.expirationDate || null,
       item.boughtFrom || null,
       item.isStaple ? 1 : 0,
+      item.last_price !== undefined ? item.last_price : null,
+      item.previous_price !== undefined ? item.previous_price : null,
       id,
       req.user.id
     ]);
@@ -186,6 +191,8 @@ function formatItemForClient(item) {
     expirationDate: item.expiration_date,
     boughtFrom: item.bought_from,
     isStaple: Boolean(item.is_staple),
+    last_price: item.last_price,
+    previous_price: item.previous_price,
     createdAt: item.created_at,
     updatedAt: item.updated_at
   };

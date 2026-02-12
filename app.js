@@ -1532,6 +1532,7 @@ class PantryInventory {
                         </div>
                         ${expirationDisplay ? `<div class="expiration-info">${expirationDisplay}</div>` : ''}
                         ${storeInfo ? `<div class="item-store">From: ${this.escapeHtml(storeInfo)}</div>` : ''}
+                        ${this.renderPriceInfo(item)}
                     </div>
                     <div class="item-quantity">
                         <div class="amount">${item.quantity}</div>
@@ -1553,6 +1554,29 @@ class PantryInventory {
                 </div>
             `;
         }).join('');
+    }
+
+    // Render price info with change indicator
+    renderPriceInfo(item) {
+        if (!item.last_price && item.last_price !== 0) return '';
+
+        const price = parseFloat(item.last_price).toFixed(2);
+        let changeIndicator = '';
+
+        if (item.previous_price !== null && item.previous_price !== undefined) {
+            const prevPrice = parseFloat(item.previous_price);
+            const currPrice = parseFloat(item.last_price);
+
+            if (currPrice > prevPrice) {
+                const diff = (currPrice - prevPrice).toFixed(2);
+                changeIndicator = `<span class="price-up" title="Up $${diff} from $${prevPrice.toFixed(2)}">↑</span>`;
+            } else if (currPrice < prevPrice) {
+                const diff = (prevPrice - currPrice).toFixed(2);
+                changeIndicator = `<span class="price-down" title="Down $${diff} from $${prevPrice.toFixed(2)}">↓</span>`;
+            }
+        }
+
+        return `<div class="item-price">$${price}${changeIndicator}</div>`;
     }
 
     async confirmDelete(id) {
@@ -3268,15 +3292,310 @@ class PantryInventory {
         }
     }
 
+    // OCR text normalization - fix common character recognition errors
+    normalizeOcrText(text) {
+        let normalized = text;
+
+        // Fix common OCR character substitutions in context
+        const ocrFixes = [
+            // Numbers mistaken for letters (context-aware)
+            [/\b0(?=[a-zA-Z])/g, 'O'],           // 0range -> Orange
+            [/(?<=[a-zA-Z])0(?=[a-zA-Z])/g, 'o'], // Potat0 -> Potato
+            [/\b1(?=[a-zA-Z])/g, 'l'],           // 1emon -> lemon
+            [/(?<=[a-zA-Z])1(?=[a-zA-Z])/g, 'l'], // Mi1k -> Milk
+            [/\b8(?=[a-zA-Z])/g, 'B'],           // 8anana -> Banana
+            [/(?<=[a-zA-Z])8(?=[a-zA-Z])/g, 'B'], // Eg8s -> Eggs (rare)
+            [/\b5(?=[a-zA-Z])/g, 'S'],           // 5pinach -> Spinach
+            [/(?<=[a-zA-Z])5(?=[a-zA-Z])/g, 's'], // Chee5e -> Cheese
+
+            // Common OCR ligature errors
+            [/rn(?=[aeiou])/gi, 'm'],            // Corn -> Corn (cornmeal fix)
+            [/\bCORN\b/gi, 'CORN'],              // Preserve CORN
+            [/\bcorn\b/gi, 'corn'],              // Preserve corn
+
+            // Double character errors
+            [/\|\|/g, 'll'],                     // || -> ll
+            [/\|(?=[a-zA-Z])/g, 'l'],            // |emon -> lemon
+            [/(?<=[a-zA-Z])\|/g, 'l'],           // Mi|k -> Milk
+
+            // Fix common decimal OCR errors
+            [/O\.(\d)/g, '0.$1'],                // O.5 -> 0.5
+            [/(\d)\.O/g, '$1.0'],                // 2.O -> 2.0
+            [/l\.(\d)/g, '1.$1'],                // l.5 -> 1.5
+        ];
+
+        for (const [pattern, replacement] of ocrFixes) {
+            normalized = normalized.replace(pattern, replacement);
+        }
+
+        // Normalize whitespace
+        normalized = normalized.replace(/[\t\r]+/g, ' ');
+        normalized = normalized.replace(/  +/g, ' ');
+
+        return normalized;
+    }
+
+    // Levenshtein distance for fuzzy matching
+    levenshteinDistance(a, b) {
+        if (a.length === 0) return b.length;
+        if (b.length === 0) return a.length;
+
+        const matrix = [];
+
+        for (let i = 0; i <= b.length; i++) {
+            matrix[i] = [i];
+        }
+
+        for (let j = 0; j <= a.length; j++) {
+            matrix[0][j] = j;
+        }
+
+        for (let i = 1; i <= b.length; i++) {
+            for (let j = 1; j <= a.length; j++) {
+                if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                    matrix[i][j] = matrix[i - 1][j - 1];
+                } else {
+                    matrix[i][j] = Math.min(
+                        matrix[i - 1][j - 1] + 1, // substitution
+                        matrix[i][j - 1] + 1,     // insertion
+                        matrix[i - 1][j] + 1      // deletion
+                    );
+                }
+            }
+        }
+
+        return matrix[b.length][a.length];
+    }
+
+    // Calculate similarity score (0-1)
+    stringSimilarity(a, b) {
+        const aLower = a.toLowerCase();
+        const bLower = b.toLowerCase();
+        const distance = this.levenshteinDistance(aLower, bLower);
+        const maxLen = Math.max(aLower.length, bLower.length);
+        if (maxLen === 0) return 1;
+        return 1 - (distance / maxLen);
+    }
+
+    // Common grocery items dictionary for auto-correction
+    getCommonGroceryItems() {
+        return [
+            // Produce
+            'Apple', 'Apples', 'Banana', 'Bananas', 'Orange', 'Oranges', 'Lemon', 'Lemons',
+            'Lime', 'Limes', 'Tomato', 'Tomatoes', 'Potato', 'Potatoes', 'Onion', 'Onions',
+            'Garlic', 'Lettuce', 'Spinach', 'Carrot', 'Carrots', 'Celery', 'Pepper', 'Peppers',
+            'Cucumber', 'Cucumbers', 'Avocado', 'Avocados', 'Strawberry', 'Strawberries',
+            'Blueberry', 'Blueberries', 'Grape', 'Grapes', 'Watermelon', 'Cantaloupe',
+            'Mango', 'Mangoes', 'Peach', 'Peaches', 'Pear', 'Pears', 'Broccoli', 'Cauliflower',
+            'Cabbage', 'Kale', 'Mushroom', 'Mushrooms', 'Zucchini', 'Squash', 'Corn',
+
+            // Dairy
+            'Milk', 'Whole Milk', 'Skim Milk', '2% Milk', 'Cheese', 'Cheddar', 'Mozzarella',
+            'Parmesan', 'Yogurt', 'Greek Yogurt', 'Butter', 'Cream', 'Sour Cream',
+            'Cream Cheese', 'Cottage Cheese', 'Eggs', 'Egg', 'Half and Half',
+
+            // Meat
+            'Chicken', 'Chicken Breast', 'Chicken Thighs', 'Ground Beef', 'Beef', 'Steak',
+            'Pork', 'Pork Chops', 'Bacon', 'Sausage', 'Turkey', 'Ground Turkey', 'Ham',
+            'Salmon', 'Tuna', 'Shrimp', 'Fish', 'Lamb',
+
+            // Bakery
+            'Bread', 'White Bread', 'Wheat Bread', 'Bagel', 'Bagels', 'Muffin', 'Muffins',
+            'Croissant', 'Rolls', 'Buns', 'Tortilla', 'Tortillas', 'Pita',
+
+            // Pantry
+            'Rice', 'White Rice', 'Brown Rice', 'Pasta', 'Spaghetti', 'Flour', 'Sugar',
+            'Salt', 'Pepper', 'Olive Oil', 'Vegetable Oil', 'Vinegar', 'Honey', 'Syrup',
+            'Peanut Butter', 'Jelly', 'Cereal', 'Oatmeal', 'Beans', 'Black Beans',
+
+            // Beverages
+            'Water', 'Juice', 'Orange Juice', 'Apple Juice', 'Coffee', 'Tea', 'Soda',
+            'Cola', 'Sprite', 'Wine', 'Beer',
+
+            // Snacks
+            'Chips', 'Crackers', 'Pretzels', 'Popcorn', 'Cookies', 'Chocolate', 'Candy'
+        ];
+    }
+
+    // Common receipt abbreviations
+    getAbbreviationExpansions() {
+        return {
+            'ORG': 'Organic',
+            'BNLS': 'Boneless',
+            'SKNLS': 'Skinless',
+            'CHKN': 'Chicken',
+            'BRST': 'Breast',
+            'THGH': 'Thigh',
+            'GRN': 'Green',
+            'RED': 'Red',
+            'YLW': 'Yellow',
+            'FRZ': 'Frozen',
+            'FRSH': 'Fresh',
+            'LG': 'Large',
+            'SM': 'Small',
+            'MED': 'Medium',
+            'WHL': 'Whole',
+            'GRD': 'Ground',
+            'BF': 'Beef',
+            'PRK': 'Pork',
+            'TRKY': 'Turkey',
+            'VEG': 'Vegetable',
+            'FRT': 'Fruit',
+            'JCE': 'Juice',
+            'BTL': 'Bottle',
+            'PKG': 'Package',
+            'CT': 'Count',
+            'PK': 'Pack',
+            'EA': 'Each',
+            'LB': 'Pound',
+            'OZ': 'Ounce',
+            'GAL': 'Gallon',
+            'QT': 'Quart',
+            'PT': 'Pint',
+            'DZ': 'Dozen',
+            'HLF': 'Half',
+            'FF': 'Fat Free',
+            'LF': 'Low Fat',
+            'RF': 'Reduced Fat',
+            'NS': 'No Salt',
+            'LS': 'Low Sodium',
+            'GF': 'Gluten Free',
+            'NF': 'Non Fat',
+            'SS': 'Seedless',
+            'SWT': 'Sweet',
+            'PEPR': 'Pepper',
+            'ONIN': 'Onion',
+            'TOMS': 'Tomatoes',
+            'POTS': 'Potatoes',
+            'CRTS': 'Carrots',
+            'BRCL': 'Broccoli',
+            'CAUL': 'Cauliflower',
+            'SPRTS': 'Sprouts',
+            'MUSH': 'Mushrooms',
+            'SALM': 'Salmon',
+            'SHRMP': 'Shrimp',
+            'TUNA': 'Tuna'
+        };
+    }
+
+    // Expand abbreviations in item name
+    expandAbbreviations(name) {
+        const abbrevs = this.getAbbreviationExpansions();
+        let expanded = name;
+
+        for (const [abbrev, full] of Object.entries(abbrevs)) {
+            // Match whole word abbreviations (case insensitive)
+            const regex = new RegExp(`\\b${abbrev}\\b`, 'gi');
+            expanded = expanded.replace(regex, full);
+        }
+
+        return expanded;
+    }
+
+    // Apply common item corrections using fuzzy matching
+    applyCommonItemCorrections(name) {
+        const commonItems = this.getCommonGroceryItems();
+        const nameLower = name.toLowerCase().trim();
+
+        // First try exact match
+        for (const item of commonItems) {
+            if (item.toLowerCase() === nameLower) {
+                return item;
+            }
+        }
+
+        // Then try fuzzy match with high threshold
+        let bestMatch = null;
+        let bestScore = 0;
+        const threshold = 0.85;
+
+        for (const item of commonItems) {
+            const score = this.stringSimilarity(nameLower, item.toLowerCase());
+            if (score > threshold && score > bestScore) {
+                bestScore = score;
+                bestMatch = item;
+            }
+        }
+
+        return bestMatch;
+    }
+
+    // Parse fraction strings to decimal
+    parseFraction(str) {
+        // Unicode fractions
+        const unicodeFractions = {
+            '½': 0.5, '⅓': 0.333, '⅔': 0.667, '¼': 0.25, '¾': 0.75,
+            '⅕': 0.2, '⅖': 0.4, '⅗': 0.6, '⅘': 0.8, '⅙': 0.167,
+            '⅚': 0.833, '⅛': 0.125, '⅜': 0.375, '⅝': 0.625, '⅞': 0.875
+        };
+
+        // Check for unicode fractions
+        for (const [frac, val] of Object.entries(unicodeFractions)) {
+            if (str.includes(frac)) {
+                // Handle "1½" = 1.5
+                const match = str.match(new RegExp(`(\\d+)?${frac}`));
+                if (match) {
+                    const whole = match[1] ? parseInt(match[1]) : 0;
+                    return whole + val;
+                }
+            }
+        }
+
+        // Word fractions
+        const wordFractions = {
+            'half': 0.5, 'quarter': 0.25, 'third': 0.333
+        };
+
+        const lower = str.toLowerCase();
+        for (const [word, val] of Object.entries(wordFractions)) {
+            if (lower.includes(word)) {
+                return val;
+            }
+        }
+
+        return null;
+    }
+
+    // Parse word-based quantities
+    parseWordQuantity(str) {
+        const wordQuantities = {
+            'dozen': 12, 'doz': 12,
+            'half dozen': 6, 'half doz': 6,
+            'pair': 2,
+            'single': 1, 'one': 1,
+            'two': 2, 'three': 3, 'four': 4, 'five': 5,
+            'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+            'couple': 2
+        };
+
+        const lower = str.toLowerCase();
+        for (const [word, qty] of Object.entries(wordQuantities)) {
+            if (lower.includes(word)) {
+                return qty;
+            }
+        }
+
+        // Handle "about X" or "~X" or "approx X"
+        const approxMatch = lower.match(/(?:about|approximately|approx|~)\s*(\d+\.?\d*)/);
+        if (approxMatch) {
+            return parseFloat(approxMatch[1]);
+        }
+
+        return null;
+    }
+
     parseGroceryReceipt(text) {
-        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        // Pre-process OCR text to fix common recognition errors
+        const normalizedText = this.normalizeOcrText(text);
+        const lines = normalizedText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
         const items = [];
 
         // Common receipt patterns
         const pricePattern = /\$?\d+\.\d{2}$/;
-        const qtyPricePattern = /^(\d+)\s*[@x]\s*\$?(\d+\.\d{2})/i;
-        const leadingQtyPattern = /^(\d+)\s+(.+)/;
+        const qtyPricePattern = /^(\d+\.?\d*)\s*[@x]\s*\$?(\d+\.\d{2})/i;
+        const leadingQtyPattern = /^(\d+\.?\d*)\s+(.+)/;
         const weightPattern = /(\d+\.?\d*)\s*(lb|lbs|oz|kg|g)\b/i;
+        const fractionQtyPattern = /^(\d*[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞])\s+(.+)/;
 
         // Skip patterns (headers, totals, etc.)
         const skipPatterns = [
@@ -3309,14 +3628,32 @@ class PantryInventory {
             // Check for quantity x price format (e.g., "2 @ $3.99")
             const qtyPriceMatch = itemName.match(qtyPricePattern);
             if (qtyPriceMatch) {
-                quantity = parseInt(qtyPriceMatch[1]);
+                quantity = parseFloat(qtyPriceMatch[1]);
                 itemName = itemName.replace(qtyPricePattern, '').trim();
+            }
+
+            // Check for fraction quantities (e.g., "½ cup", "1½ lbs")
+            const fractionQtyMatch = itemName.match(fractionQtyPattern);
+            if (fractionQtyMatch) {
+                const fracVal = this.parseFraction(fractionQtyMatch[1]);
+                if (fracVal !== null) {
+                    quantity = fracVal;
+                    itemName = fractionQtyMatch[2].trim();
+                }
+            }
+
+            // Check for word quantities (e.g., "dozen eggs", "half gallon")
+            const wordQty = this.parseWordQuantity(itemName);
+            if (wordQty !== null) {
+                quantity = wordQty;
+                // Remove the word quantity from the name
+                itemName = itemName.replace(/\b(dozen|doz|half dozen|half doz|pair|single|one|two|three|four|five|six|seven|eight|nine|ten|couple|about|approximately|approx|~)\s*\d*\s*/gi, '').trim();
             }
 
             // Check for leading quantity (e.g., "2 Bananas")
             const leadingQtyMatch = itemName.match(leadingQtyPattern);
-            if (leadingQtyMatch && !itemName.match(/^\d+\s*(oz|lb|kg|g)\b/i)) {
-                quantity = parseInt(leadingQtyMatch[1]);
+            if (leadingQtyMatch && !itemName.match(/^\d+\.?\d*\s*(oz|lb|kg|g)\b/i)) {
+                quantity = parseFloat(leadingQtyMatch[1]);
                 itemName = leadingQtyMatch[2].trim();
             }
 
@@ -3328,35 +3665,44 @@ class PantryInventory {
                 itemName = itemName.replace(weightPattern, '').trim();
             }
 
+            // Expand abbreviations (BNLS CHKN BRST -> Boneless Chicken Breast)
+            itemName = this.expandAbbreviations(itemName);
+
             // Clean up item name
             itemName = this.cleanGroceryItemName(itemName);
 
             if (!itemName || itemName.length < 2) continue;
 
-            // Apply any learned corrections
+            // Apply any learned corrections (with fuzzy matching)
             const correction = this.findCorrection(itemName);
+            let finalName = itemName;
+            let wasAutoCorrect = false;
+
             if (correction) {
-                const correctedItem = {
-                    originalText: itemName,
-                    name: correction.correctedName,
-                    quantity: correction.correctedQuantity || quantity,
-                    unit: correction.correctedUnit || unit,
-                    category: correction.correctedCategory || this.guessCategory(correction.correctedName),
-                    price: price,
-                    wasAutoCorrect: true
-                };
-                items.push(correctedItem);
+                finalName = correction.correctedName;
+                quantity = correction.correctedQuantity || quantity;
+                unit = correction.correctedUnit || unit;
+                wasAutoCorrect = true;
             } else {
-                items.push({
-                    originalText: itemName,
-                    name: this.capitalizeWords(itemName),
-                    quantity: quantity,
-                    unit: unit,
-                    category: this.guessCategory(itemName),
-                    price: price,
-                    wasAutoCorrect: false
-                });
+                // Try common item dictionary correction
+                const commonCorrection = this.applyCommonItemCorrections(itemName);
+                if (commonCorrection) {
+                    finalName = commonCorrection;
+                    wasAutoCorrect = true;
+                } else {
+                    finalName = this.capitalizeWords(itemName);
+                }
             }
+
+            items.push({
+                originalText: line,
+                name: finalName,
+                quantity: quantity,
+                unit: unit,
+                category: correction?.correctedCategory || this.guessCategory(finalName),
+                price: price,
+                wasAutoCorrect: wasAutoCorrect
+            });
         }
 
         return items;
@@ -3380,20 +3726,35 @@ class PantryInventory {
 
         const normalized = text.toLowerCase().trim();
 
-        // Exact match first
+        // Exact match first (highest priority)
         let match = this.corrections.find(c =>
             c.originalText.toLowerCase() === normalized
         );
 
         if (match) return match;
 
-        // Fuzzy match: check if original contains the text or vice versa
-        match = this.corrections.find(c => {
-            const orig = c.originalText.toLowerCase();
-            return orig.includes(normalized) || normalized.includes(orig);
-        });
+        // Fuzzy match using Levenshtein distance
+        // Find the best match above 80% similarity, weighted by use_count
+        let bestMatch = null;
+        let bestScore = 0;
+        const similarityThreshold = 0.80;
 
-        return match;
+        for (const correction of this.corrections) {
+            const orig = correction.originalText.toLowerCase();
+            const similarity = this.stringSimilarity(normalized, orig);
+
+            if (similarity >= similarityThreshold) {
+                // Weight by use_count (more frequently used corrections preferred)
+                const weightedScore = similarity * (1 + Math.log10(1 + (correction.useCount || 1)));
+
+                if (weightedScore > bestScore) {
+                    bestScore = weightedScore;
+                    bestMatch = correction;
+                }
+            }
+        }
+
+        return bestMatch;
     }
 
     guessCategory(itemName) {
@@ -3536,7 +3897,8 @@ class PantryInventory {
                 name,
                 quantity,
                 unit,
-                category
+                category,
+                price: item.price || null
             });
 
             // If user edited this item, save correction for learning
@@ -3584,13 +3946,25 @@ class PantryInventory {
                 );
 
                 if (existing) {
-                    // Update quantity
+                    // Update quantity and track price changes
                     const newQty = existing.quantity + item.quantity;
-                    await this.updateItem(existing.id, { ...existing, quantity: newQty });
+                    const updateData = { ...existing, quantity: newQty };
+
+                    // Track price change if new price provided
+                    if (item.price !== null) {
+                        updateData.previous_price = existing.last_price || null;
+                        updateData.last_price = item.price;
+                    }
+
+                    await this.updateItem(existing.id, updateData);
                     updated++;
                 } else {
-                    // Add new item
-                    await this.addItem(item);
+                    // Add new item with price
+                    const itemWithPrice = { ...item };
+                    if (item.price !== null) {
+                        itemWithPrice.last_price = item.price;
+                    }
+                    await this.addItem(itemWithPrice);
                     added++;
                 }
             }

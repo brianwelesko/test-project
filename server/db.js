@@ -32,9 +32,18 @@ async function initializeDatabase() {
       expiration_date TEXT,
       bought_from TEXT,
       is_staple INTEGER DEFAULT 0,
+      last_price REAL,
+      previous_price REAL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+
+    -- Add price columns if they don't exist (for existing databases)
+    DO $$ BEGIN
+      ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS last_price REAL;
+      ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS previous_price REAL;
+    EXCEPTION WHEN others THEN NULL;
+    END $$;
 
     CREATE INDEX IF NOT EXISTS idx_inventory_user ON inventory_items(user_id);
     CREATE INDEX IF NOT EXISTS idx_inventory_expiration ON inventory_items(expiration_date);

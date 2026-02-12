@@ -1084,6 +1084,25 @@ header h1 {
     color: #666;
 }
 
+.item-price {
+    margin-top: 4px;
+    font-size: 0.85rem;
+    color: #2e7d32;
+    font-weight: 500;
+}
+
+.item-price .price-up {
+    color: #d32f2f;
+    margin-left: 4px;
+    font-weight: bold;
+}
+
+.item-price .price-down {
+    color: #2e7d32;
+    margin-left: 4px;
+    font-weight: bold;
+}
+
 .item-quantity {
     text-align: center;
     min-width: 80px;

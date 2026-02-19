@@ -4648,13 +4648,15 @@ class PantryInventory {
 
         if (results.length === 0) {
             // Show "add new" option when no matches
-            const detected = this.detectIngredientInfo(query);
+            // Strip leading "+" and whitespace from query to get clean item name
+            const cleanName = query.replace(/^\+\s*/, '');
+            const detected = this.detectIngredientInfo(cleanName);
             const categoryHint = detected ? ` as ${CATEGORY_NAMES[detected.category] || detected.category}` : '';
 
             this.quickDeductSuggestions.innerHTML = `
-                <div class="suggestion-item suggestion-add-new" data-action="add-new" data-name="${this.escapeHtml(query)}">
+                <div class="suggestion-item suggestion-add-new" data-action="add-new" data-name="${this.escapeHtml(cleanName)}">
                     <span class="suggestion-icon">+</span>
-                    <span class="suggestion-name">Add "<mark>${this.escapeHtml(query)}</mark>"${categoryHint}</span>
+                    <span class="suggestion-name">Add "<mark>${this.escapeHtml(cleanName)}</mark>"${categoryHint}</span>
                     <span class="suggestion-hint">Enter amount to add</span>
                 </div>
             `;

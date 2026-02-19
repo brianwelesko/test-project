@@ -4779,14 +4779,12 @@ class PantryInventory {
 
         if (e.key === 'Enter') {
             e.preventDefault();
-            // If there's a highlighted suggestion, select it
+            // Only select suggestion if user explicitly navigated with arrow keys
             if (this.highlightedSuggestionIndex >= 0 && suggestions[this.highlightedSuggestionIndex]) {
                 this.selectSuggestionElement(suggestions[this.highlightedSuggestionIndex]);
-            } else if (suggestions.length === 1) {
-                // Auto-select single suggestion for snappy feel
-                this.selectSuggestionElement(suggestions[0]);
             } else {
-                // Otherwise try to execute deduct
+                // Execute the command as typed
+                this.quickDeductSuggestions.classList.add('hidden');
                 this.executeQuickDeduct();
             }
         } else if (e.key === 'Tab' && !e.shiftKey) {

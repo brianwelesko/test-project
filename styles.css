@@ -563,6 +563,99 @@ header h1 {
     font-style: italic;
 }
 
+/* Enhanced suggestion styles for snappy autocomplete */
+.suggestion-item.highlighted {
+    background: #667eea;
+    color: white;
+}
+
+.suggestion-item.highlighted .suggestion-qty,
+.suggestion-item.highlighted .suggestion-hint,
+.suggestion-item.highlighted .suggestion-category {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.suggestion-item.highlighted .suggestion-loc {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+.suggestion-item.highlighted mark {
+    background: rgba(255, 255, 255, 0.3);
+    color: white;
+}
+
+.suggestion-icon {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #667eea;
+    margin-right: 6px;
+    flex-shrink: 0;
+}
+
+.suggestion-item.highlighted .suggestion-icon {
+    color: white;
+}
+
+.suggestion-known,
+.suggestion-density,
+.suggestion-add-new {
+    background: linear-gradient(to right, #f8f9ff, white);
+    border-left: 3px solid #667eea;
+}
+
+.suggestion-known:hover,
+.suggestion-density:hover,
+.suggestion-add-new:hover {
+    background: linear-gradient(to right, #eef1ff, #f8f9ff);
+}
+
+.suggestion-hint {
+    color: #999;
+    font-size: 0.8rem;
+    font-style: italic;
+}
+
+.suggestion-category {
+    color: #667eea;
+    font-size: 0.8rem;
+    background: #eef1ff;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: auto;
+}
+
+mark {
+    background: #fef08a;
+    color: inherit;
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+/* Smooth transitions for snappy feel */
+.suggestion-item {
+    transition: background-color 0.1s ease, transform 0.1s ease;
+}
+
+.suggestion-item:active {
+    transform: scale(0.98);
+}
+
+.suggestions-dropdown {
+    animation: slideDown 0.1s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 .quick-use-form {
     margin-top: 20px;
     padding-top: 20px;

@@ -620,6 +620,216 @@ async function loadTesseract() {
     }
 }
 
+// ===== SUGGESTION ENGINE =====
+// Fast fuzzy matching with Levenshtein distance for typo-tolerance
+const SuggestionEngine = {
+    // Calculate Levenshtein distance (edit distance)
+    levenshtein(a, b) {
+        if (a.length === 0) return b.length;
+        if (b.length === 0) return a.length;
+
+        const matrix = [];
+        for (let i = 0; i <= b.length; i++) {
+            matrix[i] = [i];
+        }
+        for (let j = 0; j <= a.length; j++) {
+            matrix[0][j] = j;
+        }
+
+        for (let i = 1; i <= b.length; i++) {
+            for (let j = 1; j <= a.length; j++) {
+                if (b[i - 1] === a[j - 1]) {
+                    matrix[i][j] = matrix[i - 1][j - 1];
+                } else {
+                    matrix[i][j] = Math.min(
+                        matrix[i - 1][j - 1] + 1,
+                        matrix[i][j - 1] + 1,
+                        matrix[i - 1][j] + 1
+                    );
+                }
+            }
+        }
+        return matrix[b.length][a.length];
+    },
+
+    // Fast prefix matching score (prioritize matches at start)
+    prefixScore(query, target) {
+        const q = query.toLowerCase();
+        const t = target.toLowerCase();
+
+        if (t.startsWith(q)) return 100; // Exact prefix match
+        if (t.includes(q)) return 80;    // Substring match
+
+        // Word boundary match (e.g., "pap" matches "smoked paprika")
+        const words = t.split(/\s+/);
+        for (const word of words) {
+            if (word.startsWith(q)) return 90;
+        }
+
+        return 0;
+    },
+
+    // Combined fuzzy score (higher is better)
+    fuzzyScore(query, target) {
+        if (!query || !target) return 0;
+
+        const q = query.toLowerCase();
+        const t = target.toLowerCase();
+
+        // Exact match
+        if (t === q) return 1000;
+
+        // Prefix score (fast path)
+        const prefix = this.prefixScore(q, t);
+        if (prefix > 0) return prefix;
+
+        // Fuzzy matching for typos (only for short queries to stay fast)
+        if (q.length >= 2 && q.length <= 8) {
+            const distance = this.levenshtein(q, t.slice(0, q.length + 2));
+            const maxDist = Math.floor(q.length / 3) + 1;
+            if (distance <= maxDist) {
+                return 60 - (distance * 10);
+            }
+        }
+
+        // Subsequence matching (e.g., "pkra" matches "paprika")
+        let qi = 0;
+        for (let ti = 0; ti < t.length && qi < q.length; ti++) {
+            if (t[ti] === q[qi]) qi++;
+        }
+        if (qi === q.length) return 40;
+
+        return 0;
+    },
+
+    // Highlight matched portions in text
+    highlightMatch(query, text) {
+        if (!query) return text;
+
+        const q = query.toLowerCase();
+        const t = text.toLowerCase();
+        const idx = t.indexOf(q);
+
+        if (idx >= 0) {
+            return text.slice(0, idx) +
+                   '<mark>' + text.slice(idx, idx + query.length) + '</mark>' +
+                   text.slice(idx + query.length);
+        }
+
+        // Highlight word boundary matches
+        const words = text.split(/(\s+)/);
+        return words.map(word => {
+            if (word.toLowerCase().startsWith(q)) {
+                return '<mark>' + word.slice(0, query.length) + '</mark>' + word.slice(query.length);
+            }
+            return word;
+        }).join('');
+    },
+
+    // Build unified search index from all sources
+    buildSearchIndex(inventory) {
+        const index = new Map();
+        const seen = new Set();
+
+        // Add inventory items (highest priority)
+        inventory.forEach(item => {
+            const key = item.name.toLowerCase();
+            if (!seen.has(key)) {
+                seen.add(key);
+                index.set(key, {
+                    name: item.name,
+                    type: 'inventory',
+                    data: item,
+                    priority: 100
+                });
+            }
+        });
+
+        // Add known ingredients from database
+        Object.keys(INGREDIENT_DATABASE).forEach(name => {
+            const key = name.toLowerCase();
+            if (!seen.has(key)) {
+                seen.add(key);
+                index.set(key, {
+                    name: name,
+                    type: 'known',
+                    data: INGREDIENT_DATABASE[name],
+                    priority: 50
+                });
+            }
+        });
+
+        // Add ingredients with density info (for conversions)
+        Object.keys(INGREDIENT_DENSITIES).forEach(name => {
+            if (name.startsWith('_')) return; // Skip defaults
+            const key = name.toLowerCase();
+            if (!seen.has(key)) {
+                seen.add(key);
+                index.set(key, {
+                    name: name,
+                    type: 'density',
+                    data: { density: INGREDIENT_DENSITIES[name] },
+                    priority: 30
+                });
+            }
+        });
+
+        return index;
+    },
+
+    // Search with fuzzy matching
+    search(query, index, options = {}) {
+        const { limit = 8, minScore = 30 } = options;
+        const results = [];
+
+        for (const [key, entry] of index) {
+            const score = this.fuzzyScore(query, entry.name);
+            if (score >= minScore) {
+                results.push({
+                    ...entry,
+                    score: score + entry.priority,
+                    matchedName: this.highlightMatch(query, entry.name)
+                });
+            }
+        }
+
+        // Sort by score descending
+        results.sort((a, b) => b.score - a.score);
+
+        return results.slice(0, limit);
+    },
+
+    // Recent items tracking
+    recentItems: JSON.parse(localStorage.getItem('recentSuggestions') || '[]'),
+
+    trackUsage(itemName) {
+        const name = itemName.toLowerCase();
+        this.recentItems = this.recentItems.filter(n => n !== name);
+        this.recentItems.unshift(name);
+        this.recentItems = this.recentItems.slice(0, 20);
+        localStorage.setItem('recentSuggestions', JSON.stringify(this.recentItems));
+    },
+
+    boostRecent(results) {
+        return results.map(r => {
+            const recentIdx = this.recentItems.indexOf(r.name.toLowerCase());
+            if (recentIdx >= 0) {
+                return { ...r, score: r.score + (20 - recentIdx) };
+            }
+            return r;
+        }).sort((a, b) => b.score - a.score);
+    }
+};
+
+// Debounce utility for snappy input handling
+function debounce(fn, delay) {
+    let timeoutId;
+    return function(...args) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => fn.apply(this, args), delay);
+    };
+}
+
 // ===== API CLIENT =====
 const API = {
     baseUrl: '/api',
@@ -927,20 +1137,34 @@ class PantryInventory {
         this.currentSpecialFilter = null;
         this.currentSortMode = null;
 
+        // Search index for fast suggestions
+        this.searchIndex = null;
+
         this.initializeElements();
         this.bindEvents();
         this.loadFromAPI();
+
+        // Create debounced suggestion handler (16ms = ~60fps feel)
+        this.debouncedShowSuggestions = debounce((query) => {
+            this.showItemSuggestionsEnhanced(query);
+        }, 16);
     }
 
     async loadFromAPI() {
         try {
             this.inventory = await API.getInventory();
+            this.rebuildSearchIndex();
             this.render();
         } catch (err) {
             console.error('Failed to load inventory:', err);
             this.inventory = [];
+            this.rebuildSearchIndex();
             this.render();
         }
+    }
+
+    rebuildSearchIndex() {
+        this.searchIndex = SuggestionEngine.buildSearchIndex(this.inventory);
     }
 
     initializeElements() {
@@ -1148,7 +1372,7 @@ class PantryInventory {
         this.quickDeductMore.addEventListener('click', () => this.toggleExpandedForm());
         this.quickDeductSuggestions.addEventListener('click', (e) => {
             const item = e.target.closest('.suggestion-item');
-            if (item) this.selectSuggestion(item.dataset.id);
+            if (item) this.selectSuggestionElement(item);
         });
 
         // Expanded form events
@@ -1207,6 +1431,7 @@ class PantryInventory {
         try {
             const savedItem = await API.addItem(newItem);
             this.inventory.push(savedItem);
+            this.rebuildSearchIndex();
             return savedItem;
         } catch (err) {
             console.error('Failed to add item:', err);
@@ -1282,6 +1507,7 @@ class PantryInventory {
             try {
                 const savedItem = await API.updateItem(id, updatedItem);
                 this.inventory[index] = savedItem;
+                this.rebuildSearchIndex();
                 return savedItem;
             } catch (err) {
                 console.error('Failed to update item:', err);
@@ -1296,6 +1522,7 @@ class PantryInventory {
         try {
             await API.deleteItem(id);
             this.inventory = this.inventory.filter(item => String(item.id) !== String(id));
+            this.rebuildSearchIndex();
         } catch (err) {
             console.error('Failed to delete item:', err);
             alert('Failed to delete item. Please check your connection and try again.');
@@ -4403,30 +4630,78 @@ class PantryInventory {
     }
 
     showItemSuggestions(query) {
-        const searchTerm = query.toLowerCase();
-        const matches = this.inventory.filter(item =>
-            item.name.toLowerCase().includes(searchTerm)
-        ).slice(0, 5);
+        // Use debounced enhanced suggestions for snappy feel
+        this.debouncedShowSuggestions(query);
+    }
 
-        if (matches.length === 0) {
-            this.quickDeductSuggestions.innerHTML = '<div class="no-matches">No matching items</div>';
+    showItemSuggestionsEnhanced(query) {
+        // Rebuild index if needed (after inventory changes)
+        if (!this.searchIndex) {
+            this.rebuildSearchIndex();
+        }
+
+        // Search with fuzzy matching
+        let results = SuggestionEngine.search(query, this.searchIndex, { limit: 8 });
+
+        // Boost recently used items
+        results = SuggestionEngine.boostRecent(results);
+
+        if (results.length === 0) {
+            // Show "add new" option when no matches
+            const detected = this.detectIngredientInfo(query);
+            const categoryHint = detected ? ` as ${CATEGORY_NAMES[detected.category] || detected.category}` : '';
+
+            this.quickDeductSuggestions.innerHTML = `
+                <div class="suggestion-item suggestion-add-new" data-action="add-new" data-name="${this.escapeHtml(query)}">
+                    <span class="suggestion-icon">+</span>
+                    <span class="suggestion-name">Add "<mark>${this.escapeHtml(query)}</mark>"${categoryHint}</span>
+                    <span class="suggestion-hint">Enter amount to add</span>
+                </div>
+            `;
             this.quickDeductSuggestions.classList.remove('hidden');
             return;
         }
 
         this.highlightedSuggestionIndex = -1;
-        this.currentSuggestions = matches;
+        // Store both inventory items and suggestion metadata
+        this.currentSuggestions = results.map(r => r.type === 'inventory' ? r.data : r);
 
-        this.quickDeductSuggestions.innerHTML = matches.map((item, idx) => {
-            const locationText = item.location ? LOCATION_NAMES[item.location] || item.location : '';
-            return `
-                <div class="suggestion-item" data-id="${item.id}" data-index="${idx}">
-                    <span class="suggestion-name">${this.escapeHtml(item.name)}</span>
-                    <span class="suggestion-qty">${item.quantity} ${item.unit}</span>
-                    ${locationText ? `<span class="suggestion-loc">${locationText}</span>` : ''}
-                </div>
-            `;
+        this.quickDeductSuggestions.innerHTML = results.map((result, idx) => {
+            if (result.type === 'inventory') {
+                // Item in user's inventory
+                const item = result.data;
+                const locationText = item.location ? LOCATION_NAMES[item.location] || item.location : '';
+                return `
+                    <div class="suggestion-item" data-id="${item.id}" data-index="${idx}">
+                        <span class="suggestion-name">${result.matchedName}</span>
+                        <span class="suggestion-qty">${item.quantity} ${item.unit}</span>
+                        ${locationText ? `<span class="suggestion-loc">${locationText}</span>` : ''}
+                    </div>
+                `;
+            } else if (result.type === 'known') {
+                // Known ingredient not in inventory
+                const info = result.data;
+                const categoryName = CATEGORY_NAMES[info.category] || info.category;
+                return `
+                    <div class="suggestion-item suggestion-known" data-action="add-known" data-name="${this.escapeHtml(result.name)}" data-index="${idx}">
+                        <span class="suggestion-icon">+</span>
+                        <span class="suggestion-name">${result.matchedName}</span>
+                        <span class="suggestion-category">${categoryName}</span>
+                        <span class="suggestion-hint">Add to inventory</span>
+                    </div>
+                `;
+            } else {
+                // Density-only ingredient
+                return `
+                    <div class="suggestion-item suggestion-density" data-action="add-known" data-name="${this.escapeHtml(result.name)}" data-index="${idx}">
+                        <span class="suggestion-icon">+</span>
+                        <span class="suggestion-name">${result.matchedName}</span>
+                        <span class="suggestion-hint">Add to inventory</span>
+                    </div>
+                `;
+            }
         }).join('');
+
         this.quickDeductSuggestions.classList.remove('hidden');
     }
 
@@ -4464,10 +4739,37 @@ class PantryInventory {
         const item = this.getItem(id);
         if (!item) return;
 
+        // Track usage for smart suggestions
+        SuggestionEngine.trackUsage(item.name);
+
         // Fill the input with item name and a space+dash ready for amount
         this.quickDeductInput.value = item.name + ' -';
         this.quickDeductSuggestions.classList.add('hidden');
         this.quickDeductInput.focus();
+    }
+
+    selectKnownIngredient(name) {
+        // Track usage for smart suggestions
+        SuggestionEngine.trackUsage(name);
+
+        // Pre-fill with add syntax
+        this.quickDeductInput.value = '+' + name + ' ';
+        this.quickDeductSuggestions.classList.add('hidden');
+        this.quickDeductInput.focus();
+        // Trigger input handler to show preview
+        this.handleQuickDeductInput();
+    }
+
+    selectSuggestionElement(el) {
+        const action = el.dataset.action;
+        const id = el.dataset.id;
+        const name = el.dataset.name;
+
+        if (action === 'add-new' || action === 'add-known') {
+            this.selectKnownIngredient(name);
+        } else if (id) {
+            this.selectSuggestion(id);
+        }
     }
 
     handleQuickDeductKeydown(e) {
@@ -4477,8 +4779,10 @@ class PantryInventory {
             e.preventDefault();
             // If there's a highlighted suggestion, select it
             if (this.highlightedSuggestionIndex >= 0 && suggestions[this.highlightedSuggestionIndex]) {
-                const id = suggestions[this.highlightedSuggestionIndex].dataset.id;
-                this.selectSuggestion(id);
+                this.selectSuggestionElement(suggestions[this.highlightedSuggestionIndex]);
+            } else if (suggestions.length === 1) {
+                // Auto-select single suggestion for snappy feel
+                this.selectSuggestionElement(suggestions[0]);
             } else {
                 // Otherwise try to execute deduct
                 this.executeQuickDeduct();
@@ -4487,8 +4791,7 @@ class PantryInventory {
             // Tab selects first suggestion if dropdown is open
             if (!this.quickDeductSuggestions.classList.contains('hidden') && suggestions.length > 0) {
                 e.preventDefault();
-                const id = suggestions[0].dataset.id;
-                this.selectSuggestion(id);
+                this.selectSuggestionElement(suggestions[0]);
             }
         } else if (e.key === 'ArrowDown') {
             if (!this.quickDeductSuggestions.classList.contains('hidden') && suggestions.length > 0) {

@@ -3689,10 +3689,25 @@ class PantryInventory {
     // Detect store name from first 15 lines of receipt text
     detectStore(text) {
         const lines = text.split('\n').slice(0, 15).join(' ').toUpperCase();
+        // Original stores
         if (/SHOPRITE|SHOP-RITE|SHOP RITE/.test(lines)) return 'ShopRite';
         if (/TRADER JOE|TRADER JOE'S|TJ'S/.test(lines)) return "Trader Joe's";
         if (/SUBZI\s*MANDI/.test(lines)) return 'Subzi Mandi';
         if (/H\s*MART|HMART/.test(lines)) return 'H Mart';
+        // US chains
+        if (/WHOLE\s*FOODS/.test(lines)) return 'Whole Foods';
+        if (/COSTCO/.test(lines)) return 'Costco';
+        if (/WALMART|WAL-MART|WAL MART/.test(lines)) return 'Walmart';
+        if (/TARGET/.test(lines)) return 'Target';
+        if (/KROGER/.test(lines)) return 'Kroger';
+        if (/SAFEWAY/.test(lines)) return 'Safeway';
+        if (/PUBLIX/.test(lines)) return 'Publix';
+        if (/\bALDI\b/.test(lines)) return 'Aldi';
+        // Indian grocery stores
+        if (/PATEL\s*BROTHERS?/.test(lines)) return 'Patel Brothers';
+        if (/INDIA\s*BAZAAR/.test(lines)) return 'India Bazaar';
+        if (/APNA\s*BAZAAR/.test(lines)) return 'Apna Bazaar';
+        if (/RAJA\s*FOODS?/.test(lines)) return 'Raja Foods';
         return null;
     }
 
@@ -4232,15 +4247,36 @@ class PantryInventory {
             this.initializeGroceryReviewModal();
         }
 
-        // Show/hide detected store banner
-        const storeEl = document.getElementById('groceryDetectedStore');
-        if (storeEl) {
-            if (store) {
-                storeEl.textContent = `Store: ${store}`;
-                storeEl.classList.remove('hidden');
+        // Set store dropdown value
+        const storeSelect = document.getElementById('groceryStoreSelect');
+        const storeCustom = document.getElementById('groceryStoreCustom');
+        if (storeSelect) {
+            // Check if detected store is in the dropdown options
+            const options = Array.from(storeSelect.options).map(o => o.value);
+            if (store && options.includes(store)) {
+                storeSelect.value = store;
+                storeCustom.classList.add('hidden');
+            } else if (store) {
+                // Store detected but not in list - use custom
+                storeSelect.value = 'custom';
+                storeCustom.value = store;
+                storeCustom.classList.remove('hidden');
             } else {
-                storeEl.classList.add('hidden');
+                storeSelect.value = '';
+                storeCustom.value = '';
+                storeCustom.classList.add('hidden');
             }
+
+            // Handle custom store selection
+            storeSelect.onchange = () => {
+                if (storeSelect.value === 'custom') {
+                    storeCustom.classList.remove('hidden');
+                    storeCustom.focus();
+                } else {
+                    storeCustom.classList.add('hidden');
+                    storeCustom.value = '';
+                }
+            };
         }
 
         // Populate items
@@ -4332,6 +4368,18 @@ class PantryInventory {
         const itemsToAdd = [];
         const correctionsToSave = [];
 
+        // Get selected store from dropdown
+        const storeSelect = document.getElementById('groceryStoreSelect');
+        const storeCustom = document.getElementById('groceryStoreCustom');
+        let selectedStore = null;
+        if (storeSelect) {
+            if (storeSelect.value === 'custom') {
+                selectedStore = storeCustom.value.trim() || null;
+            } else {
+                selectedStore = storeSelect.value || null;
+            }
+        }
+
         rows.forEach((row, idx) => {
             const checkbox = row.querySelector('.grocery-item-checkbox');
             if (!checkbox.checked) return;
@@ -4351,7 +4399,7 @@ class PantryInventory {
                 unit,
                 category,
                 price: item.price || null,
-                bought_from: item.boughtFrom || null
+                bought_from: selectedStore
             });
 
             // If user edited this item, save correction for learning

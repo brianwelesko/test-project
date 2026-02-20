@@ -470,7 +470,30 @@ Example:
         <div class="grocery-review-content">
             <button id="closeGroceryReview" class="close-scan-btn">&times;</button>
             <h3>Review Grocery Items</h3>
-            <div id="groceryDetectedStore" class="grocery-detected-store hidden"></div>
+            <div class="grocery-store-selector">
+                <label for="groceryStoreSelect">Store:</label>
+                <select id="groceryStoreSelect" class="grocery-store-dropdown">
+                    <option value="">-- Select Store --</option>
+                    <option value="ShopRite">ShopRite</option>
+                    <option value="Trader Joe's">Trader Joe's</option>
+                    <option value="Subzi Mandi">Subzi Mandi</option>
+                    <option value="H Mart">H Mart</option>
+                    <option value="Whole Foods">Whole Foods</option>
+                    <option value="Costco">Costco</option>
+                    <option value="Walmart">Walmart</option>
+                    <option value="Target">Target</option>
+                    <option value="Kroger">Kroger</option>
+                    <option value="Safeway">Safeway</option>
+                    <option value="Publix">Publix</option>
+                    <option value="Aldi">Aldi</option>
+                    <option value="Patel Brothers">Patel Brothers</option>
+                    <option value="India Bazaar">India Bazaar</option>
+                    <option value="Apna Bazaar">Apna Bazaar</option>
+                    <option value="Raja Foods">Raja Foods</option>
+                    <option value="custom">Custom...</option>
+                </select>
+                <input type="text" id="groceryStoreCustom" class="grocery-store-custom hidden" placeholder="Enter store name">
+            </div>
             <p class="grocery-review-description">Edit items before adding to inventory. Your corrections help improve future parsing.</p>
 
             <div id="groceryItemsList" class="grocery-items-list">

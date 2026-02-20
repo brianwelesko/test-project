@@ -63,6 +63,16 @@ async function initializeDatabase() {
 
     CREATE INDEX IF NOT EXISTS idx_corrections_user ON receipt_corrections(user_id);
     CREATE INDEX IF NOT EXISTS idx_corrections_original ON receipt_corrections(original_text);
+
+    CREATE TABLE IF NOT EXISTS digest_log (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      sent_date DATE NOT NULL,
+      sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, sent_date)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_digest_log_user_date ON digest_log(user_id, sent_date);
   `);
   console.log('Database initialized');
 }

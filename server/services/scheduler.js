@@ -5,6 +5,9 @@ const { sendDigestEmail } = require('./email');
 // How many days before expiration to alert
 const EXPIRY_WARNING_DAYS = 5;
 
+// Hour when daily digest should run (24-hour format)
+const DIGEST_HOUR = 8;
+
 function startScheduler() {
   // Run daily at 8:00 AM
   cron.schedule('0 8 * * *', async () => {
@@ -15,6 +18,48 @@ function startScheduler() {
   console.log('Scheduler started - daily digest at 8:00 AM');
 }
 
+// Check if we missed the daily digest (for when server was sleeping)
+async function checkAndSendMissedDigests() {
+  const now = new Date();
+  const currentHour = now.getHours();
+
+  // Only check if we're past the scheduled digest time
+  if (currentHour < DIGEST_HOUR) {
+    console.log('Before digest time, skipping missed digest check');
+    return;
+  }
+
+  const today = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+
+  try {
+    // Get all users who haven't received a digest today
+    const usersResult = await query(`
+      SELECT u.id, u.email
+      FROM users u
+      WHERE NOT EXISTS (
+        SELECT 1 FROM digest_log dl
+        WHERE dl.user_id = u.id
+        AND dl.sent_date = $1
+      )
+    `, [today]);
+
+    const usersNeedingDigest = usersResult.rows;
+
+    if (usersNeedingDigest.length === 0) {
+      console.log('All users have received digest today, no catch-up needed');
+      return;
+    }
+
+    console.log(`Found ${usersNeedingDigest.length} user(s) who missed daily digest, sending now...`);
+
+    for (const user of usersNeedingDigest) {
+      await sendDigestToUser(user.id, user.email);
+    }
+  } catch (err) {
+    console.error('Error checking for missed digests:', err);
+  }
+}
+
 async function sendDailyDigests() {
   try {
     // Get all users
@@ -22,18 +67,46 @@ async function sendDailyDigests() {
     const users = usersResult.rows;
 
     for (const user of users) {
-      const alerts = await getAlertsForUser(user.id);
-
-      // Only send if there are alerts
-      if (alerts.expiringItems.length > 0 || alerts.lowStockItems.length > 0) {
-        console.log(`Sending digest to ${user.email}: ${alerts.expiringItems.length} expiring, ${alerts.lowStockItems.length} low stock`);
-        await sendDigestEmail(user.email, alerts);
-      } else {
-        console.log(`No alerts for ${user.email}`);
-      }
+      await sendDigestToUser(user.id, user.email);
     }
   } catch (err) {
     console.error('Digest error:', err);
+  }
+}
+
+// Send digest to a single user and log it
+async function sendDigestToUser(userId, userEmail) {
+  const today = new Date().toISOString().split('T')[0];
+
+  try {
+    // Check if already sent today
+    const alreadySent = await query(
+      'SELECT 1 FROM digest_log WHERE user_id = $1 AND sent_date = $2',
+      [userId, today]
+    );
+
+    if (alreadySent.rows.length > 0) {
+      console.log(`Digest already sent to ${userEmail} today, skipping`);
+      return;
+    }
+
+    const alerts = await getAlertsForUser(userId);
+
+    // Only send if there are alerts
+    if (alerts.expiringItems.length > 0 || alerts.lowStockItems.length > 0) {
+      console.log(`Sending digest to ${userEmail}: ${alerts.expiringItems.length} expiring, ${alerts.lowStockItems.length} low stock`);
+      await sendDigestEmail(userEmail, alerts);
+    } else {
+      console.log(`No alerts for ${userEmail}`);
+    }
+
+    // Log that we processed this user today (even if no alerts)
+    await query(
+      'INSERT INTO digest_log (user_id, sent_date) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [userId, today]
+    );
+  } catch (err) {
+    console.error(`Error sending digest to ${userEmail}:`, err);
   }
 }
 
@@ -99,4 +172,4 @@ async function triggerDigestForUser(userId, userEmail) {
   return { success: true, message: 'No alerts to send' };
 }
 
-module.exports = { startScheduler, sendDailyDigests, triggerDigestForUser, getAlertsForUser };
+module.exports = { startScheduler, sendDailyDigests, triggerDigestForUser, getAlertsForUser, checkAndSendMissedDigests };

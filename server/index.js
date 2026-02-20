@@ -7,7 +7,7 @@ const { initializeDatabase } = require('./db');
 const authRoutes = require('./routes/auth');
 const inventoryRoutes = require('./routes/inventory');
 const correctionsRoutes = require('./routes/corrections');
-const { startScheduler } = require('./services/scheduler');
+const { startScheduler, checkAndSendMissedDigests } = require('./services/scheduler');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -36,6 +36,8 @@ async function startServer() {
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     startScheduler();
+    // Check for missed digests (handles Render sleep wake-up scenario)
+    checkAndSendMissedDigests();
   });
 }
 

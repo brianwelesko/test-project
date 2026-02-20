@@ -3660,8 +3660,11 @@ class PantryInventory {
         // Load user's previous corrections for smart parsing
         await this.loadCorrections();
 
+        // Detect store from receipt header
+        const detectedStore = this.detectStore(resultText);
+
         // Parse the receipt text
-        const parsedItems = this.parseGroceryReceipt(resultText);
+        const parsedItems = this.parseGroceryReceipt(resultText, detectedStore);
 
         if (parsedItems.length === 0) {
             alert('No grocery items detected. Try adjusting the image or manually copying the text.');
@@ -3669,7 +3672,7 @@ class PantryInventory {
         }
 
         // Show review modal
-        this.showGroceryReviewModal(parsedItems);
+        this.showGroceryReviewModal(parsedItems, detectedStore);
     }
 
     async loadCorrections() {
@@ -3681,6 +3684,16 @@ class PantryInventory {
             console.error('Failed to load corrections:', err);
             this.corrections = [];
         }
+    }
+
+    // Detect store name from first 15 lines of receipt text
+    detectStore(text) {
+        const lines = text.split('\n').slice(0, 15).join(' ').toUpperCase();
+        if (/SHOPRITE|SHOP-RITE|SHOP RITE/.test(lines)) return 'ShopRite';
+        if (/TRADER JOE|TRADER JOE'S|TJ'S/.test(lines)) return "Trader Joe's";
+        if (/SUBZI\s*MANDI/.test(lines)) return 'Subzi Mandi';
+        if (/H\s*MART|HMART/.test(lines)) return 'H Mart';
+        return null;
     }
 
     // OCR text normalization - fix common character recognition errors
@@ -3865,7 +3878,19 @@ class PantryInventory {
             'MUSH': 'Mushrooms',
             'SALM': 'Salmon',
             'SHRMP': 'Shrimp',
-            'TUNA': 'Tuna'
+            'TUNA': 'Tuna',
+            // Spice preparation abbreviations
+            'GRND': 'Ground',
+            'SMKD': 'Smoked',
+            'RSTR': 'Roasted',
+            'PWDR': 'Powder',
+            'DRYD': 'Dried',
+            'CRS': 'Coarse',
+            'FN': 'Fine',
+            // Store brand codes
+            'SRBB': '',
+            'LKK': 'Lee Kum Kee',
+            'TMA': ''
         };
     }
 
@@ -3975,7 +4000,7 @@ class PantryInventory {
         return null;
     }
 
-    parseGroceryReceipt(text) {
+    parseGroceryReceipt(text, store) {
         // Pre-process OCR text to fix common recognition errors
         const normalizedText = this.normalizeOcrText(text);
         const lines = normalizedText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
@@ -3998,6 +4023,28 @@ class PantryInventory {
             /^\d{1,2}:\d{2}/,  // Times
             /^[\d\s\-\(\)]+$/  // Just numbers (phone, card numbers)
         ];
+
+        // Store-specific skip patterns
+        if (store === 'ShopRite') {
+            skipPatterns.push(
+                /^(SC|MC|WT)\s*\/\s*\d+/i,    // SC/123456 department/item codes
+                /^on sale you saved/i,
+                /^you saved/i,
+                /^sale\s+\d/i,
+                /^SRBB\s+/i                     // ShopRite brand code lines
+            );
+        } else if (store === 'H Mart') {
+            skipPatterns.push(
+                /^WT\s+\d+/i,                  // WT weight codes
+                /^regular price/i,
+                /^you saved/i
+            );
+        } else if (store === 'Subzi Mandi') {
+            skipPatterns.push(
+                /^\d{13}\s/,                   // Leading 13-digit barcodes
+                /\bEL\s*$/i                    // "EL" suffix lines
+            );
+        }
 
         for (const line of lines) {
             // Skip non-item lines
@@ -4092,7 +4139,8 @@ class PantryInventory {
                 unit: unit,
                 category: correction?.correctedCategory || this.guessCategory(finalName),
                 price: price,
-                wasAutoCorrect: wasAutoCorrect
+                wasAutoCorrect: wasAutoCorrect,
+                boughtFrom: store || null
             });
         }
 
@@ -4158,6 +4206,7 @@ class PantryInventory {
             'bakery': /\b(bread|bagel|muffin|croissant|roll|bun|cake|cookie|pastry|donut|pie|tortilla)\b/i,
             'frozen': /\b(frozen|ice cream|pizza|fries|nugget|popsicle)\b/i,
             'beverages': /\b(water|juice|soda|coffee|tea|wine|beer|drink|cola|sprite|pepsi|coke)\b/i,
+            'spice': /\b(spice|spices|cumin|turmeric|paprika|cinnamon|oregano|thyme|basil|rosemary|sage|coriander|cardamom|clove|cloves|nutmeg|ginger|chili powder|cayenne|allspice|anise|bay leaf|bay leaves|dill|fennel|fenugreek|garlic powder|onion powder|mustard seed|peppercorn|saffron|tarragon|wasabi|sumac|za.atar|seasoning|seasoning blend|rub)\b/i,
             'pantry': /\b(rice|pasta|cereal|flour|sugar|oil|sauce|soup|can|canned|spice|salt|pepper|vinegar|honey|syrup|peanut|almond|nut)\b/i,
             'snacks': /\b(chip|chips|cracker|pretzel|popcorn|candy|chocolate|snack|bar|granola)\b/i,
             'condiments': /\b(ketchup|mustard|mayo|mayonnaise|dressing|relish|salsa|hot sauce)\b/i,
@@ -4174,12 +4223,24 @@ class PantryInventory {
         return 'other';
     }
 
-    showGroceryReviewModal(items) {
+    showGroceryReviewModal(items, store) {
         this.parsedGroceryItems = items;
+        this.currentParsedStore = store;
 
         // Initialize modal if needed
         if (!this.groceryReviewModalInitialized) {
             this.initializeGroceryReviewModal();
+        }
+
+        // Show/hide detected store banner
+        const storeEl = document.getElementById('groceryDetectedStore');
+        if (storeEl) {
+            if (store) {
+                storeEl.textContent = `Store: ${store}`;
+                storeEl.classList.remove('hidden');
+            } else {
+                storeEl.classList.add('hidden');
+            }
         }
 
         // Populate items
@@ -4289,7 +4350,8 @@ class PantryInventory {
                 quantity,
                 unit,
                 category,
-                price: item.price || null
+                price: item.price || null,
+                bought_from: item.boughtFrom || null
             });
 
             // If user edited this item, save correction for learning

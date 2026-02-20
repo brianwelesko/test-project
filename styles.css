@@ -2537,6 +2537,17 @@ header {
     color: #333;
 }
 
+.grocery-detected-store {
+    display: inline-block;
+    background: #e8f4f8;
+    color: #2c7a9e;
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 0.85em;
+    font-weight: 500;
+    margin-bottom: 10px;
+}
+
 .grocery-review-description {
     color: #666;
     margin-bottom: 20px;

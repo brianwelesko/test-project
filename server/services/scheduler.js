@@ -13,12 +13,6 @@ function startScheduler() {
   });
 
   console.log('Scheduler started - daily digest at 8:00 AM');
-
-  // Also run immediately on startup in development
-  if (process.env.NODE_ENV === 'development' && process.env.RUN_DIGEST_ON_START === 'true') {
-    console.log('Development mode: running digest check now...');
-    sendDailyDigests();
-  }
 }
 
 async function sendDailyDigests() {

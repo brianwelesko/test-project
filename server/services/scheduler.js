@@ -21,7 +21,7 @@ function startScheduler() {
 // Check if we missed the daily digest (for when server was sleeping)
 async function checkAndSendMissedDigests() {
   const now = new Date();
-  const currentHour = now.getHours();
+  const currentHour = now.getUTCHours();
 
   // Only check if we're past the scheduled digest time
   if (currentHour < DIGEST_HOUR) {
@@ -95,12 +95,16 @@ async function sendDigestToUser(userId, userEmail) {
     // Only send if there are alerts
     if (alerts.expiringItems.length > 0 || alerts.lowStockItems.length > 0) {
       console.log(`Sending digest to ${userEmail}: ${alerts.expiringItems.length} expiring, ${alerts.lowStockItems.length} low stock`);
-      await sendDigestEmail(userEmail, alerts);
+      const result = await sendDigestEmail(userEmail, alerts);
+      if (!result.success) {
+        console.error(`Failed to send digest to ${userEmail}:`, result.error || result.reason);
+        return; // Do not log — allow retry on next startup
+      }
     } else {
-      console.log(`No alerts for ${userEmail}`);
+      console.log(`No alerts for ${userEmail}, skipping email`);
     }
 
-    // Log that we processed this user today (even if no alerts)
+    // Log that we processed this user today
     await query(
       'INSERT INTO digest_log (user_id, sent_date) VALUES ($1, $2) ON CONFLICT DO NOTHING',
       [userId, today]

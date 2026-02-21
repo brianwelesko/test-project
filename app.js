@@ -3832,7 +3832,43 @@ class PantryInventory {
             'Cola', 'Sprite', 'Wine', 'Beer',
 
             // Snacks
-            'Chips', 'Crackers', 'Pretzels', 'Popcorn', 'Cookies', 'Chocolate', 'Candy'
+            'Chips', 'Crackers', 'Pretzels', 'Popcorn', 'Cookies', 'Chocolate', 'Candy',
+
+            // Indian Grocery Items
+            // Spices and Masalas
+            'Garam Masala', 'Coriander Powder', 'Cumin Powder', 'Turmeric Powder',
+            'Chili Powder', 'Kashmiri Chili', 'Red Chili Powder', 'Coriander Seeds',
+            'Cumin Seeds', 'Mustard Seeds', 'Fenugreek Seeds', 'Fennel Seeds',
+            'Cardamom', 'Cloves', 'Cinnamon Sticks', 'Bay Leaves', 'Asafoetida', 'Hing',
+            'Biryani Masala', 'Tandoori Masala', 'Chaat Masala', 'Pav Bhaji Masala',
+            'Sambar Powder', 'Rasam Powder', 'Curry Powder', 'Kitchen King Masala',
+            'Nihari Masala', 'Sindhi Biryani', 'Tikka Masala',
+
+            // Indian Brands
+            'Shan', 'MDH', 'Everest', 'Badshah', 'Catch', 'Eastern', 'Aachi',
+            'Deep', 'Haldirams', 'Bikano', 'Swad', 'Laxmi', 'TRS', 'Pataks',
+
+            // Indian Vegetables and Produce
+            'Okra', 'Bhindi', 'Karela', 'Bitter Gourd', 'Tindora', 'Parval',
+            'Drumstick', 'Methi', 'Fenugreek Leaves', 'Palak', 'Spinach',
+            'Coriander Leaves', 'Curry Leaves', 'Ginger', 'Green Chili',
+
+            // Indian Snacks
+            'Murukku', 'Bhakarwadi', 'Chakli', 'Bhujia', 'Sev', 'Chivda', 'Mixture',
+            'Namkeen', 'Banana Chips', 'Jackfruit Chips', 'Tapioca Chips',
+            'Mathri', 'Khakhra', 'Papad',
+
+            // Indian Breads
+            'Naan', 'Garlic Naan', 'Roti', 'Chapati', 'Paratha', 'Puri', 'Bhatura',
+            'Kulcha', 'Tandoori Roti',
+
+            // Aldi Items
+            'Belle Vie', 'Choceur', 'Simply Nature', 'Specially Selected',
+            'Mama Cozzis', 'Clancy', 'Millville', 'Fit Active',
+
+            // ShopRite Items
+            'Diamond Crystal', 'Kosher Salt', 'Wholesome Pantry', 'Bowl & Basket',
+            'Amore', 'Sun Luck', 'Sesame Oil'
         ];
     }
 
@@ -3905,7 +3941,36 @@ class PantryInventory {
             // Store brand codes
             'SRBB': '',
             'LKK': 'Lee Kum Kee',
-            'TMA': ''
+            'TMA': '',
+            // Aldi abbreviations
+            'SLTZR': 'Seltzer',
+            'SLCD': 'Sliced',
+            'BRI': 'Brief',
+            'BRIPC': '',
+            'CHOP': 'Chop',
+            'PURPL': 'Purple',
+            'EGGPLNT': 'Eggplant',
+            'BRCL': 'Broccoli',
+            'VEGE': 'Vegetable',
+            // ShopRite abbreviations
+            'CHKMT': 'Chop Meat',
+            'WHLS': 'Wholesome',
+            'PNTRY': 'Pantry',
+            'SSME': 'Sesame',
+            'BNANA': 'Banana',
+            'KOSHEF': 'Kosher',
+            // Indian grocery abbreviations
+            'RESHMI': 'Reshmi',
+            'SINDHI': 'Sindhi',
+            'NIHART': 'Nihari',
+            'CHILLI': 'Chilli',
+            'MURUKK': 'Murukku',
+            // Common receipt abbreviations
+            'MTN': 'Mutton',
+            'CHPS': 'Chips',
+            'BRKFST': 'Breakfast',
+            'DNNR': 'Dinner',
+            'LNCH': 'Lunch'
         };
     }
 
@@ -4022,11 +4087,15 @@ class PantryInventory {
         const items = [];
 
         // Common receipt patterns
-        const pricePattern = /\$?\d+\.\d{2}$/;
+        const pricePattern = /\$?\d+\.\d{2}\s*(?:FA|EL|F|T)?$/i;  // Allow price suffixes (FA=Aldi, EL=Subzi Mandi, F/T=tax indicators)
         const qtyPricePattern = /^(\d+\.?\d*)\s*[@x]\s*\$?(\d+\.\d{2})/i;
         const leadingQtyPattern = /^(\d+\.?\d*)\s+(.+)/;
         const weightPattern = /(\d+\.?\d*)\s*(lb|lbs|oz|kg|g)\b/i;
         const fractionQtyPattern = /^(\d*[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞])\s+(.+)/;
+        // Weight @ price/unit format: "1.37 lb @ $2.49/lb"
+        const weightAtPricePattern = /(\d+\.?\d*)\s*(lb|lbs|oz|kg|g)\s*[@at]+\s*\$?(\d+\.?\d*)\s*\/\s*(lb|lbs|oz|kg|g)/i;
+        // Barcode at start of line (Subzi Mandi format)
+        const barcodePattern = /^(\d{10,14})\s+/;
 
         // Skip patterns (headers, totals, etc.)
         const skipPatterns = [
@@ -4046,7 +4115,11 @@ class PantryInventory {
                 /^on sale you saved/i,
                 /^you saved/i,
                 /^sale\s+\d/i,
-                /^SRBB\s+/i                     // ShopRite brand code lines
+                /^SRBB\s+/i,                    // ShopRite brand code lines
+                /valued customer/i,
+                /terminal:\s*\d+/i,
+                /operator:\s*\d+/i,
+                /^purchase:/i
             );
         } else if (store === 'H Mart') {
             skipPatterns.push(
@@ -4057,7 +4130,35 @@ class PantryInventory {
         } else if (store === 'Subzi Mandi') {
             skipPatterns.push(
                 /^\d{13}\s/,                   // Leading 13-digit barcodes
-                /\bEL\s*$/i                    // "EL" suffix lines
+                /\bEL\s*$/i,                   // "EL" suffix lines
+                /^receipt\s*[:#]/i,
+                /^store:\s*/i,
+                /^terminal:\s*/i,
+                /total tendered/i,
+                /^credit\s+card/i
+            );
+        } else if (store === 'Aldi') {
+            skipPatterns.push(
+                /^store\s*#?\d+/i,             // Store #172
+                /your cashier/i,
+                /^ref\/seq/i,                   // Ref/Seq #
+                /^trace\s*#/i,
+                /^auth\s*#/i,
+                /^aid\s+[a-f0-9]+/i,           // AID codes
+                /^tad\s+[a-f0-9]+/i,           // TAD codes
+                /^tsi\s+[a-f0-9]+/i,           // TSI codes
+                /^arc\s+\d+/i,
+                /entrymode/i,
+                /^\+*approved\+*$/i,
+                /^b-taxable/i,
+                /^a-taxable/i,
+                /pin\s+t/i,                    // PIN T... lines
+                /sign up for/i,
+                /sneak peek/i,
+                /weekly ad/i,
+                /www\.aldi/i,
+                /help\.aldi/i,
+                /^\d{3}\/\d{3}\/\d{3}\/\d{3}/  // 460/172/003/012 format
             );
         }
 
@@ -4071,11 +4172,28 @@ class PantryInventory {
             let unit = 'items';
             let price = null;
 
-            // Extract price from end
+            // Remove barcode from start of line (Subzi Mandi format)
+            const barcodeMatch = itemName.match(barcodePattern);
+            if (barcodeMatch) {
+                itemName = itemName.replace(barcodePattern, '').trim();
+            }
+
+            // Check for weight @ price/unit format first (e.g., "1.37 lb @ $2.49/lb")
+            const weightAtPriceMatch = itemName.match(weightAtPricePattern);
+            if (weightAtPriceMatch) {
+                quantity = parseFloat(weightAtPriceMatch[1]);
+                unit = this.normalizeUnit(weightAtPriceMatch[2]);
+                // Remove the weight @ price portion from the name
+                itemName = itemName.replace(weightAtPricePattern, '').trim();
+            }
+
+            // Extract price from end (handles FA, EL, F, T suffixes)
             const priceMatch = line.match(pricePattern);
             if (priceMatch) {
-                price = parseFloat(priceMatch[0].replace('$', ''));
-                itemName = line.replace(pricePattern, '').trim();
+                // Extract just the numeric portion
+                const priceStr = priceMatch[0].replace(/[^0-9.]/g, '');
+                price = parseFloat(priceStr);
+                itemName = itemName.replace(pricePattern, '').trim();
             }
 
             // Check for quantity x price format (e.g., "2 @ $3.99")
@@ -4170,8 +4288,17 @@ class PantryInventory {
             .replace(/[#\*]+$/, '')                  // Remove trailing symbols
             .replace(/\s*F$/, '')                    // Remove tax indicator "F"
             .replace(/\s*T$/, '')                    // Remove taxable indicator
+            .replace(/\s*(FA|EL)\s*$/i, '')          // Remove Aldi/Subzi Mandi suffixes
+            .replace(/\s*=EA\s*$/i, '')              // Remove =EA suffix
+            .replace(/\s*-EA\s*$/i, '')              // Remove -EA suffix
             .replace(/\([^)]*\)$/, '')               // Remove trailing parenthetical
             .replace(/^\s*ORG\s+/i, 'Organic ')      // Expand ORG abbreviation
+            .replace(/\s*PC$/i, '')                  // Remove PC suffix (ShopRite)
+            .replace(/\s*BRIPC$/i, '')               // Remove BRIPC suffix (ShopRite)
+            .replace(/\s*\d+G$/i, '')                // Remove weight suffix like 150G
+            .replace(/\s*\d+OZ$/i, '')               // Remove weight suffix like 6OZ
+            .replace(/\bBN\d+/gi, '')                // Remove BN... codes (Subzi Mandi)
+            .replace(/\bRR\d+/gi, '')                // Remove RR... codes
             .trim();
     }
 
@@ -4215,15 +4342,15 @@ class PantryInventory {
         const name = itemName.toLowerCase();
 
         const categoryPatterns = {
-            'produce': /\b(apple|banana|orange|lemon|lime|tomato|potato|onion|garlic|lettuce|spinach|carrot|celery|pepper|cucumber|avocado|berry|berries|grape|melon|mango|peach|pear|plum|broccoli|cauliflower|cabbage|kale|mushroom|zucchini|squash|corn|bean|pea|organic|fresh|fruit|vegetable|produce)\b/i,
+            'produce': /\b(apple|banana|orange|lemon|lime|tomato|potato|onion|garlic|lettuce|spinach|carrot|celery|pepper|cucumber|avocado|berry|berries|grape|melon|mango|peach|pear|plum|broccoli|cauliflower|cabbage|kale|mushroom|zucchini|squash|corn|bean|pea|organic|fresh|fruit|vegetable|produce|okra|bhindi|karela|bitter gourd|tindora|parval|drumstick|palak|eggplant|coriander leaf|curry leaf|green chili|red onion|yellow onion)\b/i,
             'dairy': /\b(milk|cheese|yogurt|butter|cream|egg|eggs|cottage|sour cream|half|cheddar|mozzarella|parmesan)\b/i,
             'meat': /\b(chicken|beef|pork|turkey|bacon|sausage|ham|steak|ground|meat|lamb|fish|salmon|tuna|shrimp|seafood)\b/i,
-            'bakery': /\b(bread|bagel|muffin|croissant|roll|bun|cake|cookie|pastry|donut|pie|tortilla)\b/i,
+            'bakery': /\b(bread|bagel|muffin|croissant|roll|bun|cake|cookie|pastry|donut|pie|tortilla|naan|roti|chapati|paratha|puri|bhatura|kulcha|pita|loaf)\b/i,
             'frozen': /\b(frozen|ice cream|pizza|fries|nugget|popsicle)\b/i,
             'beverages': /\b(water|juice|soda|coffee|tea|wine|beer|drink|cola|sprite|pepsi|coke)\b/i,
-            'spice': /\b(spice|spices|cumin|turmeric|paprika|cinnamon|oregano|thyme|basil|rosemary|sage|coriander|cardamom|clove|cloves|nutmeg|ginger|chili powder|cayenne|allspice|anise|bay leaf|bay leaves|dill|fennel|fenugreek|garlic powder|onion powder|mustard seed|peppercorn|saffron|tarragon|wasabi|sumac|za.atar|seasoning|seasoning blend|rub)\b/i,
+            'spice': /\b(spice|spices|cumin|turmeric|paprika|cinnamon|oregano|thyme|basil|rosemary|sage|coriander|cardamom|clove|cloves|nutmeg|ginger|chili powder|cayenne|allspice|anise|bay leaf|bay leaves|dill|fennel|fenugreek|garlic powder|onion powder|mustard seed|peppercorn|saffron|tarragon|wasabi|sumac|za.atar|seasoning|seasoning blend|rub|masala|biryani|nihari|garam|tandoori|tikka|curry|chaat|sambar|rasam|shan|mdh|everest|badshah|catch|eastern|aachi|kitchen king|pav bhaji|chole|paneer|methi|ajwain|asafoetida|hing|jeera|amchur|chilli|mirch|haldi|dhania|kalonji|nigella|kasuri|kashmiri)\b/i,
             'pantry': /\b(rice|pasta|cereal|flour|sugar|oil|sauce|soup|can|canned|spice|salt|pepper|vinegar|honey|syrup|peanut|almond|nut)\b/i,
-            'snacks': /\b(chip|chips|cracker|pretzel|popcorn|candy|chocolate|snack|bar|granola)\b/i,
+            'snacks': /\b(chip|chips|cracker|pretzel|popcorn|candy|chocolate|snack|bar|granola|murukku|chakli|bhakarwadi|bhujia|mixture|namkeen|mathri|shakarpara|sev|chivda|farsan|khakhra|papad|fryums|banana chips|jackfruit chips|tapioca chips|plantain chips)\b/i,
             'condiments': /\b(ketchup|mustard|mayo|mayonnaise|dressing|relish|salsa|hot sauce)\b/i,
             'cleaning': /\b(soap|detergent|cleaner|bleach|sponge|paper towel|tissue|trash bag|dishwasher)\b/i,
             'personal': /\b(shampoo|conditioner|toothpaste|deodorant|lotion|razor|band-aid|medicine|vitamin)\b/i

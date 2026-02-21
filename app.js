@@ -4105,7 +4105,21 @@ class PantryInventory {
             /^-+$/,
             /^\d{2}[\/\-]\d{2}[\/\-]\d{2,4}/,  // Dates
             /^\d{1,2}:\d{2}/,  // Times
-            /^[\d\s\-\(\)]+$/  // Just numbers (phone, card numbers)
+            /^[\d\s\-\(\)]+$/,  // Just numbers (phone, card numbers)
+
+            // Address patterns - street addresses
+            /^\d+\s+(n\.?|s\.?|e\.?|w\.?|north|south|east|west)?\s*[a-z]+\s+(st\.?|street|ave\.?|avenue|rd\.?|road|blvd\.?|boulevard|dr\.?|drive|ln\.?|lane|way|ct\.?|court|pl\.?|place|pkwy\.?|parkway|hwy\.?|highway)\b/i,
+            // City, State ZIP patterns (e.g., "Edison, NJ 08817" or "SPRINGFIELD NJ 07081")
+            /^[a-z\s]+,?\s*[a-z]{2}\s*\d{5}(-\d{4})?$/i,
+            // Phone patterns (various formats)
+            /^\(?\d{3}\)?[\s\.\-]?\d{3}[\s\.\-]?\d{4}$/,
+            /^tel:?\s*\(?\d{3}\)?[\s\.\-]?\d{3}[\s\.\-]?\d{4}/i,
+            // Store name lines (just the store name by itself)
+            /^(aldi|shoprite|shop-rite|trader joe'?s?|h\s*mart|whole\s*foods|costco|walmart|wal-mart|target|kroger|safeway|publix|subzi\s*mandi|patel\s*brothers?|india\s*bazaar|apna\s*bazaar|raja\s*foods?)$/i,
+            // Common receipt header/footer lines
+            /^(manager|cashier|clerk|customer\s*copy|merchant\s*copy|retain\s*this)/i,
+            /^(open|closed|hours?:?|mon|tue|wed|thu|fri|sat|sun)/i,
+            /^(member|loyalty|rewards?|points?|savings?|coupon)/i
         ];
 
         // Store-specific skip patterns
@@ -4158,7 +4172,25 @@ class PantryInventory {
                 /weekly ad/i,
                 /www\.aldi/i,
                 /help\.aldi/i,
-                /^\d{3}\/\d{3}\/\d{3}\/\d{3}/  // 460/172/003/012 format
+                /^\d{3}\/\d{3}\/\d{3}\/\d{3}/, // 460/172/003/012 format
+                // Additional Aldi patterns
+                /^aldi\s*(foods?|inc\.?|stores?)?$/i,  // Store name variants
+                /aldi\s*find/i,                 // ALDI Find items header
+                /^everyday\s*low/i,             // Marketing slogans
+                /^save\s*more/i,
+                /^find\s*us\s*(on|at)/i,        // Social media
+                /^(facebook|twitter|instagram)/i,
+                /^app\s*store/i,
+                /^google\s*play/i,
+                /^download\s*(our|the)\s*app/i,
+                /^scan\s*(to|for)/i,            // QR code prompts
+                /^visit\s*(us|aldi)/i,
+                /^survey/i,
+                /^tell\s*us/i,
+                /^chip\s*read/i,                // Payment method info
+                /^contactless/i,
+                /^debit\s*(card)?$/i,
+                /^balance/i
             );
         }
 

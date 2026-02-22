@@ -4109,13 +4109,17 @@ class PantryInventory {
 
             // Address patterns - street addresses
             /^\d+\s+(n\.?|s\.?|e\.?|w\.?|north|south|east|west)?\s*[a-z]+\s+(st\.?|street|ave\.?|avenue|rd\.?|road|blvd\.?|boulevard|dr\.?|drive|ln\.?|lane|way|ct\.?|court|pl\.?|place|pkwy\.?|parkway|hwy\.?|highway)\b/i,
+            // Route/highway address lines (e.g., "Route 46 Pint", "Rt. 9 North")
+            /^(route|rt\.?)\s+\d+/i,
             // City, State ZIP patterns (e.g., "Edison, NJ 08817" or "SPRINGFIELD NJ 07081")
             /^[a-z\s]+,?\s*[a-z]{2}\s*\d{5}(-\d{4})?$/i,
+            // City, State without ZIP (e.g., "Totowa , Nj : 2" or "Totowa, NJ")
+            /^[a-z][a-z\s]{2,20},\s*[a-z]{2}\s*(:\s*\d+)?\s*$/i,
             // Phone patterns (various formats)
             /^\(?\d{3}\)?[\s\.\-]?\d{3}[\s\.\-]?\d{4}$/,
             /^tel:?\s*\(?\d{3}\)?[\s\.\-]?\d{3}[\s\.\-]?\d{4}/i,
-            // Store name lines (just the store name by itself)
-            /^(aldi|shoprite|shop-rite|trader joe'?s?|h\s*mart|whole\s*foods|costco|walmart|wal-mart|target|kroger|safeway|publix|subzi\s*mandi|patel\s*brothers?|india\s*bazaar|apna\s*bazaar|raja\s*foods?)$/i,
+            // Store name lines (store name alone, optionally with trailing colon/punctuation)
+            /^(aldi|shoprite|shop-rite|trader joe'?s?|h\s*mart|whole\s*foods|costco|walmart|wal-mart|target|kroger|safeway|publix|subzi\s*mandi|patel\s*brothers?|india\s*bazaar|apna\s*bazaar|raja\s*foods?)\s*[:#]?\s*$/i,
             // Common receipt header/footer lines
             /^(manager|cashier|clerk|customer\s*copy|merchant\s*copy|retain\s*this)/i,
             /^(open|closed|hours?:?|mon|tue|wed|thu|fri|sat|sun)/i,

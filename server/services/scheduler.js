@@ -23,16 +23,22 @@ async function checkAndSendMissedDigests() {
   const now = new Date();
   const currentHour = now.getUTCHours();
 
-  // Only check if we're past the scheduled digest time
+  // If before the scheduled digest time, check whether yesterday's digest was missed
+  // (the app may have been sleeping when yesterday's cron fired).
+  // If at or after the scheduled time, check whether today's digest was missed.
+  let checkDate;
   if (currentHour < DIGEST_HOUR) {
-    console.log('Before digest time, skipping missed digest check');
-    return;
+    const yesterday = new Date(now);
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    checkDate = yesterday.toISOString().split('T')[0];
+    console.log(`Before digest time (${currentHour}:00 UTC), checking for yesterday's missed digest (${checkDate})`);
+  } else {
+    checkDate = now.toISOString().split('T')[0];
+    console.log(`After digest time (${currentHour}:00 UTC), checking for today's missed digest (${checkDate})`);
   }
 
-  const today = now.toISOString().split('T')[0]; // YYYY-MM-DD format
-
   try {
-    // Get all users who haven't received a digest today
+    // Get all users who haven't received a digest for the relevant date
     const usersResult = await query(`
       SELECT u.id, u.email
       FROM users u
@@ -41,16 +47,16 @@ async function checkAndSendMissedDigests() {
         WHERE dl.user_id = u.id
         AND dl.sent_date = $1
       )
-    `, [today]);
+    `, [checkDate]);
 
     const usersNeedingDigest = usersResult.rows;
 
     if (usersNeedingDigest.length === 0) {
-      console.log('All users have received digest today, no catch-up needed');
+      console.log(`All users have received digest for ${checkDate}, no catch-up needed`);
       return;
     }
 
-    console.log(`Found ${usersNeedingDigest.length} user(s) who missed daily digest, sending now...`);
+    console.log(`Found ${usersNeedingDigest.length} user(s) who missed digest for ${checkDate}, sending now...`);
 
     for (const user of usersNeedingDigest) {
       await sendDigestToUser(user.id, user.email);

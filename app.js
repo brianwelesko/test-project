@@ -611,6 +611,8 @@ async function loadTesseract() {
         // Load Tesseract.js via script tag (better mobile browser support)
         const Tesseract = await loadTesseractScript();
         tesseractWorker = await Tesseract.createWorker('eng');
+        // PSM 6: single uniform block — receipts are one column, not a multi-column page
+        await tesseractWorker.setParameters({ tessedit_pageseg_mode: '6' });
         return tesseractWorker;
     } catch (error) {
         console.error('Failed to load Tesseract:', error);
@@ -618,6 +620,39 @@ async function loadTesseract() {
     } finally {
         tesseractLoading = false;
     }
+}
+
+// Pre-process a receipt image for better Tesseract accuracy.
+// Converts to grayscale and boosts contrast to reduce thermal-paper noise.
+function preprocessReceiptImage(imgSrc) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            // Scale up small images — Tesseract accuracy improves when text is taller
+            const minDim = 1500;
+            const scale = Math.max(1, minDim / Math.max(img.width, img.height));
+            canvas.width  = Math.round(img.width  * scale);
+            canvas.height = Math.round(img.height * scale);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const d = imageData.data;
+            for (let i = 0; i < d.length; i += 4) {
+                // Grayscale (luminance-weighted)
+                const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+                // Contrast stretch (factor 1.8) — pushes near-white background to white
+                // and dark ink toward black, reducing mid-gray thermal noise
+                const c = Math.max(0, Math.min(255, (gray - 128) * 1.8 + 128));
+                d[i] = d[i + 1] = d[i + 2] = c;
+            }
+            ctx.putImageData(imageData, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+        };
+        img.src = imgSrc;
+    });
 }
 
 // ===== SUGGESTION ENGINE =====
@@ -3602,10 +3637,13 @@ class PantryInventory {
             // Lazy load Tesseract (only loads 3MB on first use)
             const worker = await loadTesseract();
 
+            loadingText.textContent = 'Enhancing image...';
+            const processedSrc = await preprocessReceiptImage(previewImg.src);
+
             loadingText.textContent = 'Processing image...';
 
-            // Perform OCR
-            const result = await worker.recognize(previewImg.src);
+            // Perform OCR on the contrast-enhanced, grayscale image
+            const result = await worker.recognize(processedSrc);
 
             // Show results
             loadingEl.classList.add('hidden');

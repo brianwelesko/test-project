@@ -2601,25 +2601,25 @@ class PantryInventory {
             return { action: 'add-new-partial', name: newItemPartial[1].trim() };
         }
 
-        // Restock existing: name +amount unit
-        const restock = input.match(/^(.+?)\s*\+\s*(\d*\.?\d+)\s*([a-zA-Z]+)$/);
+        // Restock existing: name +amount unit (supports fractions like 1/4, 1 1/2, ½)
+        const restock = input.match(/^(.+?)\s*\+\s*(\d+\s+\d+\/\d+|\d+\/\d+|[½¼¾⅓⅔⅛⅜⅝⅞]|\d*\.?\d+)\s*([a-zA-Z]+)$/);
         if (restock) {
-            return { action: 'restock', itemQuery: restock[1].trim(), amount: parseFloat(restock[2]), unit: restock[3] };
+            return { action: 'restock', itemQuery: restock[1].trim(), amount: this.parseAmountString(restock[2]), unit: restock[3] };
         }
 
-        // Deduct: name -amount unit
-        const deduct = input.match(/^(.+?)\s*-\s*(\d*\.?\d+)\s*([a-zA-Z]+)$/);
+        // Deduct: name -amount unit (supports fractions like 1/4, 1 1/2, ½)
+        const deduct = input.match(/^(.+?)\s*-\s*(\d+\s+\d+\/\d+|\d+\/\d+|[½¼¾⅓⅔⅛⅜⅝⅞]|\d*\.?\d+)\s*([a-zA-Z]+)$/);
         if (deduct) {
-            return { action: 'deduct', itemQuery: deduct[1].trim(), amount: parseFloat(deduct[2]), unit: deduct[3] };
+            return { action: 'deduct', itemQuery: deduct[1].trim(), amount: this.parseAmountString(deduct[2]), unit: deduct[3] };
         }
 
-        // Partial with number but no unit: name -amount or name +amount
-        const partialDeduct = input.match(/^(.+?)\s*-\s*(\d+\.?\d*)$/);
+        // Partial with number but no unit: name -amount or name +amount (supports fractions)
+        const partialDeduct = input.match(/^(.+?)\s*-\s*(\d+\s+\d+\/\d+|\d+\/\d+|[½¼¾⅓⅔⅛⅜⅝⅞]|\d+\.?\d*)$/);
         if (partialDeduct) {
             return { action: 'deduct-partial', itemQuery: partialDeduct[1].trim(), amount: partialDeduct[2] };
         }
 
-        const partialRestock = input.match(/^(.+?)\s*\+\s*(\d+\.?\d*)$/);
+        const partialRestock = input.match(/^(.+?)\s*\+\s*(\d+\s+\d+\/\d+|\d+\/\d+|[½¼¾⅓⅔⅛⅜⅝⅞]|\d+\.?\d*)$/);
         if (partialRestock) {
             return { action: 'restock-partial', itemQuery: partialRestock[1].trim(), amount: partialRestock[2] };
         }

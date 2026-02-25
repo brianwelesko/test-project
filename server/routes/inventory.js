@@ -38,8 +38,8 @@ router.post('/', async (req, res) => {
       INSERT INTO inventory_items (
         user_id, name, quantity, unit, category, location,
         threshold, purchase_date, expiration_date, bought_from, is_staple,
-        last_price, previous_price
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        last_price, previous_price, brand
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *
     `, [
       req.user.id,
@@ -54,10 +54,21 @@ router.post('/', async (req, res) => {
       item.boughtFrom || null,
       item.isStaple ? 1 : 0,
       item.last_price || null,
-      item.previous_price || null
+      item.previous_price || null,
+      item.brand || null
     ]);
 
-    res.status(201).json(formatItemForClient(result.rows[0]));
+    const newItem = result.rows[0];
+
+    // Record initial price history if price was provided
+    if (item.last_price) {
+      await query(
+        'INSERT INTO price_history (item_id, price, store) VALUES ($1, $2, $3)',
+        [newItem.id, item.last_price, item.boughtFrom || null]
+      );
+    }
+
+    res.status(201).json(formatItemForClient(newItem));
   } catch (err) {
     console.error('Add item error:', err);
     res.status(500).json({ error: err.message || 'Server error' });
@@ -79,12 +90,15 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Item not found' });
     }
 
+    const existing = existingResult.rows[0];
+
     const result = await query(`
       UPDATE inventory_items SET
         name = $1, quantity = $2, unit = $3, category = $4, location = $5,
         threshold = $6, purchase_date = $7, expiration_date = $8, bought_from = $9,
-        is_staple = $10, last_price = $11, previous_price = $12, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $13 AND user_id = $14
+        is_staple = $10, last_price = $11, previous_price = $12, brand = $13,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $14 AND user_id = $15
       RETURNING *
     `, [
       item.name,
@@ -99,9 +113,20 @@ router.put('/:id', async (req, res) => {
       item.isStaple ? 1 : 0,
       item.last_price !== undefined ? item.last_price : null,
       item.previous_price !== undefined ? item.previous_price : null,
+      item.brand !== undefined ? item.brand : null,
       id,
       req.user.id
     ]);
+
+    // Record price history when price changes
+    const newPrice = item.last_price !== undefined ? item.last_price : null;
+    const oldPrice = existing.last_price;
+    if (newPrice !== null && newPrice !== oldPrice) {
+      await query(
+        'INSERT INTO price_history (item_id, price, store) VALUES ($1, $2, $3)',
+        [id, newPrice, item.boughtFrom || existing.bought_from || null]
+      );
+    }
 
     res.json(formatItemForClient(result.rows[0]));
   } catch (err) {
@@ -127,6 +152,32 @@ router.delete('/:id', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('Delete item error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get price history for an item
+router.get('/:id/price-history', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verify ownership
+    const ownerCheck = await query(
+      'SELECT id FROM inventory_items WHERE id = $1 AND user_id = $2',
+      [id, req.user.id]
+    );
+    if (!ownerCheck.rows[0]) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+
+    const result = await query(
+      'SELECT id, price, store, recorded_at FROM price_history WHERE item_id = $1 ORDER BY recorded_at ASC',
+      [id]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Get price history error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -193,6 +244,7 @@ function formatItemForClient(item) {
     isStaple: Boolean(item.is_staple),
     last_price: item.last_price,
     previous_price: item.previous_price,
+    brand: item.brand,
     createdAt: item.created_at,
     updatedAt: item.updated_at
   };

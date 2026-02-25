@@ -962,6 +962,10 @@ const API = {
         });
     },
 
+    async getPriceHistory(id) {
+        return this.request(`/inventory/${id}/price-history`);
+    },
+
     // Receipt Corrections (learning system)
     async getCorrections() {
         return this.request('/corrections');
@@ -1220,6 +1224,13 @@ class PantryInventory {
         this.expirationDateInput = document.getElementById('expirationDate');
         this.isStapleCheckbox = document.getElementById('isStaple');
         this.boughtFromInput = document.getElementById('boughtFrom');
+        this.brandInput = document.getElementById('brand');
+        this.itemPriceInput = document.getElementById('itemPrice');
+
+        // Price history modal
+        this.priceHistoryModal = document.getElementById('priceHistoryModal');
+        this.closePriceHistoryBtn = document.getElementById('closePriceHistory');
+        this.priceHistoryChart = null;
 
         // Recipe section
         this.recipeSection = document.getElementById('recipeSection');
@@ -1345,6 +1356,18 @@ class PantryInventory {
             });
         }
 
+        // Price history modal events
+        if (this.closePriceHistoryBtn) {
+            this.closePriceHistoryBtn.addEventListener('click', () => this.hidePriceHistory());
+        }
+        if (this.priceHistoryModal) {
+            this.priceHistoryModal.addEventListener('click', (e) => {
+                if (e.target === this.priceHistoryModal) {
+                    this.hidePriceHistory();
+                }
+            });
+        }
+
         // Filter and sort events
         this.filterCategory.addEventListener('change', () => this.render());
         this.sortBy.addEventListener('change', () => this.render());
@@ -1460,7 +1483,9 @@ class PantryInventory {
             purchaseDate: purchaseDate,
             expirationDate: expirationDate,
             isStaple: item.isStaple || false,
-            boughtFrom: item.boughtFrom ? item.boughtFrom.trim() : ''
+            boughtFrom: item.boughtFrom ? item.boughtFrom.trim() : '',
+            brand: item.brand || null,
+            last_price: item.last_price !== undefined ? item.last_price : null
         };
 
         try {
@@ -1637,6 +1662,7 @@ class PantryInventory {
     async handleSubmit(e) {
         e.preventDefault();
 
+        const priceVal = this.itemPriceInput ? parseFloat(this.itemPriceInput.value) : NaN;
         const itemData = {
             name: this.nameInput.value,
             quantity: this.quantityInput.value,
@@ -1647,7 +1673,9 @@ class PantryInventory {
             purchaseDate: this.purchaseDateInput.value,
             expirationDate: this.expirationDateInput.value,
             isStaple: this.isStapleCheckbox.checked,
-            boughtFrom: this.boughtFromInput.value
+            boughtFrom: this.boughtFromInput.value,
+            brand: this.brandInput ? this.brandInput.value.trim() || null : null,
+            last_price: !isNaN(priceVal) && priceVal >= 0 ? priceVal : undefined
         };
 
         if (this.editingId) {
@@ -1687,6 +1715,8 @@ class PantryInventory {
         this.expirationDateInput.value = item.expirationDate || '';
         this.isStapleCheckbox.checked = item.isStaple || false;
         this.boughtFromInput.value = item.boughtFrom || item.notes || '';
+        if (this.brandInput) this.brandInput.value = item.brand || '';
+        if (this.itemPriceInput) this.itemPriceInput.value = item.last_price !== null && item.last_price !== undefined ? item.last_price : '';
 
         // Show form section if hidden
         this.formSection.classList.remove('hidden');
@@ -1957,6 +1987,7 @@ class PantryInventory {
                             ${item.isStaple ? '<span class="staple-badge">Staple</span>' : ''}
                         </div>
                         ${expirationDisplay ? `<div class="expiration-info">${expirationDisplay}</div>` : ''}
+                        ${item.brand ? `<div class="item-brand">${this.escapeHtml(item.brand)}</div>` : ''}
                         ${storeInfo ? `<div class="item-store">From: ${this.escapeHtml(storeInfo)}</div>` : ''}
                         ${this.renderPriceInfo(item)}
                     </div>
@@ -2002,7 +2033,7 @@ class PantryInventory {
             }
         }
 
-        return `<div class="item-price">$${price}${changeIndicator}</div>`;
+        return `<div class="item-price">$${price}${changeIndicator} <button class="price-history-btn" onclick="event.stopPropagation(); app.showPriceHistory('${this.escapeHtml(item.name).replace(/'/g, "\\'")}')">History</button></div>`;
     }
 
     async confirmDelete(id) {
@@ -2522,6 +2553,12 @@ class PantryInventory {
         const viewCommand = input.match(/^view\s+(.+)$/i);
         if (viewCommand) {
             return { action: 'view', itemQuery: viewCommand[1].trim() };
+        }
+
+        // Price history commands: "chart <name>", "graph <name>", "price <name>"
+        const priceHistoryCommand = input.match(/^(chart|graph|price)\s+(.+)$/i);
+        if (priceHistoryCommand) {
+            return { action: 'show-price-history', itemQuery: priceHistoryCommand[2].trim() };
         }
 
         // DEEP MODE: Just "convert" alone → show conversion panel
@@ -4752,6 +4789,28 @@ class PantryInventory {
         document.getElementById('detailsExpiration').textContent = item.expirationDate || '-';
         document.getElementById('detailsStaple').textContent = item.isStaple ? 'Yes' : 'No';
 
+        // Update or inject brand row
+        let brandRow = document.getElementById('detailsBrandRow');
+        if (!brandRow) {
+            brandRow = document.createElement('div');
+            brandRow.id = 'detailsBrandRow';
+            brandRow.className = 'detail-row';
+            brandRow.innerHTML = '<span class="detail-label">Brand:</span><span id="detailsBrand" class="detail-value"></span>';
+            document.querySelector('#itemDetailsModal .details-grid').prepend(brandRow);
+        }
+        document.getElementById('detailsBrand').textContent = item.brand || '-';
+
+        // Update price row
+        let priceRow = document.getElementById('detailsPriceRow');
+        if (!priceRow) {
+            priceRow = document.createElement('div');
+            priceRow.id = 'detailsPriceRow';
+            priceRow.className = 'detail-row';
+            priceRow.innerHTML = '<span class="detail-label">Price:</span><span id="detailsPrice" class="detail-value"></span>';
+            document.querySelector('#itemDetailsModal .details-grid').appendChild(priceRow);
+        }
+        document.getElementById('detailsPrice').textContent = item.last_price != null ? `$${parseFloat(item.last_price).toFixed(2)}` : '-';
+
         // Store item id for edit button
         this.currentDetailsItemId = item.id;
 
@@ -4764,6 +4823,117 @@ class PantryInventory {
     hideItemDetails() {
         this.itemDetailsModal.classList.add('hidden');
         this.currentDetailsItemId = null;
+    }
+
+    // Show price history modal for an item
+    async showPriceHistory(query) {
+        const item = this.findInventoryMatch(query);
+        if (!item) {
+            alert(`Item "${query}" not found in inventory`);
+            return;
+        }
+
+        document.getElementById('priceHistoryTitle').textContent = `Price History: ${item.name}`;
+        const noDataEl = document.getElementById('priceHistoryNoData');
+        const tableWrapper = document.getElementById('priceHistoryTable');
+        const tableBody = document.getElementById('priceHistoryTableBody');
+        const canvas = document.getElementById('priceHistoryChart');
+
+        // Show modal first
+        this.priceHistoryModal.classList.remove('hidden');
+        this.clearCommandBar();
+
+        try {
+            const history = await API.getPriceHistory(item.id);
+
+            // Destroy previous chart if any
+            if (this.priceHistoryChart) {
+                this.priceHistoryChart.destroy();
+                this.priceHistoryChart = null;
+            }
+
+            if (!history || history.length === 0) {
+                noDataEl.classList.remove('hidden');
+                canvas.classList.add('hidden');
+                tableWrapper.classList.add('hidden');
+                return;
+            }
+
+            noDataEl.classList.add('hidden');
+            canvas.classList.remove('hidden');
+            tableWrapper.classList.remove('hidden');
+
+            // Build chart data
+            const labels = history.map(r => {
+                const d = new Date(r.recorded_at);
+                return d.toLocaleDateString();
+            });
+            const prices = history.map(r => parseFloat(r.price));
+
+            this.priceHistoryChart = new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Price ($)',
+                        data: prices,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.15)',
+                        borderWidth: 2,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => `$${ctx.parsed.y.toFixed(2)}`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            ticks: {
+                                callback: val => `$${val.toFixed(2)}`
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Populate table (newest first)
+            tableBody.innerHTML = [...history].reverse().map(r => {
+                const d = new Date(r.recorded_at);
+                return `<tr>
+                    <td>${d.toLocaleDateString()}</td>
+                    <td>${r.store ? this.escapeHtml(r.store) : '-'}</td>
+                    <td>$${parseFloat(r.price).toFixed(2)}</td>
+                </tr>`;
+            }).join('');
+
+        } catch (err) {
+            console.error('Failed to load price history:', err);
+            noDataEl.textContent = 'Failed to load price history.';
+            noDataEl.classList.remove('hidden');
+            canvas.classList.add('hidden');
+            tableWrapper.classList.add('hidden');
+        }
+    }
+
+    hidePriceHistory() {
+        if (this.priceHistoryModal) {
+            this.priceHistoryModal.classList.add('hidden');
+        }
+        if (this.priceHistoryChart) {
+            this.priceHistoryChart.destroy();
+            this.priceHistoryChart = null;
+        }
     }
 
     // Mobile Filter Modal Methods
@@ -5158,6 +5328,8 @@ class PantryInventory {
             this.showScanModal();
         } else if (parsed.action === 'view') {
             this.showItemDetails(parsed.itemQuery);
+        } else if (parsed.action === 'show-price-history') {
+            this.showPriceHistory(parsed.itemQuery);
         } else if (parsed.action === 'deduct') {
             this.executeDeduct(parsed);
         } else if (parsed.action === 'restock') {

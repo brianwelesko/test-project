@@ -38,12 +38,23 @@ async function initializeDatabase() {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
-    -- Add price columns if they don't exist (for existing databases)
+    -- Add price/brand columns if they don't exist (for existing databases)
     DO $$ BEGIN
       ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS last_price REAL;
       ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS previous_price REAL;
+      ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS brand TEXT;
     EXCEPTION WHEN others THEN NULL;
     END $$;
+
+    CREATE TABLE IF NOT EXISTS price_history (
+      id SERIAL PRIMARY KEY,
+      item_id INTEGER REFERENCES inventory_items(id) ON DELETE CASCADE,
+      price REAL NOT NULL,
+      store TEXT,
+      recorded_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_price_history_item ON price_history(item_id);
 
     CREATE INDEX IF NOT EXISTS idx_inventory_user ON inventory_items(user_id);
     CREATE INDEX IF NOT EXISTS idx_inventory_expiration ON inventory_items(expiration_date);

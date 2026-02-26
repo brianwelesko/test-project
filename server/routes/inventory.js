@@ -25,7 +25,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Add new item
+// Add new item (or restore soft-deleted item with same name)
 router.post('/', async (req, res) => {
   try {
     const item = req.body;
@@ -34,41 +34,106 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Item name is required' });
     }
 
-    const result = await query(`
-      INSERT INTO inventory_items (
-        user_id, name, quantity, unit, category, location,
-        threshold, purchase_date, expiration_date, bought_from, is_staple,
-        last_price, previous_price, brand
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-      RETURNING *
-    `, [
-      req.user.id,
-      item.name,
-      item.quantity || 0,
-      item.unit || 'items',
-      item.category || 'other',
-      item.location || 'pantry',
-      item.threshold || 0.2,
-      item.purchaseDate || null,
-      item.expirationDate || null,
-      item.boughtFrom || null,
-      item.isStaple ? 1 : 0,
-      item.last_price || null,
-      item.previous_price || null,
-      item.brand || null
-    ]);
+    // Check for soft-deleted item with the same name (case-insensitive)
+    const deletedResult = await query(`
+      SELECT * FROM inventory_items
+      WHERE user_id = $1 AND LOWER(name) = LOWER($2) AND deleted_at IS NOT NULL
+      ORDER BY deleted_at DESC
+      LIMIT 1
+    `, [req.user.id, item.name]);
 
-    const newItem = result.rows[0];
+    let resultItem;
 
-    // Record initial price history if price was provided
-    if (item.last_price) {
-      await query(
-        'INSERT INTO price_history (item_id, price, store) VALUES ($1, $2, $3)',
-        [newItem.id, item.last_price, item.boughtFrom || null]
-      );
+    if (deletedResult.rows.length > 0) {
+      // Restore the soft-deleted item with updated values
+      const deletedItem = deletedResult.rows[0];
+      const newPrice = item.last_price || null;
+      const previousPrice = newPrice !== null ? deletedItem.last_price : deletedItem.previous_price;
+
+      const restoreResult = await query(`
+        UPDATE inventory_items SET
+          name = $1,
+          quantity = $2,
+          unit = $3,
+          category = $4,
+          location = $5,
+          threshold = $6,
+          purchase_date = $7,
+          expiration_date = $8,
+          bought_from = $9,
+          is_staple = $10,
+          last_price = $11,
+          previous_price = $12,
+          brand = $13,
+          deleted_at = NULL,
+          delete_reason = NULL,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $14
+        RETURNING *
+      `, [
+        item.name,
+        item.quantity || 0,
+        item.unit || 'items',
+        item.category || 'other',
+        item.location || 'pantry',
+        item.threshold || 0.2,
+        item.purchaseDate || null,
+        item.expirationDate || null,
+        item.boughtFrom || null,
+        item.isStaple ? 1 : 0,
+        newPrice,
+        previousPrice,
+        item.brand || null,
+        deletedItem.id
+      ]);
+
+      resultItem = restoreResult.rows[0];
+
+      // Record price history if new price was provided
+      if (item.last_price) {
+        await query(
+          'INSERT INTO price_history (item_id, price, store) VALUES ($1, $2, $3)',
+          [resultItem.id, item.last_price, item.boughtFrom || null]
+        );
+      }
+    } else {
+      // No soft-deleted item found, create new item
+      const insertResult = await query(`
+        INSERT INTO inventory_items (
+          user_id, name, quantity, unit, category, location,
+          threshold, purchase_date, expiration_date, bought_from, is_staple,
+          last_price, previous_price, brand
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        RETURNING *
+      `, [
+        req.user.id,
+        item.name,
+        item.quantity || 0,
+        item.unit || 'items',
+        item.category || 'other',
+        item.location || 'pantry',
+        item.threshold || 0.2,
+        item.purchaseDate || null,
+        item.expirationDate || null,
+        item.boughtFrom || null,
+        item.isStaple ? 1 : 0,
+        item.last_price || null,
+        item.previous_price || null,
+        item.brand || null
+      ]);
+
+      resultItem = insertResult.rows[0];
+
+      // Record initial price history if price was provided
+      if (item.last_price) {
+        await query(
+          'INSERT INTO price_history (item_id, price, store) VALUES ($1, $2, $3)',
+          [resultItem.id, item.last_price, item.boughtFrom || null]
+        );
+      }
     }
 
-    res.status(201).json(formatItemForClient(newItem));
+    res.status(201).json(formatItemForClient(resultItem));
   } catch (err) {
     console.error('Add item error:', err);
     res.status(500).json({ error: err.message || 'Server error' });

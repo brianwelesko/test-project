@@ -1408,6 +1408,13 @@ class PantryInventory {
             this.clearFiltersBtn.addEventListener('click', () => this.clearMobileFilters());
         }
 
+        // Global escape key handler for closing modals
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.closeAnyOpenModal();
+            }
+        });
+
         // Recipe events
         this.tabBtns.forEach(btn => {
             btn.addEventListener('click', () => this.switchTab(btn.dataset.tab));
@@ -4967,6 +4974,41 @@ class PantryInventory {
     hideFilterModal() {
         this.filterModal.classList.add('hidden');
         document.body.style.overflow = '';
+    }
+
+    // Close any open modal when Escape key is pressed
+    closeAnyOpenModal() {
+        // Check each modal and close the first one that's open
+        // Price history modal
+        if (this.priceHistoryModal && !this.priceHistoryModal.classList.contains('hidden')) {
+            this.hidePriceHistory();
+            return;
+        }
+
+        // Item details modal
+        if (this.itemDetailsModal && !this.itemDetailsModal.classList.contains('hidden')) {
+            this.hideItemDetails();
+            return;
+        }
+
+        // Filter modal
+        if (this.filterModal && !this.filterModal.classList.contains('hidden')) {
+            this.hideFilterModal();
+            return;
+        }
+
+        // Scan modal
+        if (this.scanModal && !this.scanModal.classList.contains('hidden')) {
+            this.closeScanModal();
+            return;
+        }
+
+        // Grocery review modal
+        const groceryModal = document.getElementById('groceryReviewModal');
+        if (groceryModal && !groceryModal.classList.contains('hidden')) {
+            this.closeGroceryReviewModal();
+            return;
+        }
     }
 
     applyMobileFilters() {

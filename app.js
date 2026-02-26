@@ -949,9 +949,10 @@ const API = {
         });
     },
 
-    async deleteItem(id) {
+    async deleteItem(id, reason = null) {
         return this.request(`/inventory/${id}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            body: JSON.stringify({ reason })
         });
     },
 
@@ -964,6 +965,20 @@ const API = {
 
     async getPriceHistory(id) {
         return this.request(`/inventory/${id}/price-history`);
+    },
+
+    async getItemHistory(name) {
+        return this.request(`/inventory/history/${encodeURIComponent(name)}`);
+    },
+
+    async getItemPriceHistoryByName(name) {
+        return this.request(`/inventory/history/${encodeURIComponent(name)}/prices`);
+    },
+
+    async restoreItem(id) {
+        return this.request(`/inventory/${id}/restore`, {
+            method: 'POST'
+        });
     },
 
     // Receipt Corrections (learning system)
@@ -1578,9 +1593,9 @@ class PantryInventory {
         return null;
     }
 
-    async deleteItem(id) {
+    async deleteItem(id, reason = null) {
         try {
-            await API.deleteItem(id);
+            await API.deleteItem(id, reason);
             this.inventory = this.inventory.filter(item => String(item.id) !== String(id));
             this.rebuildSearchIndex();
         } catch (err) {

@@ -46,6 +46,15 @@ async function initializeDatabase() {
     EXCEPTION WHEN others THEN NULL;
     END $$;
 
+    -- Add soft delete columns (for existing databases)
+    DO $$ BEGIN
+      ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP DEFAULT NULL;
+      ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS delete_reason TEXT DEFAULT NULL;
+    EXCEPTION WHEN others THEN NULL;
+    END $$;
+
+    CREATE INDEX IF NOT EXISTS idx_inventory_deleted ON inventory_items(deleted_at);
+
     CREATE TABLE IF NOT EXISTS price_history (
       id SERIAL PRIMARY KEY,
       item_id INTEGER REFERENCES inventory_items(id) ON DELETE CASCADE,

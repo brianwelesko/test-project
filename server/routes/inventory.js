@@ -7,12 +7,12 @@ const router = express.Router();
 // All routes require authentication
 router.use(authenticateToken);
 
-// Get all inventory items for user
+// Get all inventory items for user (excludes soft-deleted by default)
 router.get('/', async (req, res) => {
   try {
     const result = await query(`
       SELECT * FROM inventory_items
-      WHERE user_id = $1
+      WHERE user_id = $1 AND deleted_at IS NULL
       ORDER BY name ASC
     `, [req.user.id]);
 
@@ -81,13 +81,13 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const item = req.body;
 
-    // Verify ownership
+    // Verify ownership and item is not deleted
     const existingResult = await query(
-      'SELECT * FROM inventory_items WHERE id = $1 AND user_id = $2',
+      'SELECT * FROM inventory_items WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL',
       [id, req.user.id]
     );
     if (!existingResult.rows[0]) {
-      return res.status(404).json({ error: 'Item not found' });
+      return res.status(404).json({ error: 'Item not found or has been deleted' });
     }
 
     const existing = existingResult.rows[0];
@@ -135,21 +135,26 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete item
+// Delete item (soft delete)
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const { reason } = req.body;
 
-    const result = await query(
-      'DELETE FROM inventory_items WHERE id = $1 AND user_id = $2',
-      [id, req.user.id]
-    );
+    const result = await query(`
+      UPDATE inventory_items
+      SET deleted_at = CURRENT_TIMESTAMP,
+          delete_reason = $3,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
+      RETURNING *
+    `, [id, req.user.id, reason || null]);
 
     if (result.rowCount === 0) {
-      return res.status(404).json({ error: 'Item not found' });
+      return res.status(404).json({ error: 'Item not found or already deleted' });
     }
 
-    res.json({ success: true });
+    res.json({ success: true, deletedItem: formatItemForClient(result.rows[0]) });
   } catch (err) {
     console.error('Delete item error:', err);
     res.status(500).json({ error: 'Server error' });
@@ -217,7 +222,7 @@ router.post('/sync', async (req, res) => {
 
     await client.query('COMMIT');
 
-    const allItems = await query('SELECT * FROM inventory_items WHERE user_id = $1', [req.user.id]);
+    const allItems = await query('SELECT * FROM inventory_items WHERE user_id = $1 AND deleted_at IS NULL', [req.user.id]);
     res.json(allItems.rows.map(formatItemForClient));
   } catch (err) {
     await client.query('ROLLBACK');
@@ -225,6 +230,76 @@ router.post('/sync', async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   } finally {
     client.release();
+  }
+});
+
+// Get all instances of an item by name (includes active and deleted)
+router.get('/history/:name', async (req, res) => {
+  try {
+    const { name } = req.params;
+
+    const result = await query(`
+      SELECT i.*,
+             (SELECT COUNT(*) FROM price_history WHERE item_id = i.id) as price_record_count
+      FROM inventory_items i
+      WHERE i.user_id = $1 AND LOWER(i.name) = LOWER($2)
+      ORDER BY i.created_at DESC
+    `, [req.user.id, name]);
+
+    const formatted = result.rows.map(item => ({
+      ...formatItemForClient(item),
+      priceRecordCount: parseInt(item.price_record_count)
+    }));
+
+    res.json(formatted);
+  } catch (err) {
+    console.error('Get item history error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get combined price history for an item name (across all instances)
+router.get('/history/:name/prices', async (req, res) => {
+  try {
+    const { name } = req.params;
+
+    const result = await query(`
+      SELECT ph.id, ph.price, ph.store, ph.recorded_at, i.id as item_id, i.created_at as item_created
+      FROM price_history ph
+      JOIN inventory_items i ON ph.item_id = i.id
+      WHERE i.user_id = $1 AND LOWER(i.name) = LOWER($2)
+      ORDER BY ph.recorded_at ASC
+    `, [req.user.id, name]);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Get combined price history error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Restore a soft-deleted item
+router.post('/:id/restore', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await query(`
+      UPDATE inventory_items
+      SET deleted_at = NULL,
+          delete_reason = NULL,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1 AND user_id = $2 AND deleted_at IS NOT NULL
+      RETURNING *
+    `, [id, req.user.id]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Deleted item not found' });
+    }
+
+    res.json(formatItemForClient(result.rows[0]));
+  } catch (err) {
+    console.error('Restore item error:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -246,7 +321,9 @@ function formatItemForClient(item) {
     previous_price: item.previous_price,
     brand: item.brand,
     createdAt: item.created_at,
-    updatedAt: item.updated_at
+    updatedAt: item.updated_at,
+    deletedAt: item.deleted_at || null,
+    deleteReason: item.delete_reason || null
   };
 }
 

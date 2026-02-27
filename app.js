@@ -2350,7 +2350,12 @@ class PantryInventory {
             return Math.round((tsp / volumeToTsp[toUnit]) * 100) / 100;
         }
 
-        // Items can't be converted
+        // Count units (items) - if both are 'items', they're equivalent
+        if (fromUnit === 'items' && toUnit === 'items') {
+            return amount;
+        }
+
+        // Items can't be converted to volume/weight units
         if (fromUnit === 'items' || toUnit === 'items') {
             return null;
         }
@@ -2776,7 +2781,26 @@ class PantryInventory {
             'ounce': 'oz', 'ounces': 'oz',
             'pound': 'lbs', 'pounds': 'lbs',
             'milliliter': 'ml', 'milliliters': 'ml', 'mls': 'ml',
-            'liter': 'l', 'liters': 'l', 'litre': 'l', 'litres': 'l'
+            'liter': 'l', 'liters': 'l', 'litre': 'l', 'litres': 'l',
+            // Count unit aliases - all normalize to 'items'
+            'item': 'items', 'piece': 'items', 'pieces': 'items',
+            'stalk': 'items', 'stalks': 'items',
+            'unit': 'items', 'units': 'items',
+            'each': 'items', 'ea': 'items',
+            'count': 'items', 'ct': 'items',
+            'bunch': 'items', 'bunches': 'items',
+            'head': 'items', 'heads': 'items',
+            'slice': 'items', 'slices': 'items',
+            'can': 'items', 'cans': 'items',
+            'bag': 'items', 'bags': 'items',
+            'box': 'items', 'boxes': 'items',
+            'bottle': 'items', 'bottles': 'items',
+            'jar': 'items', 'jars': 'items',
+            'pack': 'items', 'packs': 'items', 'package': 'items', 'packages': 'items',
+            'loaf': 'items', 'loaves': 'items',
+            'clove': 'items', 'cloves': 'items',
+            'ear': 'items', 'ears': 'items',
+            'bulb': 'items', 'bulbs': 'items'
         };
         return shortcuts[unit] || unit.toLowerCase();
     }
@@ -5100,10 +5124,26 @@ class PantryInventory {
                 ? `${itemName}: type amount + unit (1c, 2tsp, 0.5lb)`
                 : `${itemName}: type amount to add (1lb, 2c, 500g)`;
             this.quickDeductPreview.innerHTML = `<span class="preview-hint">${this.escapeHtml(hint)}</span>`;
+        } else if (item) {
+            // Has amount but no unit - show preview using item's stored unit
+            const amount = this.parseAmountString(parsed.amount);
+            const isDeduct = parsed.action === 'deduct-partial';
+            const newQty = isDeduct
+                ? Math.max(0, item.quantity - amount)
+                : item.quantity + amount;
+            const roundedNew = Math.round(newQty * 100) / 100;
+            const roundedAmount = Math.round(amount * 100) / 100;
+            const sign = isDeduct ? '-' : '+';
+
+            this.quickDeductPreview.innerHTML = `
+                <span class="preview-item">${this.escapeHtml(item.name)}:</span>
+                <span class="preview-calc">${item.quantity} ${item.unit} → ${roundedNew} ${item.unit}</span>
+                <span class="preview-deduct">(${sign}${roundedAmount} ${item.unit})</span>
+                <span class="preview-hint">— Press Enter or add unit</span>
+            `;
         } else {
-            // Has amount but no unit
-            const verb = parsed.action === 'deduct-partial' ? 'use' : 'add';
-            this.quickDeductPreview.innerHTML = `<span class="preview-hint">${this.escapeHtml(itemName)}: ${parsed.amount}... add unit (t, T, c, oz, lb, g)</span>`;
+            // Item not found
+            this.quickDeductPreview.innerHTML = `<span class="preview-error">Item "${this.escapeHtml(parsed.itemQuery)}" not found</span>`;
         }
         this.quickDeductPreview.classList.remove('hidden');
     }
@@ -5418,8 +5458,13 @@ class PantryInventory {
             this.executeClearFilters();
         } else if (parsed.action === 'close-all') {
             this.closeAllModules();
+        } else if (parsed.action === 'deduct-partial') {
+            // Execute deduct using item's stored unit
+            this.executeDeductPartial(parsed);
+        } else if (parsed.action === 'restock-partial') {
+            // Execute restock using item's stored unit
+            this.executeRestockPartial(parsed);
         }
-        // Partial actions don't execute, they just show hints
     }
 
     async executeDeduct(parsed) {
@@ -5460,6 +5505,48 @@ class PantryInventory {
         }
 
         const newQty = item.quantity + converted;
+        await this.updateItem(item.id, { quantity: Math.round(newQty * 100) / 100 });
+
+        this.clearCommandBar();
+        this.render();
+    }
+
+    async executeDeductPartial(parsed) {
+        const item = this.findInventoryMatch(parsed.itemQuery);
+        if (!item) {
+            alert(`Item "${parsed.itemQuery}" not found in inventory`);
+            return;
+        }
+
+        // Use the item's stored unit for the amount
+        const amount = this.parseAmountString(parsed.amount);
+        if (isNaN(amount) || amount <= 0) {
+            alert('Please enter a valid amount');
+            return;
+        }
+
+        const newQty = Math.max(0, item.quantity - amount);
+        await this.updateItem(item.id, { quantity: Math.round(newQty * 100) / 100 });
+
+        this.clearCommandBar();
+        this.render();
+    }
+
+    async executeRestockPartial(parsed) {
+        const item = this.findInventoryMatch(parsed.itemQuery);
+        if (!item) {
+            alert(`Item "${parsed.itemQuery}" not found. Use +name to add new items.`);
+            return;
+        }
+
+        // Use the item's stored unit for the amount
+        const amount = this.parseAmountString(parsed.amount);
+        if (isNaN(amount) || amount <= 0) {
+            alert('Please enter a valid amount');
+            return;
+        }
+
+        const newQty = item.quantity + amount;
         await this.updateItem(item.id, { quantity: Math.round(newQty * 100) / 100 });
 
         this.clearCommandBar();

@@ -307,6 +307,26 @@ const EXPIRATION_DEFAULTS = {
     'other': 30
 };
 
+// Location-based expiration multipliers
+// Applied to base expiration when item is stored in that location
+const LOCATION_EXPIRATION_MULTIPLIERS = {
+    'fridge': 1,
+    'freezer': 36,      // 36x longer (e.g., 5 days protein -> 180 days frozen)
+    'pantry': 1,
+    'counter': 0.5,     // Half the normal time
+    'spice-cabinet': 1,
+    'other': 1
+};
+
+// Defrost expiration: when moving FROM freezer TO fridge
+// Fresh countdown starts for safe handling
+const DEFROST_EXPIRATION_DAYS = {
+    'protein': 3,       // 3 days to cook after defrosting
+    'dairy': 5,
+    'produce': 5,
+    'other': 7
+};
+
 // Category display names
 const CATEGORY_NAMES = {
     'spice': 'Spice',
@@ -2297,6 +2317,52 @@ class PantryInventory {
         return match;
     }
 
+    // Find item in a specific location
+    findItemInLocation(itemQuery, location) {
+        const query = itemQuery.toLowerCase();
+        return this.inventory.find(item =>
+            item.name.toLowerCase().includes(query) &&
+            item.location === location &&
+            !item.deletedAt
+        );
+    }
+
+    // Find item by name, preferring items with sufficient quantity, excluding a location
+    findItemWithQuantity(itemQuery, minQuantity, excludeLocation = null) {
+        const query = itemQuery.toLowerCase();
+        return this.inventory
+            .filter(item =>
+                item.name.toLowerCase().includes(query) &&
+                (!excludeLocation || item.location !== excludeLocation) &&
+                !item.deletedAt
+            )
+            .sort((a, b) => b.quantity - a.quantity) // Prefer items with more quantity
+            .find(item => item.quantity >= minQuantity);
+    }
+
+    // Calculate expiration when moving items between locations
+    calculateMoveExpiration(category, fromLocation, toLocation) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Special case: defrosting (freezer -> fridge)
+        if (fromLocation === 'freezer' && toLocation === 'fridge') {
+            const days = DEFROST_EXPIRATION_DAYS[category] || DEFROST_EXPIRATION_DAYS['other'];
+            const expDate = new Date(today);
+            expDate.setDate(expDate.getDate() + days);
+            return expDate.toISOString().split('T')[0];
+        }
+
+        // Standard calculation: base days * location multiplier
+        const baseDays = EXPIRATION_DEFAULTS[category] || EXPIRATION_DEFAULTS['other'];
+        const multiplier = LOCATION_EXPIRATION_MULTIPLIERS[toLocation] || 1;
+        const adjustedDays = Math.round(baseDays * multiplier);
+
+        const expDate = new Date(today);
+        expDate.setDate(expDate.getDate() + adjustedDays);
+        return expDate.toISOString().split('T')[0];
+    }
+
     convertQuantity(amount, fromUnit, toUnit, ingredientName = '') {
         if (fromUnit === toUnit) return amount;
 
@@ -2574,6 +2640,43 @@ class PantryInventory {
         // Clear filters: "all" or "clear"
         if (input.toLowerCase() === 'all' || input.toLowerCase() === 'clear') {
             return { action: 'clear-filters' };
+        }
+
+        // Move command: "move chicken 2lbs freezer fridge" or "move chicken 2lbs freezer to fridge"
+        const moveCommandFull = input.match(/^move\s+(.+?)\s+(\d*\.?\d+)\s*([a-zA-Z]+)\s+(\w+)\s+(?:to\s+)?(\w+)$/i);
+        if (moveCommandFull) {
+            return {
+                action: 'move',
+                itemQuery: moveCommandFull[1].trim(),
+                amount: parseFloat(moveCommandFull[2]),
+                unit: this.normalizeUnitShortcut(moveCommandFull[3]),
+                fromLocation: this.normalizeLocationShortcut(moveCommandFull[4]),
+                toLocation: this.normalizeLocationShortcut(moveCommandFull[5])
+            };
+        }
+
+        // Move with auto-detect source: "move chicken 2lbs to fridge"
+        const moveCommandAuto = input.match(/^move\s+(.+?)\s+(\d*\.?\d+)\s*([a-zA-Z]+)\s+to\s+(\w+)$/i);
+        if (moveCommandAuto) {
+            return {
+                action: 'move-auto',
+                itemQuery: moveCommandAuto[1].trim(),
+                amount: parseFloat(moveCommandAuto[2]),
+                unit: this.normalizeUnitShortcut(moveCommandAuto[3]),
+                toLocation: this.normalizeLocationShortcut(moveCommandAuto[4])
+            };
+        }
+
+        // Move shorthand: "chicken >2lbs fridge" (move to fridge)
+        const moveShorthand = input.match(/^(.+?)\s*>\s*(\d*\.?\d+)\s*([a-zA-Z]+)\s+@?(\w+)$/i);
+        if (moveShorthand) {
+            return {
+                action: 'move-auto',
+                itemQuery: moveShorthand[1].trim(),
+                amount: parseFloat(moveShorthand[2]),
+                unit: this.normalizeUnitShortcut(moveShorthand[3]),
+                toLocation: this.normalizeLocationShortcut(moveShorthand[4])
+            };
         }
 
         // View command: "view name" or "view partial"
@@ -2944,6 +3047,12 @@ class PantryInventory {
             case 'add-new-partial':
                 this.quickDeductSuggestions.classList.add('hidden');
                 this.showAddNewPartialPreview(parsed);
+                this.clearSearchFilter();
+                break;
+            case 'move':
+            case 'move-auto':
+                this.quickDeductSuggestions.classList.add('hidden');
+                this.showMovePreview(parsed);
                 this.clearSearchFilter();
                 break;
             case 'operator-only':
@@ -5315,6 +5424,56 @@ class PantryInventory {
         this.quickDeductPreview.classList.remove('hidden');
     }
 
+    showMovePreview(parsed) {
+        const { itemQuery, amount, unit, fromLocation, toLocation } = parsed;
+
+        let sourceItem, fromLoc;
+        if (parsed.action === 'move') {
+            sourceItem = this.findItemInLocation(itemQuery, fromLocation);
+            fromLoc = fromLocation;
+        } else {
+            // move-auto: find item in any location except destination
+            sourceItem = this.findItemWithQuantity(itemQuery, 0, toLocation);
+            fromLoc = sourceItem ? sourceItem.location : null;
+        }
+
+        if (!sourceItem) {
+            const locText = fromLocation ? ` in ${LOCATION_NAMES[fromLocation] || fromLocation}` : '';
+            this.quickDeductPreview.innerHTML = `<span class="preview-error">No "${this.escapeHtml(itemQuery)}" found${locText}</span>`;
+            this.quickDeductPreview.classList.remove('hidden');
+            return;
+        }
+
+        // Convert units if needed
+        const convertedAmount = this.convertQuantity(amount, unit, sourceItem.unit, sourceItem.name);
+        if (convertedAmount === null) {
+            this.quickDeductPreview.innerHTML = `<span class="preview-error">Cannot convert ${unit} to ${sourceItem.unit}</span>`;
+            this.quickDeductPreview.classList.remove('hidden');
+            return;
+        }
+
+        // Check quantity
+        if (sourceItem.quantity < convertedAmount) {
+            this.quickDeductPreview.innerHTML = `<span class="preview-error">Only ${sourceItem.quantity} ${sourceItem.unit} available</span>`;
+            this.quickDeductPreview.classList.remove('hidden');
+            return;
+        }
+
+        // Calculate new expiration
+        const newExp = this.calculateMoveExpiration(sourceItem.category, fromLoc, toLocation);
+        const days = Math.ceil((new Date(newExp) - new Date()) / (1000 * 60 * 60 * 24));
+
+        const fromName = LOCATION_NAMES[fromLoc] || fromLoc;
+        const toName = LOCATION_NAMES[toLocation] || toLocation;
+
+        this.quickDeductPreview.innerHTML = `
+            <span class="preview-item">Move ${amount}${unit} ${this.escapeHtml(sourceItem.name)}:</span>
+            <span class="preview-calc">${fromName} → ${toName}</span>
+            <span class="preview-hint">(exp: ${days} days) — Enter</span>
+        `;
+        this.quickDeductPreview.classList.remove('hidden');
+    }
+
     selectSuggestion(id) {
         const item = this.getItem(id);
         if (!item) return;
@@ -5464,6 +5623,10 @@ class PantryInventory {
         } else if (parsed.action === 'restock-partial') {
             // Execute restock using item's stored unit
             this.executeRestockPartial(parsed);
+        } else if (parsed.action === 'move') {
+            this.executeMove(parsed);
+        } else if (parsed.action === 'move-auto') {
+            this.executeMoveAuto(parsed);
         }
     }
 
@@ -5551,6 +5714,94 @@ class PantryInventory {
 
         this.clearCommandBar();
         this.render();
+    }
+
+    async executeMove(parsed) {
+        const { itemQuery, amount, unit, fromLocation, toLocation } = parsed;
+
+        // Find source item in the specified location
+        const sourceItem = this.findItemInLocation(itemQuery, fromLocation);
+        if (!sourceItem) {
+            alert(`No "${itemQuery}" found in ${LOCATION_NAMES[fromLocation] || fromLocation}`);
+            return;
+        }
+
+        // Convert units if needed
+        const convertedAmount = this.convertQuantity(amount, unit, sourceItem.unit, sourceItem.name);
+        if (convertedAmount === null) {
+            alert(`Cannot convert ${unit} to ${sourceItem.unit}`);
+            return;
+        }
+
+        // Check sufficient quantity
+        if (sourceItem.quantity < convertedAmount) {
+            alert(`Only ${sourceItem.quantity} ${sourceItem.unit} available in ${LOCATION_NAMES[fromLocation]}`);
+            return;
+        }
+
+        // Calculate new expiration for destination
+        const newExpiration = this.calculateMoveExpiration(
+            sourceItem.category,
+            fromLocation,
+            toLocation
+        );
+
+        // Find or create destination item
+        let destItem = this.findItemInLocation(sourceItem.name, toLocation);
+
+        if (destItem) {
+            // Add to existing destination item, use earlier expiration date
+            const earlierExpiration = destItem.expirationDate && destItem.expirationDate < newExpiration
+                ? destItem.expirationDate
+                : newExpiration;
+
+            await this.updateItem(destItem.id, {
+                quantity: Math.round((destItem.quantity + convertedAmount) * 100) / 100,
+                expirationDate: earlierExpiration
+            });
+        } else {
+            // Create new item in destination location
+            await this.addItem({
+                name: sourceItem.name,
+                quantity: convertedAmount,
+                unit: sourceItem.unit,
+                category: sourceItem.category,
+                location: toLocation,
+                threshold: sourceItem.threshold,
+                expirationDate: newExpiration,
+                isStaple: sourceItem.isStaple,
+                brand: sourceItem.brand
+            });
+        }
+
+        // Deduct from source
+        const newSourceQty = Math.round((sourceItem.quantity - convertedAmount) * 100) / 100;
+        if (newSourceQty <= 0) {
+            // Remove source item if empty
+            await this.deleteItem(sourceItem.id, 'Moved to ' + toLocation);
+        } else {
+            await this.updateItem(sourceItem.id, { quantity: newSourceQty });
+        }
+
+        this.clearCommandBar();
+        this.render();
+    }
+
+    async executeMoveAuto(parsed) {
+        const { itemQuery, toLocation } = parsed;
+
+        // Find source item (auto-detect from any location except destination)
+        const sourceItem = this.findItemWithQuantity(itemQuery, 0, toLocation);
+        if (!sourceItem) {
+            alert(`No "${itemQuery}" found in inventory to move`);
+            return;
+        }
+
+        // Delegate to full move with detected source
+        await this.executeMove({
+            ...parsed,
+            fromLocation: sourceItem.location
+        });
     }
 
     async executeAddNew(parsed) {

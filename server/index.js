@@ -7,6 +7,7 @@ const { initializeDatabase } = require('./db');
 const authRoutes = require('./routes/auth');
 const inventoryRoutes = require('./routes/inventory');
 const correctionsRoutes = require('./routes/corrections');
+const packagesRoutes = require('./routes/packages');
 const { startScheduler, checkAndSendMissedDigests } = require('./services/scheduler');
 
 const app = express();
@@ -23,6 +24,7 @@ app.use(express.static(path.join(__dirname, '..')));
 app.use('/api/auth', authRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/corrections', correctionsRoutes);
+app.use('/api/packages', packagesRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

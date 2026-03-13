@@ -1018,6 +1018,57 @@ const API = {
             method: 'POST',
             body: JSON.stringify({ corrections })
         });
+    },
+
+    // Packages (group deductions)
+    async getPackages() {
+        return this.request('/packages');
+    },
+
+    async getPackage(id) {
+        return this.request(`/packages/${id}`);
+    },
+
+    async getPackageByName(name) {
+        return this.request(`/packages/name/${encodeURIComponent(name)}`);
+    },
+
+    async createPackage(pkg) {
+        return this.request('/packages', {
+            method: 'POST',
+            body: JSON.stringify(pkg)
+        });
+    },
+
+    async updatePackage(id, pkg) {
+        return this.request(`/packages/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(pkg)
+        });
+    },
+
+    async deletePackage(id) {
+        return this.request(`/packages/${id}`, {
+            method: 'DELETE'
+        });
+    },
+
+    async executePackage(id, options = {}) {
+        return this.request(`/packages/${id}/execute`, {
+            method: 'POST',
+            body: JSON.stringify(options)
+        });
+    },
+
+    async executeAdhocDeduction(items, options = {}) {
+        return this.request('/packages/adhoc/execute', {
+            method: 'POST',
+            body: JSON.stringify({ items, ...options })
+        });
+    },
+
+    async getPackageHistory(limit = 50, offset = 0) {
+        return this.request(`/packages/history/all?limit=${limit}&offset=${offset}`);
     }
 };
 
@@ -2575,6 +2626,30 @@ class PantryInventory {
         // Special commands: "scan" or "capture" - opens camera/image OCR
         if (input.toLowerCase() === 'scan' || input.toLowerCase() === 'capture') {
             return { action: 'show-scan' };
+        }
+
+        // Package/group commands: open modal, execute, create, or ad-hoc deduction
+        if (input.toLowerCase() === 'group' || input.toLowerCase() === 'package') {
+            return { action: 'show-packages' };
+        }
+
+        // Save and execute: "group save chai cardamom 1 tsp, cinnamon 0.5 tsp"
+        const groupSave = input.match(/^(?:group|package)\s+save\s+([a-zA-Z][a-zA-Z0-9]*)\s+(.+,\s*.+)$/i);
+        if (groupSave) {
+            return { action: 'save-and-execute', packageName: groupSave[1].trim(), itemsString: groupSave[2] };
+        }
+
+        // Execute or create named package: "group chai" or "group create chai"
+        const groupNamed = input.match(/^(?:group|package)\s+(create\s+)?([a-zA-Z][a-zA-Z0-9\s]*?)$/i);
+        if (groupNamed) {
+            const isCreate = !!groupNamed[1];
+            return { action: isCreate ? 'create-package' : 'execute-package', packageName: groupNamed[2].trim() };
+        }
+
+        // Ad-hoc group deduction: "group cardamom 1 tsp, cinnamon 0.5 tsp"
+        const groupAdhoc = input.match(/^(?:group|package)\s+(.+,\s*.+)$/i);
+        if (groupAdhoc) {
+            return { action: 'adhoc-deduct', itemsString: groupAdhoc[1] };
         }
 
         // Sort command: "sort" or "sort name/qty/exp/etc"
@@ -5627,6 +5702,16 @@ class PantryInventory {
             this.executeMove(parsed);
         } else if (parsed.action === 'move-auto') {
             this.executeMoveAuto(parsed);
+        } else if (parsed.action === 'show-packages') {
+            this.showPackagesModal();
+        } else if (parsed.action === 'execute-package') {
+            this.executePackageByName(parsed.packageName);
+        } else if (parsed.action === 'create-package') {
+            this.showPackagesModal(parsed.packageName);
+        } else if (parsed.action === 'adhoc-deduct') {
+            this.executeAdhocDeduct(parsed.itemsString);
+        } else if (parsed.action === 'save-and-execute') {
+            this.executeSaveAndExecutePackage(parsed.packageName, parsed.itemsString);
         }
     }
 
@@ -5972,6 +6057,330 @@ class PantryInventory {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    // === PACKAGE/GROUP DEDUCTION METHODS ===
+
+    showPackagesModal(prefillName = null) {
+        this.packagesModal = document.getElementById('packagesModal');
+        if (!this.packagesModal) {
+            console.error('Packages modal not found');
+            return;
+        }
+
+        if (!this.packagesModalInitialized) {
+            this.initializePackagesModal();
+        }
+
+        this.loadPackages();
+        this.packagesModal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        this.clearCommandBar();
+
+        // If prefill name provided, show create form
+        if (prefillName) {
+            this.showPackageForm(prefillName);
+        }
+    }
+
+    initializePackagesModal() {
+        this.packagesModalInitialized = true;
+
+        const closeBtn = document.getElementById('closePackagesModal');
+        const createBtn = document.getElementById('createPackageBtn');
+        const packageForm = document.getElementById('packageForm');
+        const cancelFormBtn = document.getElementById('cancelPackageForm');
+        const addItemBtn = document.getElementById('addPackageItemBtn');
+
+        closeBtn.addEventListener('click', () => this.closePackagesModal());
+        this.packagesModal.addEventListener('click', (e) => {
+            if (e.target === this.packagesModal) this.closePackagesModal();
+        });
+
+        createBtn.addEventListener('click', () => this.showPackageForm());
+        cancelFormBtn.addEventListener('click', () => this.hidePackageForm());
+        addItemBtn.addEventListener('click', () => this.addPackageItemRow());
+
+        packageForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.savePackage();
+        });
+    }
+
+    closePackagesModal() {
+        if (this.packagesModal) {
+            this.packagesModal.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+    }
+
+    async loadPackages() {
+        const listContainer = document.getElementById('packagesList');
+        try {
+            const packages = await API.getPackages();
+            this.renderPackagesList(packages, listContainer);
+        } catch (err) {
+            listContainer.innerHTML = `<p class="error-message">Failed to load packages: ${err.message}</p>`;
+        }
+    }
+
+    renderPackagesList(packages, container) {
+        if (packages.length === 0) {
+            container.innerHTML = '<p class="empty-message">No packages yet. Create one to get started!</p>';
+            return;
+        }
+
+        container.innerHTML = packages.map(pkg => `
+            <div class="package-card" data-id="${pkg.id}">
+                <div class="package-header">
+                    <h3 class="package-name">${this.escapeHtml(pkg.name)}</h3>
+                    <span class="package-item-count">${pkg.itemCount} items</span>
+                </div>
+                ${pkg.description ? `<p class="package-description">${this.escapeHtml(pkg.description)}</p>` : ''}
+                ${pkg.lastExecuted ? `<p class="package-last-used">Last used: ${this.formatDate(pkg.lastExecuted)}</p>` : ''}
+                <div class="package-actions">
+                    <button class="btn btn-primary btn-sm execute-package-btn" data-id="${pkg.id}">Execute</button>
+                    <button class="btn btn-secondary btn-sm edit-package-btn" data-id="${pkg.id}">Edit</button>
+                    <button class="btn btn-danger btn-sm delete-package-btn" data-id="${pkg.id}">Delete</button>
+                </div>
+            </div>
+        `).join('');
+
+        // Bind event listeners
+        container.querySelectorAll('.execute-package-btn').forEach(btn => {
+            btn.addEventListener('click', () => this.executePackage(btn.dataset.id));
+        });
+        container.querySelectorAll('.edit-package-btn').forEach(btn => {
+            btn.addEventListener('click', () => this.editPackage(btn.dataset.id));
+        });
+        container.querySelectorAll('.delete-package-btn').forEach(btn => {
+            btn.addEventListener('click', () => this.deletePackage(btn.dataset.id));
+        });
+    }
+
+    showPackageForm(prefillName = null) {
+        const formSection = document.getElementById('packageFormSection');
+        const nameInput = document.getElementById('packageName');
+        const descInput = document.getElementById('packageDescription');
+        const itemsContainer = document.getElementById('packageItemsContainer');
+        const formTitle = document.getElementById('packageFormTitle');
+
+        formSection.classList.remove('hidden');
+        formTitle.textContent = this.editingPackageId ? 'Edit Package' : 'Create Package';
+
+        if (!this.editingPackageId) {
+            nameInput.value = prefillName || '';
+            descInput.value = '';
+            itemsContainer.innerHTML = '';
+            this.addPackageItemRow();
+        }
+
+        nameInput.focus();
+    }
+
+    hidePackageForm() {
+        const formSection = document.getElementById('packageFormSection');
+        formSection.classList.add('hidden');
+        this.editingPackageId = null;
+    }
+
+    addPackageItemRow(itemName = '', quantity = '', unit = 'tsp') {
+        const container = document.getElementById('packageItemsContainer');
+        const row = document.createElement('div');
+        row.className = 'package-item-row';
+        row.innerHTML = `
+            <input type="text" class="pkg-item-name" placeholder="Item name" value="${this.escapeHtml(itemName)}" required>
+            <input type="number" class="pkg-item-qty" placeholder="Qty" value="${quantity}" step="0.01" min="0" required>
+            <select class="pkg-item-unit">
+                <option value="tsp" ${unit === 'tsp' ? 'selected' : ''}>tsp</option>
+                <option value="tbsp" ${unit === 'tbsp' ? 'selected' : ''}>tbsp</option>
+                <option value="cup" ${unit === 'cup' ? 'selected' : ''}>cup</option>
+                <option value="g" ${unit === 'g' ? 'selected' : ''}>g</option>
+                <option value="oz" ${unit === 'oz' ? 'selected' : ''}>oz</option>
+                <option value="ml" ${unit === 'ml' ? 'selected' : ''}>ml</option>
+                <option value="items" ${unit === 'items' ? 'selected' : ''}>items</option>
+            </select>
+            <button type="button" class="btn btn-danger btn-sm remove-item-btn">X</button>
+        `;
+
+        row.querySelector('.remove-item-btn').addEventListener('click', () => {
+            row.remove();
+        });
+
+        container.appendChild(row);
+    }
+
+    async savePackage() {
+        const nameInput = document.getElementById('packageName');
+        const descInput = document.getElementById('packageDescription');
+        const itemRows = document.querySelectorAll('.package-item-row');
+
+        const name = nameInput.value.trim();
+        const description = descInput.value.trim();
+        const items = [];
+
+        itemRows.forEach(row => {
+            const itemName = row.querySelector('.pkg-item-name').value.trim();
+            const quantity = parseFloat(row.querySelector('.pkg-item-qty').value);
+            const unit = row.querySelector('.pkg-item-unit').value;
+
+            if (itemName && !isNaN(quantity) && quantity > 0) {
+                items.push({ itemName, quantity, unit });
+            }
+        });
+
+        if (!name) {
+            alert('Package name is required');
+            return;
+        }
+
+        if (items.length === 0) {
+            alert('At least one item is required');
+            return;
+        }
+
+        try {
+            if (this.editingPackageId) {
+                await API.updatePackage(this.editingPackageId, { name, description, items });
+            } else {
+                await API.createPackage({ name, description, items });
+            }
+            this.hidePackageForm();
+            this.loadPackages();
+        } catch (err) {
+            alert('Error saving package: ' + err.message);
+        }
+    }
+
+    async editPackage(id) {
+        try {
+            const pkg = await API.getPackage(id);
+            this.editingPackageId = id;
+
+            document.getElementById('packageName').value = pkg.name;
+            document.getElementById('packageDescription').value = pkg.description || '';
+
+            const container = document.getElementById('packageItemsContainer');
+            container.innerHTML = '';
+
+            pkg.items.forEach(item => {
+                this.addPackageItemRow(item.itemName, item.quantity, item.unit);
+            });
+
+            this.showPackageForm();
+        } catch (err) {
+            alert('Error loading package: ' + err.message);
+        }
+    }
+
+    async deletePackage(id) {
+        if (!confirm('Are you sure you want to delete this package?')) {
+            return;
+        }
+
+        try {
+            await API.deletePackage(id);
+            this.loadPackages();
+        } catch (err) {
+            alert('Error deleting package: ' + err.message);
+        }
+    }
+
+    async executePackage(id) {
+        try {
+            const result = await API.executePackage(id, { skipMissing: false, skipInsufficient: false });
+
+            if (result.success) {
+                const summary = result.results
+                    .filter(r => r.status === 'completed')
+                    .map(r => `${r.inventoryItemName}: ${r.beforeQuantity} -> ${r.afterQuantity} ${r.unit}`)
+                    .join('\n');
+
+                alert(`Package "${result.packageName}" executed!\n\n${summary}`);
+                this.closePackagesModal();
+                await this.loadInventory();
+                this.render();
+            }
+        } catch (err) {
+            alert('Error executing package: ' + err.message);
+        }
+    }
+
+    async executePackageByName(packageName) {
+        try {
+            const pkg = await API.getPackageByName(packageName);
+            await this.executePackage(pkg.id);
+        } catch (err) {
+            if (err.message.includes('not found')) {
+                alert(`Package "${packageName}" not found. Type "group" to see all packages.`);
+            } else {
+                alert('Error executing package: ' + err.message);
+            }
+        }
+    }
+
+    parseAdhocItems(itemsString) {
+        return itemsString.split(',').map(part => {
+            const match = part.trim().match(/^(.+?)\s+(\d*\.?\d+)\s*([a-zA-Z]+)?$/);
+            if (match) {
+                return {
+                    itemName: match[1].trim(),
+                    quantity: parseFloat(match[2]),
+                    unit: match[3] ? this.normalizeUnitShortcut(match[3]) : 'items'
+                };
+            }
+            return null;
+        }).filter(Boolean);
+    }
+
+    async executeAdhocDeduct(itemsString) {
+        const items = this.parseAdhocItems(itemsString);
+
+        if (items.length === 0) {
+            alert('Could not parse items. Use format: "item1 amount unit, item2 amount unit"');
+            return;
+        }
+
+        try {
+            const result = await API.executeAdhocDeduction(items);
+
+            if (result.success) {
+                const summary = result.results
+                    .filter(r => r.status === 'completed')
+                    .map(r => `${r.inventoryItemName}: ${r.beforeQuantity} -> ${r.afterQuantity} ${r.unit}`)
+                    .join('\n');
+
+                alert(`Deduction complete!\n\n${summary}`);
+                this.clearCommandBar();
+                await this.loadInventory();
+                this.render();
+            }
+        } catch (err) {
+            alert('Error executing deduction: ' + err.message);
+        }
+    }
+
+    async executeSaveAndExecutePackage(packageName, itemsString) {
+        const items = this.parseAdhocItems(itemsString);
+
+        if (items.length === 0) {
+            alert('Could not parse items. Use format: "item1 amount unit, item2 amount unit"');
+            return;
+        }
+
+        try {
+            // Create the package
+            const pkg = await API.createPackage({
+                name: packageName,
+                description: `Created via command line`,
+                items
+            });
+
+            // Execute the package
+            await this.executePackage(pkg.id);
+        } catch (err) {
+            alert('Error: ' + err.message);
+        }
     }
 }
 

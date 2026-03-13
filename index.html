@@ -557,6 +557,46 @@ Example:
         </div>
     </div>
 
+    <!-- Packages/Group Deduction Modal -->
+    <div id="packagesModal" class="packages-modal hidden">
+        <div class="packages-modal-content">
+            <button id="closePackagesModal" class="close-packages-btn">&times;</button>
+            <h3>Deduction Packages</h3>
+            <p class="packages-description">Create and manage group deductions for recipes like chai, baking, etc.</p>
+
+            <div class="packages-header">
+                <button id="createPackageBtn" class="btn btn-primary">+ New Package</button>
+            </div>
+
+            <div id="packageFormSection" class="package-form-section hidden">
+                <h4 id="packageFormTitle">Create Package</h4>
+                <form id="packageForm">
+                    <div class="form-group">
+                        <label for="packageName">Name</label>
+                        <input type="text" id="packageName" placeholder="e.g., chai, pizza dough" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="packageDescription">Description (optional)</label>
+                        <input type="text" id="packageDescription" placeholder="Morning chai recipe">
+                    </div>
+                    <div class="form-group">
+                        <label>Items to Deduct</label>
+                        <div id="packageItemsContainer"></div>
+                        <button type="button" id="addPackageItemBtn" class="btn btn-secondary btn-sm">+ Add Item</button>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Save Package</button>
+                        <button type="button" id="cancelPackageForm" class="btn btn-secondary">Cancel</button>
+                    </div>
+                </form>
+            </div>
+
+            <div id="packagesList" class="packages-list">
+                <p class="loading-message">Loading packages...</p>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="app.js"></script>
 </body>

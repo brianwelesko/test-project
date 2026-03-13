@@ -93,6 +93,44 @@ async function initializeDatabase() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_digest_log_user_date ON digest_log(user_id, sent_date);
+
+    -- Deduction packages (e.g., "chai" recipe)
+    CREATE TABLE IF NOT EXISTS deduction_packages (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      description TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, name)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_packages_user ON deduction_packages(user_id);
+
+    -- Items within each package
+    CREATE TABLE IF NOT EXISTS package_items (
+      id SERIAL PRIMARY KEY,
+      package_id INTEGER NOT NULL REFERENCES deduction_packages(id) ON DELETE CASCADE,
+      item_name TEXT NOT NULL,
+      quantity REAL NOT NULL,
+      unit TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_package_items_package ON package_items(package_id);
+
+    -- Package execution history
+    CREATE TABLE IF NOT EXISTS package_execution_log (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      package_id INTEGER REFERENCES deduction_packages(id) ON DELETE SET NULL,
+      package_name TEXT NOT NULL,
+      executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      status TEXT NOT NULL DEFAULT 'completed',
+      details JSONB
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_execution_log_user ON package_execution_log(user_id);
+    CREATE INDEX IF NOT EXISTS idx_execution_log_package ON package_execution_log(package_id);
   `);
   console.log('Database initialized');
 }

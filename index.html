@@ -347,7 +347,18 @@
                     </div>
                     <div class="form-group">
                         <label for="itemPrice">Price (optional)</label>
-                        <input type="number" id="itemPrice" min="0" step="0.01" placeholder="e.g., 3.99">
+                        <div class="price-input-group">
+                            <span class="price-prefix">$</span>
+                            <input type="number" id="itemPrice" min="0" step="0.01" placeholder="3.99">
+                            <select id="itemPriceUnit">
+                                <option value="flat">total</option>
+                                <option value="per_lb">per lb</option>
+                                <option value="per_oz">per oz</option>
+                                <option value="per_kg">per kg</option>
+                                <option value="per_g">per g</option>
+                                <option value="per_item">per item</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
                 <div class="form-group">
@@ -553,6 +564,25 @@ Example:
                     </thead>
                     <tbody id="priceHistoryTableBody"></tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Price Point Detail Popup (appears when clicking chart data point) -->
+    <div id="pricePointPopup" class="price-point-popup hidden">
+        <div class="price-point-content">
+            <button id="closePricePointPopup" class="close-price-point-btn">&times;</button>
+            <h4>Price Details</h4>
+            <div class="price-point-details">
+                <p><strong>Date:</strong> <span id="pricePointDate"></span></p>
+                <p><strong>Price:</strong> <span id="pricePointPrice"></span></p>
+                <div class="price-point-store-row">
+                    <label for="pricePointStore"><strong>Store:</strong></label>
+                    <input type="text" id="pricePointStore" placeholder="Enter store name">
+                </div>
+            </div>
+            <div class="price-point-actions">
+                <button id="savePricePointStore" class="btn btn-primary btn-sm">Save</button>
             </div>
         </div>
     </div>

@@ -34,6 +34,7 @@ async function initializeDatabase() {
       is_staple INTEGER DEFAULT 0,
       last_price REAL,
       previous_price REAL,
+      price_unit TEXT DEFAULT 'flat',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
@@ -53,6 +54,13 @@ async function initializeDatabase() {
     EXCEPTION WHEN others THEN NULL;
     END $$;
 
+    -- Add price_unit column (for existing databases)
+    DO $$ BEGIN
+      ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS price_unit TEXT DEFAULT 'flat';
+      ALTER TABLE price_history ADD COLUMN IF NOT EXISTS price_unit TEXT DEFAULT 'flat';
+    EXCEPTION WHEN others THEN NULL;
+    END $$;
+
     CREATE INDEX IF NOT EXISTS idx_inventory_deleted ON inventory_items(deleted_at);
 
     CREATE TABLE IF NOT EXISTS price_history (
@@ -60,6 +68,7 @@ async function initializeDatabase() {
       item_id INTEGER REFERENCES inventory_items(id) ON DELETE CASCADE,
       price REAL NOT NULL,
       store TEXT,
+      price_unit TEXT DEFAULT 'flat',
       recorded_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 

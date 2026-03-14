@@ -987,6 +987,13 @@ const API = {
         return this.request(`/inventory/${id}/price-history`);
     },
 
+    async updatePriceHistory(historyId, data) {
+        return this.request(`/inventory/price-history/${historyId}`, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+    },
+
     async getItemHistory(name) {
         return this.request(`/inventory/history/${encodeURIComponent(name)}`);
     },
@@ -1312,6 +1319,7 @@ class PantryInventory {
         this.boughtFromInput = document.getElementById('boughtFrom');
         this.brandInput = document.getElementById('brand');
         this.itemPriceInput = document.getElementById('itemPrice');
+        this.itemPriceUnitSelect = document.getElementById('itemPriceUnit');
 
         // Price history modal
         this.priceHistoryModal = document.getElementById('priceHistoryModal');
@@ -1450,6 +1458,24 @@ class PantryInventory {
             this.priceHistoryModal.addEventListener('click', (e) => {
                 if (e.target === this.priceHistoryModal) {
                     this.hidePriceHistory();
+                }
+            });
+        }
+
+        // Price point popup events
+        const closePricePointBtn = document.getElementById('closePricePointPopup');
+        const savePricePointBtn = document.getElementById('savePricePointStore');
+        const pricePointPopup = document.getElementById('pricePointPopup');
+        if (closePricePointBtn) {
+            closePricePointBtn.addEventListener('click', () => this.hidePricePointPopup());
+        }
+        if (savePricePointBtn) {
+            savePricePointBtn.addEventListener('click', () => this.savePricePointStore());
+        }
+        if (pricePointPopup) {
+            pricePointPopup.addEventListener('click', (e) => {
+                if (e.target === pricePointPopup) {
+                    this.hidePricePointPopup();
                 }
             });
         }
@@ -1756,6 +1782,7 @@ class PantryInventory {
         e.preventDefault();
 
         const priceVal = this.itemPriceInput ? parseFloat(this.itemPriceInput.value) : NaN;
+        const priceUnit = this.itemPriceUnitSelect ? this.itemPriceUnitSelect.value : 'flat';
         const itemData = {
             name: this.nameInput.value,
             quantity: this.quantityInput.value,
@@ -1768,7 +1795,8 @@ class PantryInventory {
             isStaple: this.isStapleCheckbox.checked,
             boughtFrom: this.boughtFromInput.value,
             brand: this.brandInput ? this.brandInput.value.trim() || null : null,
-            last_price: !isNaN(priceVal) && priceVal >= 0 ? priceVal : undefined
+            last_price: !isNaN(priceVal) && priceVal >= 0 ? priceVal : undefined,
+            price_unit: !isNaN(priceVal) && priceVal >= 0 ? priceUnit : undefined
         };
 
         if (this.editingId) {
@@ -1810,6 +1838,7 @@ class PantryInventory {
         this.boughtFromInput.value = item.boughtFrom || item.notes || '';
         if (this.brandInput) this.brandInput.value = item.brand || '';
         if (this.itemPriceInput) this.itemPriceInput.value = item.last_price !== null && item.last_price !== undefined ? item.last_price : '';
+        if (this.itemPriceUnitSelect) this.itemPriceUnitSelect.value = item.price_unit || 'flat';
 
         // Show form section if hidden
         this.formSection.classList.remove('hidden');
@@ -2106,11 +2135,13 @@ class PantryInventory {
         }).join('');
     }
 
-    // Render price info with change indicator
+    // Render price info with change indicator and unit suffix
     renderPriceInfo(item) {
         if (!item.last_price && item.last_price !== 0) return '';
 
         const price = parseFloat(item.last_price).toFixed(2);
+        const priceUnit = item.price_unit || 'flat';
+        const unitSuffix = this.getPriceUnitSuffix(priceUnit);
         let changeIndicator = '';
 
         if (item.previous_price !== null && item.previous_price !== undefined) {
@@ -2119,14 +2150,14 @@ class PantryInventory {
 
             if (currPrice > prevPrice) {
                 const diff = (currPrice - prevPrice).toFixed(2);
-                changeIndicator = `<span class="price-up" title="Up $${diff} from $${prevPrice.toFixed(2)}">↑</span>`;
+                changeIndicator = `<span class="price-up" title="Up $${diff} from $${prevPrice.toFixed(2)}${unitSuffix}">↑</span>`;
             } else if (currPrice < prevPrice) {
                 const diff = (prevPrice - currPrice).toFixed(2);
-                changeIndicator = `<span class="price-down" title="Down $${diff} from $${prevPrice.toFixed(2)}">↓</span>`;
+                changeIndicator = `<span class="price-down" title="Down $${diff} from $${prevPrice.toFixed(2)}${unitSuffix}">↓</span>`;
             }
         }
 
-        return `<div class="item-price">$${price}${changeIndicator} <button class="price-history-btn" onclick="event.stopPropagation(); app.showPriceHistory('${this.escapeHtml(item.name).replace(/'/g, "\\'")}')">History</button></div>`;
+        return `<div class="item-price">$${price}${unitSuffix}${changeIndicator} <button class="price-history-btn" onclick="event.stopPropagation(); app.showPriceHistory('${this.escapeHtml(item.name).replace(/'/g, "\\'")}')">History</button></div>`;
     }
 
     async confirmDelete(id) {
@@ -2817,14 +2848,27 @@ class PantryInventory {
             }
         }
 
-        // New item with @location, #category, !threshold: +name amount unit @location #category !threshold
-        // e.g., "+chicken 3lb @fridge #protein !0.5"
+        // New item with @location, #category, !threshold, $price, and store name:
+        // +name amount unit @location #category !threshold $price/unit storename
+        // e.g., "+chicken 3lb @fridge #protein !0.5 $6.99/lb costco"
+        // e.g., "+red onion .52lbs $1.99/lb h mart"
         const newItemFull = input.match(/^\+\s*(.+?)\s+(\d*\.?\d+)\s*([a-zA-Z]+)(.*)$/);
         if (newItemFull) {
             const extras = newItemFull[4];
             const locationMatch = extras.match(/@(\S+)/);
             const categoryMatch = extras.match(/#(\S+)/);
             const thresholdMatch = extras.match(/!(\d*\.?\d+)/);
+            const priceMatch = extras.match(/\$(\d+\.?\d*)(\/([a-zA-Z]+))?/);
+
+            // After removing known patterns, remaining text is the store name
+            let remaining = extras
+                .replace(/\$\d+\.?\d*(\/[a-zA-Z]+)?/, '')  // remove price
+                .replace(/@\S+/g, '')                       // remove location
+                .replace(/#\S+/g, '')                       // remove category
+                .replace(/!\d*\.?\d+/g, '')                 // remove threshold
+                .trim();
+            const store = remaining || null;
+
             const name = newItemFull[1].trim();
             return {
                 action: 'add-new',
@@ -2833,7 +2877,10 @@ class PantryInventory {
                 unit: newItemFull[3],
                 location: locationMatch ? this.normalizeLocationShortcut(locationMatch[1]) : null,
                 category: categoryMatch ? this.normalizeCategoryShortcut(categoryMatch[1]) : null,
-                threshold: thresholdMatch ? parseFloat(thresholdMatch[1]) : null
+                threshold: thresholdMatch ? parseFloat(thresholdMatch[1]) : null,
+                price: priceMatch ? parseFloat(priceMatch[1]) : null,
+                priceUnit: priceMatch ? this.normalizePriceUnit(priceMatch[3]) : null,
+                store: store ? this.normalizeStoreName(store) : null
             };
         }
 
@@ -2906,6 +2953,44 @@ class PantryInventory {
             'other': 'other', 'o': 'other'
         };
         return shortcuts[cat.toLowerCase()] || cat.toLowerCase();
+    }
+
+    // Normalize price unit shortcuts (e.g., lb -> per_lb)
+    normalizePriceUnit(unit) {
+        if (!unit) return 'flat';
+        const normalized = unit.toLowerCase();
+        const mapping = {
+            'lb': 'per_lb', 'lbs': 'per_lb', 'pound': 'per_lb',
+            'oz': 'per_oz', 'ounce': 'per_oz',
+            'kg': 'per_kg', 'kilogram': 'per_kg',
+            'g': 'per_g', 'gram': 'per_g', 'grams': 'per_g',
+            'item': 'per_item', 'items': 'per_item', 'each': 'per_item', 'ea': 'per_item'
+        };
+        return mapping[normalized] || 'flat';
+    }
+
+    // Normalize store name to title case (e.g., "h mart" -> "H Mart")
+    normalizeStoreName(store) {
+        if (!store) return null;
+        return store.trim().replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    // Get price unit suffix for display (e.g., per_lb -> /lb)
+    getPriceUnitSuffix(priceUnit) {
+        const suffixes = {
+            'flat': '', 'per_lb': '/lb', 'per_oz': '/oz',
+            'per_kg': '/kg', 'per_g': '/g', 'per_item': '/ea'
+        };
+        return suffixes[priceUnit] || '';
+    }
+
+    // Get price unit label for chart axis (e.g., per_lb -> $/lb)
+    getPriceUnitLabel(priceUnit) {
+        const labels = {
+            'flat': '$', 'per_lb': '$/lb', 'per_oz': '$/oz',
+            'per_kg': '$/kg', 'per_g': '$/g', 'per_item': '$/ea'
+        };
+        return labels[priceUnit] || '$';
     }
 
     // Detect ingredient info from database
@@ -5039,7 +5124,9 @@ class PantryInventory {
             priceRow.innerHTML = '<span class="detail-label">Price:</span><span id="detailsPrice" class="detail-value"></span>';
             document.querySelector('#itemDetailsModal .details-grid').appendChild(priceRow);
         }
-        document.getElementById('detailsPrice').textContent = item.last_price != null ? `$${parseFloat(item.last_price).toFixed(2)}` : '-';
+        const detailsPriceUnit = item.price_unit || 'flat';
+        const detailsUnitSuffix = this.getPriceUnitSuffix(detailsPriceUnit);
+        document.getElementById('detailsPrice').textContent = item.last_price != null ? `$${parseFloat(item.last_price).toFixed(2)}${detailsUnitSuffix}` : '-';
 
         // Store item id for edit button
         this.currentDetailsItemId = item.id;
@@ -5093,6 +5180,14 @@ class PantryInventory {
             canvas.classList.remove('hidden');
             tableWrapper.classList.remove('hidden');
 
+            // Store history for click handler
+            this.currentPriceHistory = history;
+
+            // Determine dominant price unit for axis label
+            const dominantUnit = this.getDominantPriceUnit(history);
+            const unitLabel = this.getPriceUnitLabel(dominantUnit);
+            const unitSuffix = this.getPriceUnitSuffix(dominantUnit);
+
             // Build chart data
             const labels = history.map(r => {
                 const d = new Date(r.recorded_at);
@@ -5105,7 +5200,7 @@ class PantryInventory {
                 data: {
                     labels,
                     datasets: [{
-                        label: 'Price ($)',
+                        label: `Price (${unitLabel})`,
                         data: prices,
                         borderColor: '#667eea',
                         backgroundColor: 'rgba(102, 126, 234, 0.15)',
@@ -5122,16 +5217,33 @@ class PantryInventory {
                         legend: { display: false },
                         tooltip: {
                             callbacks: {
-                                label: ctx => `$${ctx.parsed.y.toFixed(2)}`
+                                label: ctx => {
+                                    const record = history[ctx.dataIndex];
+                                    const recUnitSuffix = this.getPriceUnitSuffix(record.price_unit || 'flat');
+                                    let label = `$${ctx.parsed.y.toFixed(2)}${recUnitSuffix}`;
+                                    if (record.store) label += ` @ ${record.store}`;
+                                    return label;
+                                }
                             }
                         }
                     },
                     scales: {
                         y: {
                             beginAtZero: false,
+                            title: {
+                                display: true,
+                                text: `Price (${unitLabel})`
+                            },
                             ticks: {
                                 callback: val => `$${val.toFixed(2)}`
                             }
+                        }
+                    },
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            const record = history[index];
+                            this.showPricePointDetails(record);
                         }
                     }
                 }
@@ -5140,10 +5252,11 @@ class PantryInventory {
             // Populate table (newest first)
             tableBody.innerHTML = [...history].reverse().map(r => {
                 const d = new Date(r.recorded_at);
-                return `<tr>
+                const recUnitSuffix = this.getPriceUnitSuffix(r.price_unit || 'flat');
+                return `<tr style="cursor: pointer;" onclick="app.showPricePointDetails(app.currentPriceHistory.find(h => h.id === ${r.id}))">
                     <td>${d.toLocaleDateString()}</td>
                     <td>${r.store ? this.escapeHtml(r.store) : '-'}</td>
-                    <td>$${parseFloat(r.price).toFixed(2)}</td>
+                    <td>$${parseFloat(r.price).toFixed(2)}${recUnitSuffix}</td>
                 </tr>`;
             }).join('');
 
@@ -5163,6 +5276,86 @@ class PantryInventory {
         if (this.priceHistoryChart) {
             this.priceHistoryChart.destroy();
             this.priceHistoryChart = null;
+        }
+    }
+
+    // Get dominant price unit from history (most common)
+    getDominantPriceUnit(history) {
+        const counts = {};
+        history.forEach(r => {
+            const unit = r.price_unit || 'flat';
+            counts[unit] = (counts[unit] || 0) + 1;
+        });
+        const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+        return sorted[0]?.[0] || 'flat';
+    }
+
+    // Show price point detail popup
+    showPricePointDetails(record) {
+        if (!record) return;
+
+        const popup = document.getElementById('pricePointPopup');
+        const dateEl = document.getElementById('pricePointDate');
+        const priceEl = document.getElementById('pricePointPrice');
+        const storeInput = document.getElementById('pricePointStore');
+
+        const d = new Date(record.recorded_at);
+        const unitSuffix = this.getPriceUnitSuffix(record.price_unit || 'flat');
+
+        dateEl.textContent = d.toLocaleDateString();
+        priceEl.textContent = `$${parseFloat(record.price).toFixed(2)}${unitSuffix}`;
+        storeInput.value = record.store || '';
+
+        // Store current record for saving
+        this.currentPricePointRecord = record;
+
+        popup.classList.remove('hidden');
+    }
+
+    // Hide price point popup
+    hidePricePointPopup() {
+        const popup = document.getElementById('pricePointPopup');
+        if (popup) popup.classList.add('hidden');
+        this.currentPricePointRecord = null;
+    }
+
+    // Save price point store update
+    async savePricePointStore() {
+        if (!this.currentPricePointRecord) return;
+
+        const storeInput = document.getElementById('pricePointStore');
+        const newStore = this.normalizeStoreName(storeInput.value.trim()) || null;
+
+        try {
+            await API.updatePriceHistory(this.currentPricePointRecord.id, { store: newStore });
+
+            // Update local record
+            this.currentPricePointRecord.store = newStore;
+
+            // Refresh the table if visible
+            if (this.currentPriceHistory) {
+                const record = this.currentPriceHistory.find(r => r.id === this.currentPricePointRecord.id);
+                if (record) record.store = newStore;
+
+                // Re-render table
+                const tableBody = document.getElementById('priceHistoryTableBody');
+                if (tableBody) {
+                    tableBody.innerHTML = [...this.currentPriceHistory].reverse().map(r => {
+                        const d = new Date(r.recorded_at);
+                        const recUnitSuffix = this.getPriceUnitSuffix(r.price_unit || 'flat');
+                        return `<tr style="cursor: pointer;" onclick="app.showPricePointDetails(app.currentPriceHistory.find(h => h.id === ${r.id}))">
+                            <td>${d.toLocaleDateString()}</td>
+                            <td>${r.store ? this.escapeHtml(r.store) : '-'}</td>
+                            <td>$${parseFloat(r.price).toFixed(2)}${recUnitSuffix}</td>
+                        </tr>`;
+                    }).join('');
+                }
+            }
+
+            this.hidePricePointPopup();
+        } catch (err) {
+            console.error('Failed to update price history store:', err);
+            alert('Failed to save store. Please try again.');
         }
     }
 
@@ -5905,7 +6098,10 @@ class PantryInventory {
             unit: unit,
             category: category,
             location: location,
-            threshold: parsed.threshold // Will use default 20% if null
+            threshold: parsed.threshold, // Will use default 20% if null
+            last_price: parsed.price,
+            price_unit: parsed.priceUnit || 'flat',
+            boughtFrom: parsed.store
             // Expiration will be auto-calculated in addItem based on category
         });
 

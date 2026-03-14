@@ -64,11 +64,12 @@ router.post('/', async (req, res) => {
           is_staple = $10,
           last_price = $11,
           previous_price = $12,
-          brand = $13,
+          price_unit = $13,
+          brand = $14,
           deleted_at = NULL,
           delete_reason = NULL,
           updated_at = CURRENT_TIMESTAMP
-        WHERE id = $14
+        WHERE id = $15
         RETURNING *
       `, [
         item.name,
@@ -83,6 +84,7 @@ router.post('/', async (req, res) => {
         item.isStaple ? 1 : 0,
         newPrice,
         previousPrice,
+        item.price_unit || 'flat',
         item.brand || null,
         deletedItem.id
       ]);
@@ -92,8 +94,8 @@ router.post('/', async (req, res) => {
       // Record price history if new price was provided
       if (item.last_price) {
         await query(
-          'INSERT INTO price_history (item_id, price, store) VALUES ($1, $2, $3)',
-          [resultItem.id, item.last_price, item.boughtFrom || null]
+          'INSERT INTO price_history (item_id, price, store, price_unit) VALUES ($1, $2, $3, $4)',
+          [resultItem.id, item.last_price, item.boughtFrom || null, item.price_unit || 'flat']
         );
       }
     } else {
@@ -102,8 +104,8 @@ router.post('/', async (req, res) => {
         INSERT INTO inventory_items (
           user_id, name, quantity, unit, category, location,
           threshold, purchase_date, expiration_date, bought_from, is_staple,
-          last_price, previous_price, brand
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+          last_price, previous_price, price_unit, brand
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         RETURNING *
       `, [
         req.user.id,
@@ -119,6 +121,7 @@ router.post('/', async (req, res) => {
         item.isStaple ? 1 : 0,
         item.last_price || null,
         item.previous_price || null,
+        item.price_unit || 'flat',
         item.brand || null
       ]);
 
@@ -127,8 +130,8 @@ router.post('/', async (req, res) => {
       // Record initial price history if price was provided
       if (item.last_price) {
         await query(
-          'INSERT INTO price_history (item_id, price, store) VALUES ($1, $2, $3)',
-          [resultItem.id, item.last_price, item.boughtFrom || null]
+          'INSERT INTO price_history (item_id, price, store, price_unit) VALUES ($1, $2, $3, $4)',
+          [resultItem.id, item.last_price, item.boughtFrom || null, item.price_unit || 'flat']
         );
       }
     }
@@ -161,9 +164,9 @@ router.put('/:id', async (req, res) => {
       UPDATE inventory_items SET
         name = $1, quantity = $2, unit = $3, category = $4, location = $5,
         threshold = $6, purchase_date = $7, expiration_date = $8, bought_from = $9,
-        is_staple = $10, last_price = $11, previous_price = $12, brand = $13,
+        is_staple = $10, last_price = $11, previous_price = $12, price_unit = $13, brand = $14,
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $14 AND user_id = $15
+      WHERE id = $15 AND user_id = $16
       RETURNING *
     `, [
       item.name,
@@ -178,6 +181,7 @@ router.put('/:id', async (req, res) => {
       item.isStaple ? 1 : 0,
       item.last_price !== undefined ? item.last_price : null,
       item.previous_price !== undefined ? item.previous_price : null,
+      item.price_unit || 'flat',
       item.brand !== undefined ? item.brand : null,
       id,
       req.user.id
@@ -188,8 +192,8 @@ router.put('/:id', async (req, res) => {
     const oldPrice = existing.last_price;
     if (newPrice !== null && newPrice !== oldPrice) {
       await query(
-        'INSERT INTO price_history (item_id, price, store) VALUES ($1, $2, $3)',
-        [id, newPrice, item.boughtFrom || existing.bought_from || null]
+        'INSERT INTO price_history (item_id, price, store, price_unit) VALUES ($1, $2, $3, $4)',
+        [id, newPrice, item.boughtFrom || existing.bought_from || null, item.price_unit || 'flat']
       );
     }
 
@@ -241,13 +245,42 @@ router.get('/:id/price-history', async (req, res) => {
     }
 
     const result = await query(
-      'SELECT id, price, store, recorded_at FROM price_history WHERE item_id = $1 ORDER BY recorded_at ASC',
+      'SELECT id, price, store, price_unit, recorded_at FROM price_history WHERE item_id = $1 ORDER BY recorded_at ASC',
       [id]
     );
 
     res.json(result.rows);
   } catch (err) {
     console.error('Get price history error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Update a price history record (e.g., to edit store name)
+router.put('/price-history/:historyId', async (req, res) => {
+  try {
+    const { historyId } = req.params;
+    const { store } = req.body;
+
+    // Verify ownership through the item
+    const ownerCheck = await query(`
+      SELECT ph.id FROM price_history ph
+      JOIN inventory_items i ON ph.item_id = i.id
+      WHERE ph.id = $1 AND i.user_id = $2
+    `, [historyId, req.user.id]);
+
+    if (!ownerCheck.rows[0]) {
+      return res.status(404).json({ error: 'Price history record not found' });
+    }
+
+    const result = await query(
+      'UPDATE price_history SET store = $1 WHERE id = $2 RETURNING *',
+      [store, historyId]
+    );
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Update price history error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -329,7 +362,7 @@ router.get('/history/:name/prices', async (req, res) => {
     const { name } = req.params;
 
     const result = await query(`
-      SELECT ph.id, ph.price, ph.store, ph.recorded_at, i.id as item_id, i.created_at as item_created
+      SELECT ph.id, ph.price, ph.store, ph.price_unit, ph.recorded_at, i.id as item_id, i.created_at as item_created
       FROM price_history ph
       JOIN inventory_items i ON ph.item_id = i.id
       WHERE i.user_id = $1 AND LOWER(i.name) = LOWER($2)
@@ -384,6 +417,7 @@ function formatItemForClient(item) {
     isStaple: Boolean(item.is_staple),
     last_price: item.last_price,
     previous_price: item.previous_price,
+    price_unit: item.price_unit || 'flat',
     brand: item.brand,
     createdAt: item.created_at,
     updatedAt: item.updated_at,

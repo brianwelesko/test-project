@@ -1023,6 +1023,28 @@ mark {
     gap: 15px;
 }
 
+.price-input-group {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.price-input-group .price-prefix {
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-size: 1rem;
+}
+
+.price-input-group input {
+    flex: 1;
+    min-width: 70px;
+}
+
+.price-input-group select {
+    width: auto;
+    min-width: 85px;
+}
+
 .form-actions {
     display: flex;
     gap: 10px;
@@ -2933,6 +2955,96 @@ header {
         padding: 20px 16px;
         border-radius: 12px;
     }
+}
+
+/* ── Price Point Detail Popup ── */
+.price-point-popup {
+    position: fixed;
+    inset: 0;
+    background: rgba(45, 42, 38, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1200;
+    padding: 20px;
+}
+
+.price-point-popup.hidden {
+    display: none;
+}
+
+.price-point-content {
+    background: var(--surface-white);
+    border-radius: 12px;
+    padding: 20px;
+    width: 100%;
+    max-width: 320px;
+    position: relative;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+    border: 1px solid var(--border-warm);
+}
+
+.close-price-point-btn {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    background: none;
+    border: none;
+    font-size: 1.4rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+    line-height: 1;
+}
+
+.close-price-point-btn:hover {
+    color: var(--text-primary);
+}
+
+.price-point-content h4 {
+    font-family: 'Lora', serif;
+    font-size: 1rem;
+    margin-bottom: 14px;
+    color: var(--text-primary);
+}
+
+.price-point-details p {
+    margin: 8px 0;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.price-point-store-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.price-point-store-row label {
+    font-size: 0.9rem;
+}
+
+.price-point-store-row input {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid var(--border-warm);
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+
+.price-point-store-row input:focus {
+    outline: none;
+    border-color: var(--sage-green);
+}
+
+.price-point-actions {
+    margin-top: 16px;
+    text-align: right;
+}
+
+.btn-sm {
+    padding: 6px 14px;
+    font-size: 0.85rem;
 }
 
 /* ===== PACKAGES/GROUP DEDUCTION MODAL ===== */

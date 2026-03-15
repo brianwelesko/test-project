@@ -2950,6 +2950,24 @@ header {
     background: var(--bg-cream);
 }
 
+.price-history-table tr.price-lowest td {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+.price-history-table tr.price-lowest:hover td {
+    background: #c8e6c9;
+}
+
+.price-history-table tr.price-highest td {
+    background: #ffebee;
+    color: #c62828;
+}
+
+.price-history-table tr.price-highest:hover td {
+    background: #ffcdd2;
+}
+
 @media (max-width: 600px) {
     .price-history-content {
         padding: 20px 16px;

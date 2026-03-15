@@ -5249,14 +5249,23 @@ class PantryInventory {
                 }
             });
 
+            // Calculate min and max prices for highlighting
+            const pricesForHighlight = history.map(r => parseFloat(r.price));
+            const minPrice = Math.min(...pricesForHighlight);
+            const maxPrice = Math.max(...pricesForHighlight);
+
             // Populate table (newest first)
             tableBody.innerHTML = [...history].reverse().map(r => {
                 const d = new Date(r.recorded_at);
                 const recUnitSuffix = this.getPriceUnitSuffix(r.price_unit || 'flat');
-                return `<tr style="cursor: pointer;" onclick="app.showPricePointDetails(app.currentPriceHistory.find(h => h.id === ${r.id}))">
+                const priceVal = parseFloat(r.price);
+                let rowClass = '';
+                if (priceVal === minPrice && minPrice !== maxPrice) rowClass = 'price-lowest';
+                else if (priceVal === maxPrice && minPrice !== maxPrice) rowClass = 'price-highest';
+                return `<tr class="${rowClass}" style="cursor: pointer;" onclick="app.showPricePointDetails(app.currentPriceHistory.find(h => h.id === ${r.id}))">
                     <td>${d.toLocaleDateString()}</td>
                     <td>${r.store ? this.escapeHtml(r.store) : '-'}</td>
-                    <td>$${parseFloat(r.price).toFixed(2)}${recUnitSuffix}</td>
+                    <td>$${priceVal.toFixed(2)}${recUnitSuffix}</td>
                 </tr>`;
             }).join('');
 
@@ -5340,13 +5349,20 @@ class PantryInventory {
                 // Re-render table
                 const tableBody = document.getElementById('priceHistoryTableBody');
                 if (tableBody) {
+                    const pricesForHighlight = this.currentPriceHistory.map(r => parseFloat(r.price));
+                    const minPrice = Math.min(...pricesForHighlight);
+                    const maxPrice = Math.max(...pricesForHighlight);
                     tableBody.innerHTML = [...this.currentPriceHistory].reverse().map(r => {
                         const d = new Date(r.recorded_at);
                         const recUnitSuffix = this.getPriceUnitSuffix(r.price_unit || 'flat');
-                        return `<tr style="cursor: pointer;" onclick="app.showPricePointDetails(app.currentPriceHistory.find(h => h.id === ${r.id}))">
+                        const priceVal = parseFloat(r.price);
+                        let rowClass = '';
+                        if (priceVal === minPrice && minPrice !== maxPrice) rowClass = 'price-lowest';
+                        else if (priceVal === maxPrice && minPrice !== maxPrice) rowClass = 'price-highest';
+                        return `<tr class="${rowClass}" style="cursor: pointer;" onclick="app.showPricePointDetails(app.currentPriceHistory.find(h => h.id === ${r.id}))">
                             <td>${d.toLocaleDateString()}</td>
                             <td>${r.store ? this.escapeHtml(r.store) : '-'}</td>
-                            <td>$${parseFloat(r.price).toFixed(2)}${recUnitSuffix}</td>
+                            <td>$${priceVal.toFixed(2)}${recUnitSuffix}</td>
                         </tr>`;
                     }).join('');
                 }

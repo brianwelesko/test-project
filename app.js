@@ -1472,6 +1472,15 @@ class PantryInventory {
         if (savePricePointBtn) {
             savePricePointBtn.addEventListener('click', () => this.savePricePointStore());
         }
+        const pricePointStoreInput = document.getElementById('pricePointStore');
+        if (pricePointStoreInput) {
+            pricePointStoreInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.savePricePointStore();
+                }
+            });
+        }
         if (pricePointPopup) {
             pricePointPopup.addEventListener('click', (e) => {
                 if (e.target === pricePointPopup) {

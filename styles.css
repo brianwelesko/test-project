@@ -24,6 +24,31 @@
     --teal-warm-hover: #4B8B8B;
     --border-warm: #E5DFD8;
     --command-bg: #F0EBE5;
+
+    /* Category Colors */
+    --cat-spice: #8B6F47;
+    --cat-herb: #6B8E4E;
+    --cat-seasoning: #9B7E5C;
+    --cat-produce: #4C7433;
+    --cat-dairy: #E8D5B7;
+    --cat-canned: #A67C52;
+    --cat-grain: #D4A574;
+    --cat-frozen: #6B9FB5;
+    --cat-oil: #C9A635;
+    --cat-baking: #B88B6B;
+    --cat-protein: #C9564A;
+    --cat-other: #8C8680;
+
+    /* Location Colors (muted) */
+    --loc-pantry: #9B8B7E;
+    --loc-fridge: #7FA5B8;
+    --loc-freezer: #5C89A3;
+    --loc-drawer: #A89788;
+    --loc-cabinet: #8B7968;
+    --loc-spice-cabinet: #8B7968;
+    --loc-counter: #B5A396;
+    --loc-basement: #6B6157;
+    --loc-other: #9C9188;
 }
 
 body {
@@ -1178,35 +1203,41 @@ mark {
     margin-left: 8px;
 }
 
-.item-info .category-badge {
-    display: inline;
-    padding: 0;
-    background: none;
-    border-radius: 0;
-    font-size: 0.8rem;
-    margin-right: 0;
-    color: var(--text-secondary);
-}
-
-.item-info .category-badge::before {
-    content: "• ";
-    color: var(--border-warm);
-}
-
+.item-info .category-badge,
 .item-info .location-badge {
-    display: inline;
-    padding: 0;
-    background: none;
-    color: var(--text-secondary);
-    border-radius: 0;
-    font-size: 0.8rem;
-    margin-right: 0;
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: white;
+    margin-right: 6px;
 }
 
-.item-info .location-badge::before {
-    content: "• ";
-    color: var(--border-warm);
-}
+/* Category badge colors */
+.item-info .category-badge.spice { background: var(--cat-spice); }
+.item-info .category-badge.herb { background: var(--cat-herb); }
+.item-info .category-badge.seasoning { background: var(--cat-seasoning); }
+.item-info .category-badge.produce { background: var(--cat-produce); }
+.item-info .category-badge.dairy { background: var(--cat-dairy); }
+.item-info .category-badge.canned { background: var(--cat-canned); }
+.item-info .category-badge.grain { background: var(--cat-grain); }
+.item-info .category-badge.frozen { background: var(--cat-frozen); }
+.item-info .category-badge.oil { background: var(--cat-oil); }
+.item-info .category-badge.baking { background: var(--cat-baking); }
+.item-info .category-badge.protein { background: var(--cat-protein); }
+.item-info .category-badge.other { background: var(--cat-other); }
+
+/* Location badge colors */
+.item-info .location-badge.pantry { background: var(--loc-pantry); }
+.item-info .location-badge.fridge { background: var(--loc-fridge); }
+.item-info .location-badge.freezer { background: var(--loc-freezer); }
+.item-info .location-badge.drawer { background: var(--loc-drawer); }
+.item-info .location-badge.cabinet { background: var(--loc-cabinet); }
+.item-info .location-badge.spice-cabinet { background: var(--loc-spice-cabinet); }
+.item-info .location-badge.counter { background: var(--loc-counter); }
+.item-info .location-badge.basement { background: var(--loc-basement); }
+.item-info .location-badge.other { background: var(--loc-other); }
 
 .item-info .staple-badge {
     display: inline-block;

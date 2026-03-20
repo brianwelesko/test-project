@@ -313,8 +313,11 @@ const LOCATION_EXPIRATION_MULTIPLIERS = {
     'fridge': 1,
     'freezer': 36,      // 36x longer (e.g., 5 days protein -> 180 days frozen)
     'pantry': 1,
+    'drawer': 1,
+    'cabinet': 1,
     'counter': 0.5,     // Half the normal time
     'spice-cabinet': 1,
+    'basement': 1,
     'other': 1
 };
 
@@ -348,8 +351,11 @@ const LOCATION_NAMES = {
     'pantry': 'Pantry',
     'fridge': 'Refrigerator',
     'freezer': 'Freezer',
+    'drawer': 'Drawer',
+    'cabinet': 'Cabinet',
     'spice-cabinet': 'Spice Cabinet',
     'counter': 'Counter',
+    'basement': 'Basement',
     'other': 'Other'
 };
 
@@ -2113,8 +2119,8 @@ class PantryInventory {
                     <div class="item-info">
                         <h3>${this.escapeHtml(item.name)}</h3>
                         <div class="meta">
-                            <span class="category-badge">${this.formatCategory(item.category)}</span>
-                            ${locationDisplay ? `<span class="location-badge">${locationDisplay}</span>` : ''}
+                            <span class="category-badge ${item.category}">${this.formatCategory(item.category)}</span>
+                            ${locationDisplay ? `<span class="location-badge ${item.location}">${locationDisplay}</span>` : ''}
                             ${item.isStaple ? '<span class="staple-badge">Staple</span>' : ''}
                         </div>
                         ${expirationDisplay ? `<div class="expiration-info">${expirationDisplay}</div>` : ''}

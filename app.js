@@ -4048,6 +4048,9 @@ class PantryInventory {
         const pricePointPopup = document.getElementById('pricePointPopup');
         if (pricePointPopup) pricePointPopup.classList.add('hidden');
 
+        // Close Items to Use panel
+        this.hideUsePanel();
+
         // Reset body overflow
         document.body.style.overflow = '';
 

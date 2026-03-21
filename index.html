@@ -173,8 +173,27 @@
         <!-- Alerts Section -->
         <section id="alertsSection" class="alerts-section hidden">
             <div id="expiringAlerts" class="alerts-group hidden">
-                <h3>Expiring Soon</h3>
-                <div id="expiringList"></div>
+                <div class="expiring-header">
+                    <h3>Items to Use</h3>
+                    <button id="closeExpiringPanel" class="close-panel-btn">&times;</button>
+                </div>
+                <div class="expiring-subsections">
+                    <div id="useTodaySubsection" class="expiring-subsection hidden">
+                        <span class="subsection-header today-header">Use Today:</span>
+                        <span id="useTodayList" class="compact-list"></span>
+                        <a id="useTodayMore" class="show-more-link hidden">more</a>
+                    </div>
+                    <div id="useSoonSubsection" class="expiring-subsection hidden">
+                        <span class="subsection-header soon-header">Use Soon:</span>
+                        <span id="useSoonList" class="compact-list"></span>
+                        <a id="useSoonMore" class="show-more-link hidden">more</a>
+                    </div>
+                    <div id="expiredSubsection" class="expiring-subsection hidden">
+                        <span class="subsection-header expired-header">Expired:</span>
+                        <span id="expiredList" class="compact-list"></span>
+                        <a id="expiredMore" class="show-more-link hidden">more</a>
+                    </div>
+                </div>
             </div>
             <div id="lowStockAlerts" class="alerts-group hidden">
                 <h3>Low Stock</h3>

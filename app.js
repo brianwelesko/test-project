@@ -1349,9 +1349,24 @@ class PantryInventory {
         // Alerts elements
         this.alertsSection = document.getElementById('alertsSection');
         this.expiringAlerts = document.getElementById('expiringAlerts');
-        this.expiringList = document.getElementById('expiringList');
         this.lowStockAlerts = document.getElementById('lowStockAlerts');
         this.lowStockList = document.getElementById('lowStockList');
+
+        // Expiring panel subsections
+        this.useTodaySubsection = document.getElementById('useTodaySubsection');
+        this.useTodayList = document.getElementById('useTodayList');
+        this.useTodayMore = document.getElementById('useTodayMore');
+        this.useSoonSubsection = document.getElementById('useSoonSubsection');
+        this.useSoonList = document.getElementById('useSoonList');
+        this.useSoonMore = document.getElementById('useSoonMore');
+        this.expiredSubsection = document.getElementById('expiredSubsection');
+        this.expiredList = document.getElementById('expiredList');
+        this.expiredMore = document.getElementById('expiredMore');
+        this.closeExpiringPanel = document.getElementById('closeExpiringPanel');
+
+        // Expiring panel state
+        this.expiringPanelVisible = false;
+        this.expiringPanelFilter = 'all'; // 'all', 'today', 'soon', 'expired'
 
         // Recipe elements
         this.recipeText = document.getElementById('recipeText');
@@ -1527,6 +1542,11 @@ class PantryInventory {
             }
         });
 
+        // Close expiring panel button
+        if (this.closeExpiringPanel) {
+            this.closeExpiringPanel.addEventListener('click', () => this.hideUsePanel());
+        }
+
         // Recipe events
         this.tabBtns.forEach(btn => {
             btn.addEventListener('click', () => this.switchTab(btn.dataset.tab));
@@ -1684,6 +1704,35 @@ class PantryInventory {
         return this.inventory.filter(item => {
             const days = this.getDaysUntilExpiration(item);
             return days !== null && days >= 0 && days <= withinDays;
+        }).sort((a, b) => {
+            return this.getDaysUntilExpiration(a) - this.getDaysUntilExpiration(b);
+        });
+    }
+
+    // Get expired items (days < 0)
+    getExpiredItems() {
+        return this.inventory.filter(item => {
+            const days = this.getDaysUntilExpiration(item);
+            return days !== null && days < 0;
+        }).sort((a, b) => {
+            // Most recently expired first
+            return this.getDaysUntilExpiration(b) - this.getDaysUntilExpiration(a);
+        });
+    }
+
+    // Get items expiring today (day === 0)
+    getUseTodayItems() {
+        return this.inventory.filter(item => {
+            const days = this.getDaysUntilExpiration(item);
+            return days === 0;
+        });
+    }
+
+    // Get items expiring soon (days 1-3)
+    getUseSoonItems() {
+        return this.inventory.filter(item => {
+            const days = this.getDaysUntilExpiration(item);
+            return days !== null && days >= 1 && days <= 3;
         }).sort((a, b) => {
             return this.getDaysUntilExpiration(a) - this.getDaysUntilExpiration(b);
         });
@@ -1927,34 +1976,53 @@ class PantryInventory {
     }
 
     renderAlerts() {
-        const expiringItems = this.getExpiringItems(5);
+        const useTodayItems = this.getUseTodayItems();
+        const useSoonItems = this.getUseSoonItems();
+        const expiredItems = this.getExpiredItems();
         const lowStockItems = this.getLowStockItems();
 
-        const hasAlerts = expiringItems.length > 0 || lowStockItems.length > 0;
+        const hasExpiringItems = useTodayItems.length > 0 || useSoonItems.length > 0 || expiredItems.length > 0;
+        const hasAlerts = hasExpiringItems || lowStockItems.length > 0;
 
-        if (!hasAlerts) {
+        // Show alerts section if low stock items exist OR expiring panel is visible with items
+        const showAlertsSection = lowStockItems.length > 0 || (this.expiringPanelVisible && hasExpiringItems);
+
+        if (!showAlertsSection) {
             this.alertsSection.classList.add('hidden');
+            this.expiringAlerts.classList.add('hidden');
             return;
         }
 
         this.alertsSection.classList.remove('hidden');
 
-        // Render expiring items
-        if (expiringItems.length > 0) {
+        // Render expiring items panel (only if visible)
+        if (this.expiringPanelVisible && hasExpiringItems) {
             this.expiringAlerts.classList.remove('hidden');
-            this.expiringList.innerHTML = expiringItems.map(item => {
-                const days = this.getDaysUntilExpiration(item);
-                const urgency = days <= 1 ? 'urgent' : '';
-                const daysText = days === 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`;
-                return `
-                    <div class="alert-item ${urgency}">
-                        <span class="item-name">${this.escapeHtml(item.name)}</span>
-                        <span class="item-status expiring">
-                            Expires ${daysText}
-                        </span>
-                    </div>
-                `;
-            }).join('');
+            const filter = this.expiringPanelFilter;
+
+            // Render Use Today subsection
+            if ((filter === 'all' || filter === 'today') && useTodayItems.length > 0) {
+                this.useTodaySubsection.classList.remove('hidden');
+                this.renderCompactLine(useTodayItems, this.useTodayList, this.useTodayMore);
+            } else {
+                this.useTodaySubsection.classList.add('hidden');
+            }
+
+            // Render Use Soon subsection
+            if ((filter === 'all' || filter === 'soon') && useSoonItems.length > 0) {
+                this.useSoonSubsection.classList.remove('hidden');
+                this.renderCompactLine(useSoonItems, this.useSoonList, this.useSoonMore);
+            } else {
+                this.useSoonSubsection.classList.add('hidden');
+            }
+
+            // Render Expired subsection
+            if ((filter === 'all' || filter === 'expired') && expiredItems.length > 0) {
+                this.expiredSubsection.classList.remove('hidden');
+                this.renderCompactLine(expiredItems, this.expiredList, this.expiredMore);
+            } else {
+                this.expiredSubsection.classList.add('hidden');
+            }
         } else {
             this.expiringAlerts.classList.add('hidden');
         }
@@ -1973,6 +2041,61 @@ class PantryInventory {
         } else {
             this.lowStockAlerts.classList.add('hidden');
         }
+    }
+
+    // Render a compact comma-separated line with "more" link
+    renderCompactLine(items, listEl, moreEl, maxVisible = 5) {
+        const visibleItems = items.slice(0, maxVisible);
+        const hiddenItems = items.slice(maxVisible);
+        const hasMore = hiddenItems.length > 0;
+
+        // Store all items for expanding
+        listEl.dataset.allItems = JSON.stringify(items.map(i => this.escapeHtml(i.name)));
+        listEl.dataset.expanded = 'false';
+
+        listEl.textContent = visibleItems.map(i => i.name).join(', ');
+        if (hasMore && listEl.dataset.expanded === 'false') {
+            listEl.textContent += '...';
+        }
+
+        if (hasMore) {
+            moreEl.classList.remove('hidden');
+            moreEl.textContent = `+${hiddenItems.length} more`;
+            moreEl.onclick = () => this.toggleCompactLineExpand(listEl, moreEl, items);
+        } else {
+            moreEl.classList.add('hidden');
+        }
+    }
+
+    // Toggle expanding/collapsing a compact line
+    toggleCompactLineExpand(listEl, moreEl, items) {
+        const expanded = listEl.dataset.expanded === 'true';
+        if (expanded) {
+            // Collapse
+            listEl.textContent = items.slice(0, 5).map(i => i.name).join(', ') + '...';
+            listEl.dataset.expanded = 'false';
+            moreEl.textContent = `+${items.length - 5} more`;
+        } else {
+            // Expand
+            listEl.textContent = items.map(i => i.name).join(', ');
+            listEl.dataset.expanded = 'true';
+            moreEl.textContent = 'less';
+        }
+    }
+
+    // Show the expiring panel with optional filter
+    showUsePanel(filter = 'all') {
+        this.expiringPanelFilter = filter;
+        this.expiringPanelVisible = true;
+        this.clearCommandBar();
+        this.render();
+    }
+
+    // Hide the expiring panel
+    hideUsePanel() {
+        this.expiringPanelVisible = false;
+        this.clearCommandBar();
+        this.render();
     }
 
     updateFilterIndicator() {
@@ -2749,8 +2872,19 @@ class PantryInventory {
         if (input.toLowerCase() === 'low') {
             return { action: 'filter-low-stock' };
         }
-        if (input.toLowerCase() === 'expiring' || input.toLowerCase() === 'exp') {
-            return { action: 'filter-expiring' };
+
+        // Use panel commands
+        if (input.toLowerCase() === 'use') {
+            return { action: 'show-use-panel', filter: 'all' };
+        }
+        if (input.toLowerCase() === 'use now' || input.toLowerCase() === 'use today') {
+            return { action: 'show-use-panel', filter: 'today' };
+        }
+        if (input.toLowerCase() === 'use soon' || input.toLowerCase() === 'expiring' || input.toLowerCase() === 'exp') {
+            return { action: 'show-use-panel', filter: 'soon' };
+        }
+        if (input.toLowerCase() === 'expired') {
+            return { action: 'show-use-panel', filter: 'expired' };
         }
 
         // Close all modules: "close"
@@ -3274,9 +3408,16 @@ class PantryInventory {
                 this.showFilterPreview('low-stock');
                 this.clearSearchFilter();
                 break;
-            case 'filter-expiring':
+            case 'show-use-panel':
                 this.quickDeductSuggestions.classList.add('hidden');
-                this.showFilterPreview('expiring');
+                const filterLabel = {
+                    'all': 'items to use',
+                    'today': 'items to use today',
+                    'soon': 'items to use soon',
+                    'expired': 'expired items'
+                }[parsed.filter] || 'items to use';
+                this.quickDeductPreview.innerHTML = `<span class="preview-hint">Show <strong>${filterLabel}</strong> — Press Enter</span>`;
+                this.quickDeductPreview.classList.remove('hidden');
                 this.clearSearchFilter();
                 break;
             case 'clear-filters':
@@ -5910,8 +6051,8 @@ class PantryInventory {
             this.executeFilterCategory(parsed);
         } else if (parsed.action === 'filter-low-stock') {
             this.executeFilterLowStock();
-        } else if (parsed.action === 'filter-expiring') {
-            this.executeFilterExpiring();
+        } else if (parsed.action === 'show-use-panel') {
+            this.showUsePanel(parsed.filter);
         } else if (parsed.action === 'clear-filters') {
             this.executeClearFilters();
         } else if (parsed.action === 'close-all') {

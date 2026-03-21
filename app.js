@@ -4032,6 +4032,22 @@ class PantryInventory {
         const scanModal = document.getElementById('scanModal');
         if (scanModal) scanModal.classList.add('hidden');
 
+        // Close migration modal
+        if (this.migrationModal) this.migrationModal.classList.add('hidden');
+
+        // Close price history modal
+        this.hidePriceHistory();
+
+        // Close grocery review modal
+        this.closeGroceryReviewModal();
+
+        // Close packages modal
+        this.closePackagesModal();
+
+        // Close price point popup
+        const pricePointPopup = document.getElementById('pricePointPopup');
+        if (pricePointPopup) pricePointPopup.classList.add('hidden');
+
         // Reset body overflow
         document.body.style.overflow = '';
 

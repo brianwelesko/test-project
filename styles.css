@@ -1289,6 +1289,7 @@ mark {
     border-radius: 4px;
     font-size: 0.75rem;
     font-weight: 500;
+    font-family: 'IBM Plex Mono', monospace;
     color: white;
     margin-right: 6px;
 }
@@ -1325,6 +1326,7 @@ mark {
     color: var(--sage-green);
     border-radius: 10px;
     font-size: 0.7rem;
+    font-family: 'IBM Plex Mono', monospace;
     margin-left: 6px;
 }
 
@@ -1338,6 +1340,7 @@ mark {
     border-radius: 10px;
     font-size: 0.7rem;
     font-weight: 500;
+    font-family: 'IBM Plex Mono', monospace;
 }
 
 .expiration-badge.fresh {

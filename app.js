@@ -4025,8 +4025,8 @@ class PantryInventory {
         // Close filter modal
         this.filterModal.classList.add('hidden');
 
-        // Close item details modal
-        this.itemDetailsModal.classList.add('hidden');
+        // Close item details modal (use hideItemDetails to ensure chart is destroyed)
+        this.hideItemDetails();
 
         // Close scan modal
         const scanModal = document.getElementById('scanModal');

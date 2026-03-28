@@ -1870,7 +1870,7 @@ mark {
     border-radius: 12px;
     padding: 25px;
     width: 90%;
-    max-width: 400px;
+    max-width: 600px;
     max-height: 80vh;
     overflow-y: auto;
     position: relative;
@@ -1960,6 +1960,21 @@ mark {
 
 .details-actions .btn-cancel:hover {
     background: #5B5550;
+}
+
+.details-section-header {
+    font-family: 'Lora', serif;
+    font-size: 1rem;
+    color: var(--text-secondary);
+    margin: 20px 0 12px 0;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-warm);
+}
+
+.details-price-chart-container {
+    position: relative;
+    width: 100%;
+    margin-bottom: 16px;
 }
 
 /* ========== MOBILE UI OPTIMIZATIONS ========== */

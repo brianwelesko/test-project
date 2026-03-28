@@ -2295,7 +2295,7 @@ class PantryInventory {
             }
         }
 
-        return `<div class="item-price">$${price}${unitSuffix}${changeIndicator} <button class="price-history-btn" onclick="event.stopPropagation(); app.showPriceHistory('${this.escapeHtml(item.name).replace(/'/g, "\\'")}')">History</button></div>`;
+        return `<div class="item-price">$${price}${unitSuffix}${changeIndicator}</div>`;
     }
 
     async confirmDelete(id) {
@@ -5261,7 +5261,7 @@ class PantryInventory {
     }
 
     // Show item details modal
-    showItemDetails(query) {
+    async showItemDetails(query) {
         const item = this.findInventoryMatch(query);
         if (!item) {
             alert(`Item "${query}" not found in inventory`);
@@ -5309,12 +5309,129 @@ class PantryInventory {
         // Show modal
         this.itemDetailsModal.classList.remove('hidden');
         this.clearCommandBar();
+
+        // Render embedded price history chart and table
+        await this._renderDetailsChart(item);
+    }
+
+    // Render price history chart and table inside the item details modal
+    async _renderDetailsChart(item) {
+        const canvas = document.getElementById('detailsPriceChart');
+        const noDataEl = document.getElementById('detailsPriceNoData');
+        const tableWrapper = document.getElementById('detailsPriceTable');
+        const tableBody = document.getElementById('detailsPriceTableBody');
+
+        // Destroy previous chart instance
+        if (this.detailsChart) {
+            this.detailsChart.destroy();
+            this.detailsChart = null;
+        }
+
+        // Reset state
+        noDataEl.classList.add('hidden');
+        canvas.classList.add('hidden');
+        tableWrapper.classList.add('hidden');
+
+        try {
+            const history = await API.getPriceHistory(item.id);
+
+            if (!history || history.length === 0) {
+                noDataEl.classList.remove('hidden');
+                return;
+            }
+
+            this.currentPriceHistory = history;
+            canvas.classList.remove('hidden');
+            tableWrapper.classList.remove('hidden');
+
+            const dominantUnit = this.getDominantPriceUnit(history);
+            const unitLabel = this.getPriceUnitLabel(dominantUnit);
+
+            const labels = history.map(r => new Date(r.recorded_at).toLocaleDateString());
+            const prices = history.map(r => parseFloat(r.price));
+
+            this.detailsChart = new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: `Price (${unitLabel})`,
+                        data: prices,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.15)',
+                        borderWidth: 2,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => {
+                                    const record = history[ctx.dataIndex];
+                                    const recUnitSuffix = this.getPriceUnitSuffix(record.price_unit || 'flat');
+                                    let label = `$${ctx.parsed.y.toFixed(2)}${recUnitSuffix}`;
+                                    if (record.store) label += ` @ ${record.store}`;
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            title: { display: true, text: `Price (${unitLabel})` },
+                            ticks: { callback: val => `$${val.toFixed(2)}` }
+                        }
+                    },
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const record = history[elements[0].index];
+                            this.showPricePointDetails(record);
+                        }
+                    }
+                }
+            });
+
+            // Build table (newest first) with min/max highlighting
+            const priceVals = history.map(r => parseFloat(r.price));
+            const minPrice = Math.min(...priceVals);
+            const maxPrice = Math.max(...priceVals);
+
+            tableBody.innerHTML = [...history].reverse().map(r => {
+                const d = new Date(r.recorded_at);
+                const recUnitSuffix = this.getPriceUnitSuffix(r.price_unit || 'flat');
+                const priceVal = parseFloat(r.price);
+                let rowClass = '';
+                if (priceVal === minPrice && minPrice !== maxPrice) rowClass = 'price-lowest';
+                else if (priceVal === maxPrice && minPrice !== maxPrice) rowClass = 'price-highest';
+                return `<tr class="${rowClass}" style="cursor: pointer;" onclick="app.showPricePointDetails(app.currentPriceHistory.find(h => h.id === ${r.id}))">
+                    <td>${d.toLocaleDateString()}</td>
+                    <td>${r.store ? this.escapeHtml(r.store) : '-'}</td>
+                    <td>$${priceVal.toFixed(2)}${recUnitSuffix}</td>
+                </tr>`;
+            }).join('');
+
+        } catch (err) {
+            console.error('Failed to load price history:', err);
+            noDataEl.textContent = 'Failed to load price history.';
+            noDataEl.classList.remove('hidden');
+        }
     }
 
     // Hide item details modal
     hideItemDetails() {
         this.itemDetailsModal.classList.add('hidden');
         this.currentDetailsItemId = null;
+        if (this.detailsChart) {
+            this.detailsChart.destroy();
+            this.detailsChart = null;
+        }
     }
 
     // Show price history modal for an item
@@ -5521,26 +5638,27 @@ class PantryInventory {
                 const record = this.currentPriceHistory.find(r => r.id === this.currentPricePointRecord.id);
                 if (record) record.store = newStore;
 
-                // Re-render table
-                const tableBody = document.getElementById('priceHistoryTableBody');
-                if (tableBody) {
-                    const pricesForHighlight = this.currentPriceHistory.map(r => parseFloat(r.price));
-                    const minPrice = Math.min(...pricesForHighlight);
-                    const maxPrice = Math.max(...pricesForHighlight);
-                    tableBody.innerHTML = [...this.currentPriceHistory].reverse().map(r => {
-                        const d = new Date(r.recorded_at);
-                        const recUnitSuffix = this.getPriceUnitSuffix(r.price_unit || 'flat');
-                        const priceVal = parseFloat(r.price);
-                        let rowClass = '';
-                        if (priceVal === minPrice && minPrice !== maxPrice) rowClass = 'price-lowest';
-                        else if (priceVal === maxPrice && minPrice !== maxPrice) rowClass = 'price-highest';
-                        return `<tr class="${rowClass}" style="cursor: pointer;" onclick="app.showPricePointDetails(app.currentPriceHistory.find(h => h.id === ${r.id}))">
-                            <td>${d.toLocaleDateString()}</td>
-                            <td>${r.store ? this.escapeHtml(r.store) : '-'}</td>
-                            <td>$${priceVal.toFixed(2)}${recUnitSuffix}</td>
-                        </tr>`;
-                    }).join('');
-                }
+                // Re-render both table bodies (details modal and standalone price history modal)
+                const pricesForHighlight = this.currentPriceHistory.map(r => parseFloat(r.price));
+                const minPrice = Math.min(...pricesForHighlight);
+                const maxPrice = Math.max(...pricesForHighlight);
+                const updatedRows = [...this.currentPriceHistory].reverse().map(r => {
+                    const d = new Date(r.recorded_at);
+                    const recUnitSuffix = this.getPriceUnitSuffix(r.price_unit || 'flat');
+                    const priceVal = parseFloat(r.price);
+                    let rowClass = '';
+                    if (priceVal === minPrice && minPrice !== maxPrice) rowClass = 'price-lowest';
+                    else if (priceVal === maxPrice && minPrice !== maxPrice) rowClass = 'price-highest';
+                    return `<tr class="${rowClass}" style="cursor: pointer;" onclick="app.showPricePointDetails(app.currentPriceHistory.find(h => h.id === ${r.id}))">
+                        <td>${d.toLocaleDateString()}</td>
+                        <td>${r.store ? this.escapeHtml(r.store) : '-'}</td>
+                        <td>$${priceVal.toFixed(2)}${recUnitSuffix}</td>
+                    </tr>`;
+                }).join('');
+                const detailsBody = document.getElementById('detailsPriceTableBody');
+                if (detailsBody) detailsBody.innerHTML = updatedRows;
+                const historyBody = document.getElementById('priceHistoryTableBody');
+                if (historyBody) historyBody.innerHTML = updatedRows;
             }
 
             this.hidePricePointPopup();

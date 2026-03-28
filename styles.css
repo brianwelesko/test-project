@@ -188,6 +188,7 @@ header h1 {
     border: 2px solid var(--border-warm);
     border-radius: 8px;
     font-size: 16px; /* Prevents iOS zoom */
+    font-family: 'IBM Plex Mono', monospace;
     transition: border-color 0.3s;
     color: var(--text-primary);
 }
@@ -1268,10 +1269,11 @@ mark {
 }
 
 .item-info h3 {
-    font-family: 'Lora', serif;
+    font-family: 'Alatsi', sans-serif;
     color: var(--text-primary);
     margin-bottom: 2px;
     font-size: 1rem;
+    letter-spacing: 0.05em;
     display: inline;
 }
 
@@ -1288,8 +1290,9 @@ mark {
     padding: 2px 8px;
     border-radius: 4px;
     font-size: 0.75rem;
-    font-weight: 500;
+    font-weight: 400;
     font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.02em;
     color: white;
     margin-right: 6px;
 }
@@ -1327,6 +1330,7 @@ mark {
     border-radius: 10px;
     font-size: 0.7rem;
     font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.02em;
     margin-left: 6px;
 }
 
@@ -1339,8 +1343,9 @@ mark {
     padding: 2px 8px;
     border-radius: 10px;
     font-size: 0.7rem;
-    font-weight: 500;
+    font-weight: 400;
     font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.02em;
 }
 
 .expiration-badge.fresh {

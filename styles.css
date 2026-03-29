@@ -1387,6 +1387,39 @@ mark {
 .item-info .location-badge.basement { background: var(--loc-basement); }
 .item-info .location-badge.other { background: var(--loc-other); }
 
+/* Detail modal badge colors (scoped to .details-badges-row, not .item-info) */
+.details-badges-row .category-badge,
+.details-badges-row .location-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.02em;
+    color: white;
+}
+.details-badges-row .category-badge.spice     { background: var(--cat-spice); }
+.details-badges-row .category-badge.herb      { background: var(--cat-herb); }
+.details-badges-row .category-badge.seasoning { background: var(--cat-seasoning); }
+.details-badges-row .category-badge.produce   { background: var(--cat-produce); }
+.details-badges-row .category-badge.dairy     { background: var(--cat-dairy); color: var(--text-primary); }
+.details-badges-row .category-badge.canned    { background: var(--cat-canned); }
+.details-badges-row .category-badge.grain     { background: var(--cat-grain); color: var(--text-primary); }
+.details-badges-row .category-badge.frozen    { background: var(--cat-frozen); }
+.details-badges-row .category-badge.oil       { background: var(--cat-oil); color: var(--text-primary); }
+.details-badges-row .category-badge.baking    { background: var(--cat-baking); }
+.details-badges-row .category-badge.protein   { background: var(--cat-protein); }
+.details-badges-row .category-badge.other     { background: var(--cat-other); }
+.details-badges-row .location-badge.pantry        { background: var(--loc-pantry); }
+.details-badges-row .location-badge.fridge        { background: var(--loc-fridge); }
+.details-badges-row .location-badge.freezer       { background: var(--loc-freezer); }
+.details-badges-row .location-badge.drawer        { background: var(--loc-drawer); }
+.details-badges-row .location-badge.cabinet       { background: var(--loc-cabinet); }
+.details-badges-row .location-badge.spice-cabinet { background: var(--loc-spice-cabinet); }
+.details-badges-row .location-badge.counter       { background: var(--loc-counter); }
+.details-badges-row .location-badge.basement      { background: var(--loc-basement); }
+.details-badges-row .location-badge.other         { background: var(--loc-other); }
+
 .item-info .staple-badge {
     display: inline-block;
     padding: 1px 6px;
@@ -2029,7 +2062,7 @@ mark {
 }
 
 .badge-col-label {
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'Alatsi', sans-serif;
     font-size: 0.6rem;
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -2075,6 +2108,7 @@ mark {
 }
 
 .detail-value {
+    font-family: 'IBM Plex Mono', monospace;
     color: var(--text-primary);
     text-align: right;
     font-size: 0.9rem;

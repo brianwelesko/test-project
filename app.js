@@ -5704,6 +5704,12 @@ class PantryInventory {
             return;
         }
 
+        // Edit/Add form modal
+        if (this.formSection && !this.formSection.classList.contains('hidden')) {
+            this.cancelEdit();
+            return;
+        }
+
         // Filter modal
         if (this.filterModal && !this.filterModal.classList.contains('hidden')) {
             this.hideFilterModal();

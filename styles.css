@@ -1114,12 +1114,12 @@ mark {
     display: none;
 }
 
-.form-section > * {
+.form-modal-content {
     background: var(--surface-white);
     border-radius: 12px;
     padding: 28px;
     width: 100%;
-    max-width: 560px;
+    max-width: 500px;
     max-height: 90vh;
     overflow-y: auto;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);

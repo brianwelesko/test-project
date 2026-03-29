@@ -63,16 +63,34 @@ body {
     margin: 0 auto;
 }
 
+/* Hero section with peach background image */
+.hero-section {
+    background-image: url('peaches.jpg');
+    background-size: cover;
+    background-position: top center;
+    background-color: #D4956A; /* fallback */
+    margin: -20px -20px 20px -20px; /* bleed to container edges */
+    padding-bottom: 20px;
+}
+
 header {
-    text-align: center;
-    margin-bottom: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 20px 12px 20px;
+    margin-bottom: 0;
+    background: transparent;
+    text-align: left;
 }
 
 header h1 {
-    font-family: 'Lora', serif;
+    font-family: 'Public Sans', sans-serif;
     color: var(--text-primary);
-    font-size: 2.5rem;
-    font-weight: 600;
+    font-size: 1.4rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 0;
 }
 
 /* Search Section */
@@ -160,12 +178,12 @@ header h1 {
 
 /* Quick Use Section */
 .quick-use-section {
-    background: var(--surface-white);
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-    border: 1px solid var(--border-warm);
+    background: transparent;
+    border-radius: 0;
+    padding: 0 20px;
+    margin-bottom: 0;
+    box-shadow: none;
+    border: none;
 }
 
 .quick-use-section h2 {
@@ -218,17 +236,22 @@ header h1 {
 }
 
 .command-quick-links a {
-    color: var(--sage-green);
+    color: var(--text-primary);
     text-decoration: none;
-    padding: 4px 12px;
-    border-radius: 15px;
-    background: var(--sage-light);
+    padding: 2px 4px;
+    border-radius: 0;
+    background: none;
+    font-size: 0.72rem;
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.05em;
+    opacity: 0.7;
     transition: all 0.2s;
 }
 
 .command-quick-links a:hover {
-    background: var(--sage-green);
-    color: white;
+    background: none;
+    color: var(--terra-cotta);
+    opacity: 1;
 }
 
 /* Preview warning for delete confirmation */
@@ -457,11 +480,14 @@ header h1 {
 
 .quick-deduct-btn {
     padding: 12px 20px;
-    background: var(--sage-green);
+    background: var(--terra-cotta);
     color: white;
     border: none;
     border-radius: 8px;
     font-size: 1rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 400;
+    letter-spacing: 0.06em;
     cursor: pointer;
     transition: background 0.3s;
     white-space: nowrap;
@@ -476,7 +502,7 @@ header h1 {
 }
 
 .quick-deduct-btn:hover {
-    background: var(--sage-green-hover);
+    background: var(--terra-cotta-hover);
 }
 
 .quick-deduct-btn.deduct-mode {
@@ -569,14 +595,14 @@ header h1 {
 
 .suggestions-dropdown {
     position: relative;
-    background: var(--surface-white);
-    border: 2px solid var(--sage-green);
+    background: #1E1C1A;
+    border: none;
     border-radius: 8px;
     margin-top: 4px;
     max-height: 250px;
     overflow-y: auto;
     z-index: 100;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
 
 .suggestion-item {
@@ -586,7 +612,7 @@ header h1 {
     justify-content: space-between;
     align-items: center;
     gap: 10px;
-    border-bottom: 1px solid var(--border-warm);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .suggestion-item:last-child {
@@ -594,53 +620,60 @@ header h1 {
 }
 
 .suggestion-item:hover {
-    background: var(--sage-light);
+    background: rgba(255, 255, 255, 0.06);
 }
 
 .suggestion-name {
     font-weight: 500;
     flex: 1;
+    color: #F5F0EB;
 }
 
 .suggestion-qty {
-    color: var(--text-secondary);
+    color: rgba(255, 255, 255, 0.45);
     font-size: 0.9rem;
 }
 
 .suggestion-loc {
-    color: var(--text-secondary);
+    color: rgba(255, 255, 255, 0.45);
     font-size: 0.8rem;
-    background: var(--command-bg);
+    background: rgba(255, 255, 255, 0.1);
     padding: 2px 8px;
     border-radius: 10px;
 }
 
 .no-matches {
     padding: 12px 16px;
-    color: var(--text-secondary);
+    color: rgba(255, 255, 255, 0.4);
     font-style: italic;
+}
+
+/* <mark> highlight within autocomplete */
+.suggestions-dropdown mark {
+    background: none;
+    color: var(--terra-cotta);
+    font-weight: 600;
 }
 
 /* Enhanced suggestion styles for snappy autocomplete */
 .suggestion-item.highlighted {
-    background: var(--sage-green);
+    background: rgba(201, 112, 100, 0.2);
     color: white;
 }
 
 .suggestion-item.highlighted .suggestion-qty,
 .suggestion-item.highlighted .suggestion-hint,
 .suggestion-item.highlighted .suggestion-category {
-    color: rgba(255, 255, 255, 0.85);
+    color: rgba(255, 255, 255, 0.65);
 }
 
 .suggestion-item.highlighted .suggestion-loc {
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
+    background: rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.7);
 }
 
 .suggestion-item.highlighted mark {
-    background: rgba(255, 255, 255, 0.3);
-    color: white;
+    color: #E8907E;
 }
 
 .suggestion-icon {
@@ -1227,25 +1260,27 @@ mark {
 
 .inventory-list {
     display: grid;
-    gap: 8px;
+    gap: 0;
 }
 
 .inventory-item {
-    background: var(--command-bg);
-    border-radius: 8px;
-    padding: 10px 12px;
+    background: transparent;
+    border-radius: 0;
+    padding: 9px 4px;
     display: grid;
-    grid-template-columns: 1fr auto auto;
+    grid-template-columns: 28px 1fr auto auto;
     align-items: center;
-    gap: 10px;
-    transition: transform 0.2s, box-shadow 0.2s;
+    gap: 8px;
+    transition: background 0.15s;
     cursor: pointer;
-    border: 1px solid var(--border-warm);
+    border: none;
+    border-bottom: 1px solid var(--border-warm);
 }
 
 .inventory-item:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.025);
+    transform: none;
+    box-shadow: none;
 }
 
 .inventory-item.menu-open {
@@ -1255,17 +1290,27 @@ mark {
 
 .inventory-item.low-stock {
     background: var(--terra-light);
-    border-left: 3px solid var(--terra-cotta);
+    border-left: none;
 }
 
 .inventory-item.expiring-soon {
     background: #FFF8E7;
-    border-left: 3px solid #D4A84B;
+    border-left: none;
 }
 
 .inventory-item.expired {
     background: var(--terra-light);
-    border-left: 3px solid var(--terra-cotta);
+    border-left: none;
+}
+
+.row-number {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    opacity: 0.45;
+    align-self: center;
+    text-align: right;
+    padding-right: 4px;
 }
 
 .item-info h3 {
@@ -1274,6 +1319,7 @@ mark {
     margin-bottom: 2px;
     font-size: 1rem;
     letter-spacing: 0.05em;
+    text-transform: uppercase;
     display: inline;
 }
 
@@ -1876,43 +1922,117 @@ mark {
 .item-details-content {
     background: var(--surface-white);
     border-radius: 12px;
-    padding: 25px;
+    padding: 0;
     width: 90%;
-    max-width: 600px;
-    max-height: 80vh;
+    max-width: 500px;
+    max-height: 88vh;
     overflow-y: auto;
     position: relative;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);
     border: 1px solid var(--border-warm);
 }
 
 .close-details-btn {
     position: absolute;
-    top: 15px;
-    right: 15px;
+    top: 14px;
+    right: 16px;
     background: none;
     border: none;
     font-size: 1.5rem;
     cursor: pointer;
     color: var(--text-secondary);
     line-height: 1;
+    z-index: 1;
 }
 
 .close-details-btn:hover {
     color: var(--text-primary);
 }
 
-.item-details-content h3 {
-    font-family: 'Lora', serif;
-    margin: 0 0 20px 0;
-    color: var(--text-primary);
-    font-size: 1.4rem;
-    padding-right: 30px;
+/* Hero: large name + accent line + quantity */
+.details-hero {
+    text-align: center;
+    padding: 36px 28px 22px;
+    border-bottom: 1px solid var(--border-warm);
 }
 
+.item-details-content h3 {
+    font-family: 'Alatsi', sans-serif;
+    margin: 0 0 10px 0;
+    color: var(--text-primary);
+    font-size: 2rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    line-height: 1.1;
+    padding-right: 0;
+}
+
+.details-hero-accent {
+    width: 36px;
+    height: 3px;
+    background: var(--terra-cotta);
+    margin: 0 auto 18px;
+    border-radius: 2px;
+}
+
+.qty-number {
+    display: block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 3rem;
+    font-weight: 400;
+    color: var(--text-primary);
+    line-height: 1;
+}
+
+.qty-unit {
+    display: block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-top: 4px;
+    letter-spacing: 0.04em;
+}
+
+/* Three-column badges row */
+.details-badges-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-warm);
+    gap: 8px;
+}
+
+.badge-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.badge-col-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+}
+
+.threshold-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background: var(--terra-cotta);
+    color: white;
+    border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+}
+
+/* Data rows */
 .details-grid {
     display: grid;
     gap: 0;
+    padding: 0 20px;
 }
 
 .detail-row {
@@ -1927,19 +2047,30 @@ mark {
 }
 
 .detail-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
     color: var(--text-secondary);
-    font-weight: 500;
 }
 
 .detail-value {
     color: var(--text-primary);
     text-align: right;
+    font-size: 0.9rem;
+}
+
+/* Price history section */
+.details-price-history {
+    padding: 0 20px;
 }
 
 .details-actions {
     display: flex;
     gap: 10px;
-    margin-top: 20px;
+    padding: 16px 20px 20px;
+    margin-top: 0;
 }
 
 .details-actions button {
@@ -1948,31 +2079,36 @@ mark {
     border-radius: 8px;
     border: none;
     cursor: pointer;
-    font-size: 1rem;
+    font-size: 0.85rem;
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
     transition: background 0.2s;
 }
 
 .details-actions .btn-edit {
-    background: var(--teal-warm);
+    background: var(--terra-cotta);
     color: white;
 }
 
 .details-actions .btn-edit:hover {
-    background: var(--teal-warm-hover);
+    background: var(--terra-cotta-hover);
 }
 
 .details-actions .btn-cancel {
-    background: var(--text-secondary);
+    background: var(--text-primary);
     color: white;
 }
 
 .details-actions .btn-cancel:hover {
-    background: #5B5550;
+    background: #1A1816;
 }
 
 .details-section-header {
-    font-family: 'Lora', serif;
-    font-size: 1rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
     color: var(--text-secondary);
     margin: 20px 0 12px 0;
     padding-top: 16px;

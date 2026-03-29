@@ -2211,7 +2211,7 @@ class PantryInventory {
             return;
         }
 
-        this.inventoryList.innerHTML = items.map(item => {
+        this.inventoryList.innerHTML = items.map((item, index) => {
             const isLowStock = item.threshold > 0 && item.quantity <= item.threshold;
             const expirationStatus = this.getExpirationStatus(item);
             const days = this.getDaysUntilExpiration(item);
@@ -2239,6 +2239,7 @@ class PantryInventory {
 
             return `
                 <div class="inventory-item ${statusClass}" data-id="${item.id}" onclick="if(!event.target.closest('.item-actions') && !event.target.closest('.overflow-menu'))app.showItemDetails('${this.escapeHtml(item.name).replace(/'/g, "\\'")}')">
+                    <span class="row-number">${String(index + 1).padStart(2, '0')}</span>
                     <div class="item-info">
                         <h3>${this.escapeHtml(item.name)}</h3>
                         <div class="meta">
@@ -5268,37 +5269,35 @@ class PantryInventory {
             return;
         }
 
-        // Populate modal
+        // Populate hero section
         document.getElementById('detailsName').textContent = item.name;
-        document.getElementById('detailsQty').textContent = `${item.quantity} ${item.unit}`;
-        document.getElementById('detailsCategory').textContent = this.formatCategory(item.category);
-        document.getElementById('detailsLocation').textContent = LOCATION_NAMES[item.location] || '-';
-        document.getElementById('detailsThreshold').textContent = item.threshold ? `${item.threshold} ${item.unit}` : 'None';
+        document.getElementById('detailsQtyNum').textContent = item.quantity;
+        document.getElementById('detailsQtyUnit').textContent = item.unit;
+
+        // Three-column badges
+        const categoryName = this.formatCategory(item.category);
+        document.getElementById('detailsCategoryBadge').innerHTML = item.category
+            ? `<span class="category-badge ${item.category}">${categoryName}</span>`
+            : '<span>—</span>';
+
+        const locationName = item.location ? (LOCATION_NAMES[item.location] || item.location) : '';
+        document.getElementById('detailsLocationBadge').innerHTML = locationName
+            ? `<span class="location-badge ${item.location}">${locationName}</span>`
+            : '<span>—</span>';
+
+        const thresholdEl = document.getElementById('detailsThresholdBadge');
+        if (item.threshold) {
+            thresholdEl.textContent = `${item.threshold} ${item.unit}`;
+            thresholdEl.classList.remove('hidden');
+        } else {
+            thresholdEl.textContent = '—';
+        }
+
+        // Data rows
         document.getElementById('detailsStore').textContent = item.boughtFrom || item.notes || '-';
         document.getElementById('detailsPurchase').textContent = item.purchaseDate || '-';
         document.getElementById('detailsExpiration').textContent = item.expirationDate || '-';
-        document.getElementById('detailsStaple').textContent = item.isStaple ? 'Yes' : 'No';
 
-        // Update or inject brand row
-        let brandRow = document.getElementById('detailsBrandRow');
-        if (!brandRow) {
-            brandRow = document.createElement('div');
-            brandRow.id = 'detailsBrandRow';
-            brandRow.className = 'detail-row';
-            brandRow.innerHTML = '<span class="detail-label">Brand:</span><span id="detailsBrand" class="detail-value"></span>';
-            document.querySelector('#itemDetailsModal .details-grid').prepend(brandRow);
-        }
-        document.getElementById('detailsBrand').textContent = item.brand || '-';
-
-        // Update price row
-        let priceRow = document.getElementById('detailsPriceRow');
-        if (!priceRow) {
-            priceRow = document.createElement('div');
-            priceRow.id = 'detailsPriceRow';
-            priceRow.className = 'detail-row';
-            priceRow.innerHTML = '<span class="detail-label">Price:</span><span id="detailsPrice" class="detail-value"></span>';
-            document.querySelector('#itemDetailsModal .details-grid').appendChild(priceRow);
-        }
         const detailsPriceUnit = item.price_unit || 'flat';
         const detailsUnitSuffix = this.getPriceUnitSuffix(detailsPriceUnit);
         document.getElementById('detailsPrice').textContent = item.last_price != null ? `$${parseFloat(item.last_price).toFixed(2)}${detailsUnitSuffix}` : '-';
@@ -5357,8 +5356,8 @@ class PantryInventory {
                     datasets: [{
                         label: `Price (${unitLabel})`,
                         data: prices,
-                        borderColor: '#667eea',
-                        backgroundColor: 'rgba(102, 126, 234, 0.15)',
+                        borderColor: '#C97064',
+                        backgroundColor: 'rgba(201, 112, 100, 0.12)',
                         borderWidth: 2,
                         pointRadius: 5,
                         pointHoverRadius: 7,
@@ -5494,8 +5493,8 @@ class PantryInventory {
                     datasets: [{
                         label: `Price (${unitLabel})`,
                         data: prices,
-                        borderColor: '#667eea',
-                        backgroundColor: 'rgba(102, 126, 234, 0.15)',
+                        borderColor: '#C97064',
+                        backgroundColor: 'rgba(201, 112, 100, 0.12)',
                         borderWidth: 2,
                         pointRadius: 5,
                         pointHoverRadius: 7,

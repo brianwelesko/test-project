@@ -68,8 +68,9 @@
     </div>
 
     <div class="container hidden" id="mainApp">
+        <div class="hero-section">
         <header>
-            <h1>Pantry Tracker</h1>
+            <h1>My Pantry</h1>
             <button id="logoutBtn" class="logout-btn" title="Logout">Logout</button>
         </header>
 
@@ -77,7 +78,7 @@
         <section class="quick-use-section">
             <div class="quick-deduct-wrapper">
                 <input type="text" id="quickDeductInput" placeholder="Search, convert, add..." autocomplete="off" autofocus>
-                <button id="quickDeductBtn" class="quick-deduct-btn"><span class="btn-text">Go</span><span class="btn-icon">→</span></button>
+                <button id="quickDeductBtn" class="quick-deduct-btn"><span class="btn-text">GO</span><span class="btn-icon">→</span></button>
                 <button id="quickDeductMore" class="quick-deduct-more" title="More options">⋯</button>
             </div>
             <div class="command-quick-links">
@@ -169,6 +170,7 @@
                 </div>
             </div>
         </section>
+        </div><!-- /.hero-section -->
 
         <!-- Alerts Section -->
         <section id="alertsSection" class="alerts-section hidden">
@@ -443,41 +445,54 @@ Example:
     <div id="itemDetailsModal" class="item-details-modal hidden">
         <div class="item-details-content">
             <button id="closeDetails" class="close-details-btn">&times;</button>
-            <h3 id="detailsName">Item Name</h3>
+
+            <!-- Hero: name + accent line + large quantity -->
+            <div class="details-hero">
+                <h3 id="detailsName">Item Name</h3>
+                <div class="details-hero-accent"></div>
+                <div class="details-qty-display">
+                    <span id="detailsQtyNum" class="qty-number"></span>
+                    <span id="detailsQtyUnit" class="qty-unit"></span>
+                </div>
+            </div>
+
+            <!-- Three-column badges: Category / Location / Stock Alert -->
+            <div class="details-badges-row">
+                <div class="badge-column">
+                    <span class="badge-col-label">Category</span>
+                    <span id="detailsCategoryBadge"></span>
+                </div>
+                <div class="badge-column">
+                    <span class="badge-col-label">Location</span>
+                    <span id="detailsLocationBadge"></span>
+                </div>
+                <div class="badge-column">
+                    <span class="badge-col-label">Stock Alert</span>
+                    <span id="detailsThresholdBadge" class="threshold-badge"></span>
+                </div>
+            </div>
+
+            <!-- Data rows -->
             <div class="details-grid">
                 <div class="detail-row">
-                    <span class="detail-label">Quantity:</span>
-                    <span id="detailsQty" class="detail-value"></span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Category:</span>
-                    <span id="detailsCategory" class="detail-value"></span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Location:</span>
-                    <span id="detailsLocation" class="detail-value"></span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Low Stock Alert:</span>
-                    <span id="detailsThreshold" class="detail-value"></span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Bought From:</span>
-                    <span id="detailsStore" class="detail-value"></span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Purchase Date:</span>
+                    <span class="detail-label">Purchase Date</span>
                     <span id="detailsPurchase" class="detail-value"></span>
                 </div>
                 <div class="detail-row">
-                    <span class="detail-label">Expiration:</span>
+                    <span class="detail-label">Expiration Date</span>
                     <span id="detailsExpiration" class="detail-value"></span>
                 </div>
                 <div class="detail-row">
-                    <span class="detail-label">Staple:</span>
-                    <span id="detailsStaple" class="detail-value"></span>
+                    <span class="detail-label">Store</span>
+                    <span id="detailsStore" class="detail-value"></span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Price</span>
+                    <span id="detailsPrice" class="detail-value"></span>
                 </div>
             </div>
+
+            <!-- Price history chart + table -->
             <div class="details-price-history">
                 <h4 class="details-section-header">Price History</h4>
                 <div class="details-price-chart-container">
@@ -486,11 +501,12 @@ Example:
                 </div>
                 <div id="detailsPriceTable" class="price-history-table-wrapper hidden">
                     <table class="price-history-table">
-                        <thead><tr><th>Date</th><th>Store</th><th>Price</th></tr></thead>
+                        <thead><tr><th>#</th><th>Date</th><th>Store</th><th>Price</th></tr></thead>
                         <tbody id="detailsPriceTableBody"></tbody>
                     </table>
                 </div>
             </div>
+
             <div class="details-actions">
                 <button id="detailsEditBtn" class="btn-edit">Edit</button>
                 <button id="detailsCloseBtn" class="btn-cancel">Close</button>

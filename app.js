@@ -1431,6 +1431,10 @@ class PantryInventory {
         // Form events
         this.form.addEventListener('submit', (e) => this.handleSubmit(e));
         this.cancelBtn.addEventListener('click', () => this.cancelEdit());
+        // Close form modal when clicking the backdrop
+        this.formSection.addEventListener('click', (e) => {
+            if (e.target === this.formSection) this.cancelEdit();
+        });
 
         // Quick links events
         this.quickLinks.forEach(link => {
@@ -1456,9 +1460,10 @@ class PantryInventory {
         }
         if (this.detailsEditBtn) {
             this.detailsEditBtn.addEventListener('click', () => {
+                const itemId = this.currentDetailsItemId;
                 this.hideItemDetails();
-                if (this.currentDetailsItemId) {
-                    this.startEdit(this.currentDetailsItemId);
+                if (itemId) {
+                    this.startEdit(itemId);
                 }
             });
         }
@@ -1904,11 +1909,8 @@ class PantryInventory {
         if (this.itemPriceInput) this.itemPriceInput.value = item.last_price !== null && item.last_price !== undefined ? item.last_price : '';
         if (this.itemPriceUnitSelect) this.itemPriceUnitSelect.value = item.price_unit || 'flat';
 
-        // Show form section if hidden
+        // Show form as modal
         this.formSection.classList.remove('hidden');
-
-        // Scroll to form
-        this.form.scrollIntoView({ behavior: 'smooth' });
     }
 
     cancelEdit() {
@@ -5402,7 +5404,7 @@ class PantryInventory {
             const minPrice = Math.min(...priceVals);
             const maxPrice = Math.max(...priceVals);
 
-            tableBody.innerHTML = [...history].reverse().map(r => {
+            tableBody.innerHTML = [...history].reverse().map((r, idx) => {
                 const d = new Date(r.recorded_at);
                 const recUnitSuffix = this.getPriceUnitSuffix(r.price_unit || 'flat');
                 const priceVal = parseFloat(r.price);
@@ -5410,6 +5412,7 @@ class PantryInventory {
                 if (priceVal === minPrice && minPrice !== maxPrice) rowClass = 'price-lowest';
                 else if (priceVal === maxPrice && minPrice !== maxPrice) rowClass = 'price-highest';
                 return `<tr class="${rowClass}" style="cursor: pointer;" onclick="app.showPricePointDetails(app.currentPriceHistory.find(h => h.id === ${r.id}))">
+                    <td>${String(idx + 1).padStart(2, '0')}</td>
                     <td>${d.toLocaleDateString()}</td>
                     <td>${r.store ? this.escapeHtml(r.store) : '-'}</td>
                     <td>$${priceVal.toFixed(2)}${recUnitSuffix}</td>
@@ -5546,7 +5549,7 @@ class PantryInventory {
             const maxPrice = Math.max(...pricesForHighlight);
 
             // Populate table (newest first)
-            tableBody.innerHTML = [...history].reverse().map(r => {
+            tableBody.innerHTML = [...history].reverse().map((r, idx) => {
                 const d = new Date(r.recorded_at);
                 const recUnitSuffix = this.getPriceUnitSuffix(r.price_unit || 'flat');
                 const priceVal = parseFloat(r.price);
@@ -5554,6 +5557,7 @@ class PantryInventory {
                 if (priceVal === minPrice && minPrice !== maxPrice) rowClass = 'price-lowest';
                 else if (priceVal === maxPrice && minPrice !== maxPrice) rowClass = 'price-highest';
                 return `<tr class="${rowClass}" style="cursor: pointer;" onclick="app.showPricePointDetails(app.currentPriceHistory.find(h => h.id === ${r.id}))">
+                    <td>${String(idx + 1).padStart(2, '0')}</td>
                     <td>${d.toLocaleDateString()}</td>
                     <td>${r.store ? this.escapeHtml(r.store) : '-'}</td>
                     <td>$${priceVal.toFixed(2)}${recUnitSuffix}</td>

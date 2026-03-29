@@ -1097,15 +1097,34 @@ mark {
     color: var(--sage-dark);
 }
 
-/* Form Section */
+/* Form Section — modal overlay */
 .form-section {
+    position: fixed;
+    inset: 0;
+    background: rgba(45, 42, 38, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1050;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.form-section.hidden {
+    display: none;
+}
+
+.form-section > * {
     background: var(--surface-white);
     border-radius: 12px;
-    padding: 25px;
-    margin-top: 20px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    padding: 28px;
+    width: 100%;
+    max-width: 560px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);
     border: 1px solid var(--border-warm);
+    position: relative;
 }
 
 .form-section h2 {

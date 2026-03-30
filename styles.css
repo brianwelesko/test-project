@@ -4,6 +4,10 @@
     box-sizing: border-box;
 }
 
+html, body {
+    overflow-x: hidden;
+}
+
 :root {
     /* Base Colors */
     --bg-cream: #FAF7F2;
@@ -1171,6 +1175,7 @@ mark {
 .form-group input,
 .form-group select {
     width: 100%;
+    max-width: 100%;
     padding: 10px 14px;
     border: 2px solid var(--border-warm);
     border-radius: 8px;
@@ -1189,6 +1194,10 @@ mark {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 15px;
+}
+
+.form-row .form-group {
+    min-width: 0;
 }
 
 .price-input-group {

@@ -1436,6 +1436,18 @@ class PantryInventory {
             if (e.target === this.formSection) this.cancelEdit();
         });
 
+        // Auto-update expiration date when purchase date changes
+        this.purchaseDateInput.addEventListener('change', () => {
+            if (!this.expirationManuallyEdited && this.purchaseDateInput.value) {
+                const category = this.categorySelect.value;
+                this.expirationDateInput.value = this.autoCalculateExpiration(category, this.purchaseDateInput.value);
+            }
+        });
+        // Track if user manually edited expiration date
+        this.expirationDateInput.addEventListener('change', () => {
+            this.expirationManuallyEdited = true;
+        });
+
         // Quick links events
         this.quickLinks.forEach(link => {
             link.addEventListener('click', (e) => {
@@ -1909,6 +1921,7 @@ class PantryInventory {
         if (this.itemPriceInput) this.itemPriceInput.value = item.last_price !== null && item.last_price !== undefined ? item.last_price : '';
         if (this.itemPriceUnitSelect) this.itemPriceUnitSelect.value = item.price_unit || 'flat';
 
+        this.expirationManuallyEdited = false;
         // Show form as modal
         this.formSection.classList.remove('hidden');
     }
@@ -1919,6 +1932,7 @@ class PantryInventory {
         this.submitBtn.textContent = 'Add Item';
         this.cancelBtn.classList.add('hidden');
         this.form.reset();
+        this.expirationManuallyEdited = false;
         this.formSection.classList.add('hidden');
     }
 

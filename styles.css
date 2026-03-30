@@ -1122,15 +1122,22 @@ mark {
     max-width: 500px;
     max-height: 90vh;
     overflow-y: auto;
+    overflow-x: hidden;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);
     border: 1px solid var(--border-warm);
     position: relative;
 }
 
-.form-section h2 {
-    font-family: 'Lora', serif;
-    margin-bottom: 20px;
+.form-modal-content h2 {
+    font-family: 'Alatsi', sans-serif;
+    font-size: 1.4rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
     color: var(--text-primary);
+    font-weight: 400;
+    margin: -28px -28px 24px -28px;
+    padding: 24px 28px;
+    border-bottom: 1px solid var(--border-warm);
 }
 
 .form-group {
@@ -1141,7 +1148,11 @@ mark {
     display: block;
     margin-bottom: 6px;
     color: var(--text-secondary);
-    font-weight: 500;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
 }
 
 .checkbox-group label {
@@ -1171,7 +1182,7 @@ mark {
 .form-group input:focus,
 .form-group select:focus {
     outline: none;
-    border-color: var(--sage-green);
+    border-color: var(--terra-cotta);
 }
 
 .form-row {
@@ -1206,6 +1217,11 @@ mark {
     display: flex;
     gap: 10px;
     margin-top: 20px;
+    margin-left: -28px;
+    margin-right: -28px;
+    margin-bottom: -28px;
+    padding: 16px 28px;
+    border-top: 1px solid var(--border-warm);
 }
 
 .form-actions button {
@@ -1222,22 +1238,30 @@ mark {
 }
 
 #submitBtn {
-    background: var(--sage-green);
+    background: var(--terra-cotta);
     color: white;
     flex: 1;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
 }
 
 #submitBtn:hover {
-    background: var(--sage-green-hover);
+    background: var(--terra-cotta-hover);
 }
 
 #cancelBtn {
-    background: var(--text-secondary);
+    background: var(--text-primary);
     color: white;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
 }
 
 #cancelBtn:hover {
-    background: #5B5550;
+    background: #1A1816;
 }
 
 /* Inventory Section */

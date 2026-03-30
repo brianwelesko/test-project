@@ -866,7 +866,11 @@ mark {
 
 @media (max-width: 600px) {
     body {
-        padding: 8px;
+        padding: 8px 0;
+    }
+
+    .hero-section {
+        margin: -8px 0 16px 0;
     }
 
     header {
@@ -1320,7 +1324,7 @@ mark {
     border-radius: 0;
     padding: 9px 4px;
     display: grid;
-    grid-template-columns: 28px 1fr auto auto;
+    grid-template-columns: 28px 1fr auto;
     align-items: center;
     gap: 8px;
     transition: background 0.15s;
@@ -1369,7 +1373,7 @@ mark {
     font-family: 'Alatsi', sans-serif;
     color: var(--text-primary);
     margin-bottom: 2px;
-    font-size: 1rem;
+    font-size: 1.15rem;
     letter-spacing: 0.05em;
     text-transform: uppercase;
     display: inline;
@@ -2181,6 +2185,15 @@ mark {
     background: var(--terra-cotta-hover);
 }
 
+.details-actions .btn-delete-detail {
+    background: #8B2E2E;
+    color: white;
+}
+
+.details-actions .btn-delete-detail:hover {
+    background: #7A2525;
+}
+
 .details-actions .btn-cancel {
     background: var(--text-primary);
     color: white;
@@ -2469,24 +2482,27 @@ mark {
         border-left-width: 2px;
     }
 
-    /* Mobile Inventory Items - Horizontal Layout */
-    .desktop-only {
-        display: none !important;
+    /* Mobile Inventory — full width, no side padding on section */
+    .inventory-section {
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+        padding: 12px 0 16px;
     }
 
-    .mobile-only {
-        display: block;
+    .inventory-header {
+        padding: 0 12px 8px;
     }
 
     .inventory-item {
-        grid-template-columns: 1fr auto auto;
+        grid-template-columns: 28px 1fr auto;
         text-align: left;
         padding: 10px 12px;
         gap: 10px;
     }
 
     .item-info h3 {
-        font-size: 0.95rem;
+        font-size: 1.1rem;
         margin-bottom: 2px;
     }
 

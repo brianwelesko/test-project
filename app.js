@@ -1409,6 +1409,7 @@ class PantryInventory {
         this.itemDetailsModal = document.getElementById('itemDetailsModal');
         this.closeDetailsBtn = document.getElementById('closeDetails');
         this.detailsEditBtn = document.getElementById('detailsEditBtn');
+        this.detailsDeleteBtn = document.getElementById('detailsDeleteBtn');
         this.detailsCloseBtn = document.getElementById('detailsCloseBtn');
         this.currentDetailsItemId = null;
 
@@ -1476,6 +1477,18 @@ class PantryInventory {
                 this.hideItemDetails();
                 if (itemId) {
                     this.startEdit(itemId);
+                }
+            });
+        }
+        if (this.detailsDeleteBtn) {
+            this.detailsDeleteBtn.addEventListener('click', async () => {
+                const itemId = this.currentDetailsItemId;
+                if (!itemId) return;
+                const item = this.getItem(itemId);
+                if (item && confirm(`Delete "${item.name}"?`)) {
+                    this.hideItemDetails();
+                    await this.deleteItem(itemId);
+                    this.render();
                 }
             });
         }
@@ -2254,7 +2267,7 @@ class PantryInventory {
             const storeInfo = item.boughtFrom || item.notes || '';
 
             return `
-                <div class="inventory-item ${statusClass}" data-id="${item.id}" onclick="if(!event.target.closest('.item-actions') && !event.target.closest('.overflow-menu'))app.showItemDetails('${this.escapeHtml(item.name).replace(/'/g, "\\'")}')">
+                <div class="inventory-item ${statusClass}" data-id="${item.id}" onclick="app.showItemDetails('${this.escapeHtml(item.name).replace(/'/g, "\\'")}')">
                     <span class="row-number">${String(index + 1).padStart(2, '0')}</span>
                     <div class="item-info">
                         <h3>${this.escapeHtml(item.name)}</h3>
@@ -2271,19 +2284,6 @@ class PantryInventory {
                     <div class="item-quantity">
                         <div class="amount">${item.quantity}</div>
                         <div class="unit">${item.unit}</div>
-                    </div>
-                    <div class="item-actions desktop-only">
-                        <button class="btn-update-qty" onclick="app.showQuickUpdate('${item.id}')">Update Qty</button>
-                        <button class="btn-edit" onclick="app.startEdit('${item.id}')">Edit</button>
-                        <button class="btn-delete" onclick="app.confirmDelete('${item.id}')">Delete</button>
-                    </div>
-                    <div class="overflow-menu mobile-only">
-                        <button class="overflow-btn" onclick="event.stopPropagation(); app.toggleOverflowMenu('${item.id}')">•••</button>
-                        <div id="overflow-${item.id}" class="overflow-dropdown hidden">
-                            <button onclick="event.stopPropagation(); app.showQuickUpdate('${item.id}'); app.closeAllOverflowMenus();">Update Qty</button>
-                            <button onclick="event.stopPropagation(); app.startEdit('${item.id}'); app.closeAllOverflowMenus();">Edit</button>
-                            <button class="delete-action" onclick="event.stopPropagation(); app.confirmDelete('${item.id}'); app.closeAllOverflowMenus();">Delete</button>
-                        </div>
                     </div>
                 </div>
             `;

@@ -5889,6 +5889,28 @@ class PantryInventory {
 
     showAddNewPreview(parsed) {
         const unit = this.normalizeUnitShortcut(parsed.unit);
+
+        // If an item with this name already exists, show restock-style preview
+        const existingItem = this.findInventoryMatch(parsed.name);
+        if (existingItem) {
+            const converted = this.convertQuantity(parsed.amount, unit, existingItem.unit, existingItem.name);
+            if (converted !== null) {
+                const newQty = Math.round((existingItem.quantity + converted) * 100) / 100;
+                const roundedAdd = Math.round(converted * 100) / 100;
+                this.quickDeductPreview.innerHTML = `
+                    <span class="preview-item">${this.escapeHtml(existingItem.name)}:</span>
+                    <span class="preview-calc">${existingItem.quantity} ${existingItem.unit} → ${newQty} ${existingItem.unit}</span>
+                    <span class="preview-add">(+${roundedAdd} ${existingItem.unit})</span>
+                `;
+            } else {
+                this.quickDeductPreview.innerHTML = `
+                    <span class="preview-error">Cannot convert ${unit} to ${existingItem.unit}</span>
+                `;
+            }
+            this.quickDeductPreview.classList.remove('hidden');
+            return;
+        }
+
         const detected = this.detectIngredientInfo(parsed.name);
 
         // Use explicit overrides or detected values
@@ -6417,25 +6439,42 @@ class PantryInventory {
     async executeAddNew(parsed) {
         const unit = this.normalizeUnitShortcut(parsed.unit);
 
-        // Auto-detect category and location from database
-        const detected = this.detectIngredientInfo(parsed.name);
+        // Check if an item with this name already exists
+        const existingItem = this.findInventoryMatch(parsed.name);
 
-        // Use explicit overrides (@location, #category) or detected values or defaults
-        const category = parsed.category || (detected ? detected.category : 'other');
-        const location = parsed.location || (detected ? detected.location : '');
+        if (existingItem) {
+            // Add to existing item's quantity instead of creating a duplicate
+            const converted = this.convertQuantity(parsed.amount, unit, existingItem.unit, existingItem.name);
+            if (converted === null) {
+                alert(`Cannot convert ${unit} to ${existingItem.unit}. Edit the item directly to change units.`);
+                return;
+            }
+            const newQty = Math.round((existingItem.quantity + converted) * 100) / 100;
+            const updateData = { quantity: newQty };
+            if (parsed.store) updateData.boughtFrom = parsed.store;
+            if (parsed.price != null) updateData.last_price = parsed.price;
+            await this.updateItem(existingItem.id, updateData);
+        } else {
+            // Auto-detect category and location from database
+            const detected = this.detectIngredientInfo(parsed.name);
 
-        await this.addItem({
-            name: parsed.name,
-            quantity: parsed.amount,
-            unit: unit,
-            category: category,
-            location: location,
-            threshold: parsed.threshold, // Will use default 20% if null
-            last_price: parsed.price,
-            price_unit: parsed.priceUnit || 'flat',
-            boughtFrom: parsed.store
-            // Expiration will be auto-calculated in addItem based on category
-        });
+            // Use explicit overrides (@location, #category) or detected values or defaults
+            const category = parsed.category || (detected ? detected.category : 'other');
+            const location = parsed.location || (detected ? detected.location : '');
+
+            await this.addItem({
+                name: parsed.name,
+                quantity: parsed.amount,
+                unit: unit,
+                category: category,
+                location: location,
+                threshold: parsed.threshold, // Will use default 20% if null
+                last_price: parsed.price,
+                price_unit: parsed.priceUnit || 'flat',
+                boughtFrom: parsed.store
+                // Expiration will be auto-calculated in addItem based on category
+            });
+        }
 
         this.clearCommandBar();
         this.render();

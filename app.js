@@ -2267,7 +2267,7 @@ class PantryInventory {
             const storeInfo = item.boughtFrom || item.notes || '';
 
             return `
-                <div class="inventory-item ${statusClass}" data-id="${item.id}" onclick="app.showItemDetails('${this.escapeHtml(item.name).replace(/'/g, "\\'")}')">
+                <div class="inventory-item ${statusClass}" data-id="${item.id}" onclick="app.showItemDetails(${item.id})">
                     <span class="row-number">${String(index + 1).padStart(2, '0')}</span>
                     <div class="item-info">
                         <h3>${this.escapeHtml(item.name)}</h3>
@@ -5279,7 +5279,10 @@ class PantryInventory {
 
     // Show item details modal
     async showItemDetails(query) {
-        const item = this.findInventoryMatch(query);
+        // Accept either a numeric ID (from inventory rows) or a name string (from command bar)
+        const item = (typeof query === 'number' || (typeof query === 'string' && !isNaN(query) && !query.includes(' ')))
+            ? this.inventory.find(i => String(i.id) === String(query) && !i.deletedAt)
+            : this.findInventoryMatch(query);
         if (!item) {
             alert(`Item "${query}" not found in inventory`);
             return;

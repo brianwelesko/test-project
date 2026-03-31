@@ -975,6 +975,16 @@ const API = {
         });
     },
 
+    async getQuantityHistory(itemId) {
+        return this.request(`/inventory/${itemId}/quantity-history`);
+    },
+    async addQuantityHistory(itemId, data) {
+        return this.request(`/inventory/${itemId}/quantity-history`, {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+    },
+
     async deleteItem(id, reason = null) {
         return this.request(`/inventory/${id}`, {
             method: 'DELETE',
@@ -1492,6 +1502,16 @@ class PantryInventory {
                 }
             });
         }
+        const qtyHistoryToggle = document.getElementById('qtyHistoryToggle');
+        if (qtyHistoryToggle) {
+            qtyHistoryToggle.addEventListener('click', () => {
+                const body = document.getElementById('qtyHistoryBody');
+                const arrow = document.querySelector('#qtyHistoryToggle .toggle-arrow');
+                const hidden = body.classList.toggle('hidden');
+                arrow.textContent = hidden ? '▶' : '▼';
+            });
+        }
+
         if (this.itemDetailsModal) {
             this.itemDetailsModal.addEventListener('click', (e) => {
                 // Close if clicking outside modal content
@@ -5330,6 +5350,57 @@ class PantryInventory {
 
         // Render embedded price history chart and table
         await this._renderDetailsChart(item);
+
+        // Render quantity transaction history (collapsed by default)
+        await this._renderQtyHistory(item);
+        document.getElementById('qtyHistoryBody').classList.add('hidden');
+        document.querySelector('#qtyHistoryToggle .toggle-arrow').textContent = '▶';
+    }
+
+    // Record a quantity change to the transaction history log
+    async _recordQtyHistory(item, action, amount, qtyBefore, qtyAfter) {
+        try {
+            await API.addQuantityHistory(item.id, {
+                action,
+                amount: Math.abs(amount),
+                unit: item.unit,
+                quantity_before: qtyBefore,
+                quantity_after: qtyAfter
+            });
+        } catch (e) {
+            console.warn('Failed to record quantity history:', e);
+        }
+    }
+
+    // Render quantity transaction history table inside the item details modal
+    async _renderQtyHistory(item) {
+        const noData = document.getElementById('qtyHistoryNoData');
+        const tableWrapper = document.getElementById('qtyHistoryTableWrapper');
+        const tbody = document.getElementById('qtyHistoryTableBody');
+        noData.classList.add('hidden');
+        tableWrapper.classList.add('hidden');
+        try {
+            const history = await API.getQuantityHistory(item.id);
+            if (!history || history.length === 0) {
+                noData.classList.remove('hidden');
+                return;
+            }
+            tableWrapper.classList.remove('hidden');
+            tbody.innerHTML = history.map((r, idx) => {
+                const date = new Date(r.recorded_at).toLocaleDateString();
+                const sign = r.action === 'restock' ? '+' : '−';
+                const typeLabel = r.action === 'restock' ? 'Restock' : 'Deduct';
+                return `<tr>
+                    <td>${String(history.length - idx).padStart(2, '0')}</td>
+                    <td>${date}</td>
+                    <td class="qty-action-${r.action}">${typeLabel}</td>
+                    <td>${sign}${r.amount} ${r.unit}</td>
+                    <td>${r.quantity_after} ${r.unit}</td>
+                </tr>`;
+            }).join('');
+        } catch (e) {
+            noData.classList.remove('hidden');
+        }
     }
 
     // Render price history chart and table inside the item details modal
@@ -6280,8 +6351,10 @@ class PantryInventory {
             return;
         }
 
+        const qtyBefore = item.quantity;
         const newQty = Math.max(0, item.quantity - converted);
         await this.updateItem(item.id, { quantity: Math.round(newQty * 100) / 100 });
+        await this._recordQtyHistory(item, 'deduct', converted, qtyBefore, Math.round(newQty * 100) / 100);
 
         this.clearCommandBar();
         this.render();
@@ -6302,8 +6375,15 @@ class PantryInventory {
             return;
         }
 
+        const qtyBefore = item.quantity;
         const newQty = item.quantity + converted;
-        await this.updateItem(item.id, { quantity: Math.round(newQty * 100) / 100 });
+        const today = new Date().toISOString().split('T')[0];
+        await this.updateItem(item.id, {
+            quantity: Math.round(newQty * 100) / 100,
+            purchaseDate: today,
+            expirationDate: this.autoCalculateExpiration(item.category, today)
+        });
+        await this._recordQtyHistory(item, 'restock', converted, qtyBefore, Math.round(newQty * 100) / 100);
 
         this.clearCommandBar();
         this.render();
@@ -6323,8 +6403,10 @@ class PantryInventory {
             return;
         }
 
+        const qtyBefore = item.quantity;
         const newQty = Math.max(0, item.quantity - amount);
         await this.updateItem(item.id, { quantity: Math.round(newQty * 100) / 100 });
+        await this._recordQtyHistory(item, 'deduct', amount, qtyBefore, Math.round(newQty * 100) / 100);
 
         this.clearCommandBar();
         this.render();
@@ -6344,8 +6426,15 @@ class PantryInventory {
             return;
         }
 
+        const qtyBefore = item.quantity;
         const newQty = item.quantity + amount;
-        await this.updateItem(item.id, { quantity: Math.round(newQty * 100) / 100 });
+        const today = new Date().toISOString().split('T')[0];
+        await this.updateItem(item.id, {
+            quantity: Math.round(newQty * 100) / 100,
+            purchaseDate: today,
+            expirationDate: this.autoCalculateExpiration(item.category, today)
+        });
+        await this._recordQtyHistory(item, 'restock', amount, qtyBefore, Math.round(newQty * 100) / 100);
 
         this.clearCommandBar();
         this.render();
@@ -6452,11 +6541,18 @@ class PantryInventory {
                 alert(`Cannot convert ${unit} to ${existingItem.unit}. Edit the item directly to change units.`);
                 return;
             }
+            const qtyBefore = existingItem.quantity;
             const newQty = Math.round((existingItem.quantity + converted) * 100) / 100;
-            const updateData = { quantity: newQty };
+            const today = new Date().toISOString().split('T')[0];
+            const updateData = {
+                quantity: newQty,
+                purchaseDate: today,
+                expirationDate: this.autoCalculateExpiration(existingItem.category, today)
+            };
             if (parsed.store) updateData.boughtFrom = parsed.store;
             if (parsed.price != null) updateData.last_price = parsed.price;
             await this.updateItem(existingItem.id, updateData);
+            await this._recordQtyHistory(existingItem, 'restock', converted, qtyBefore, newQty);
         } else {
             // Auto-detect category and location from database
             const detected = this.detectIngredientInfo(parsed.name);

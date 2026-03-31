@@ -509,6 +509,24 @@ Example:
                 </div>
             </div>
 
+            <!-- Transaction history (collapsible) -->
+            <div class="details-qty-history">
+                <button class="details-section-toggle" id="qtyHistoryToggle">
+                    Transaction History <span class="toggle-arrow">▶</span>
+                </button>
+                <div class="qty-history-body hidden" id="qtyHistoryBody">
+                    <p id="qtyHistoryNoData" class="price-history-no-data hidden">No transactions recorded yet.</p>
+                    <div id="qtyHistoryTableWrapper" class="price-history-table-wrapper hidden">
+                        <table class="price-history-table qty-history-table">
+                            <thead>
+                                <tr><th>#</th><th>Date</th><th>Type</th><th>Change</th><th>Total</th></tr>
+                            </thead>
+                            <tbody id="qtyHistoryTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <div class="details-actions">
                 <button id="detailsEditBtn" class="btn-edit">Edit</button>
                 <button id="detailsDeleteBtn" class="btn-delete-detail">Delete</button>

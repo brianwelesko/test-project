@@ -426,4 +426,41 @@ function formatItemForClient(item) {
   };
 }
 
+// Quantity history routes
+router.get('/:id/quantity-history', async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT qh.* FROM quantity_history qh
+       JOIN inventory_items i ON i.id = qh.item_id
+       WHERE qh.item_id = $1 AND i.user_id = $2
+       ORDER BY qh.recorded_at DESC`,
+      [req.params.id, req.user.id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Get quantity history error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/:id/quantity-history', async (req, res) => {
+  try {
+    const { action, amount, unit, quantity_before, quantity_after, note } = req.body;
+    const owns = await query(
+      'SELECT id FROM inventory_items WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL',
+      [req.params.id, req.user.id]
+    );
+    if (!owns.rows[0]) return res.status(404).json({ error: 'Not found' });
+    const result = await query(
+      `INSERT INTO quantity_history (item_id, action, amount, unit, quantity_before, quantity_after, note)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      [req.params.id, action, amount, unit, quantity_before ?? null, quantity_after, note ?? null]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Add quantity history error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 module.exports = router;

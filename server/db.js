@@ -77,6 +77,20 @@ async function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_inventory_user ON inventory_items(user_id);
     CREATE INDEX IF NOT EXISTS idx_inventory_expiration ON inventory_items(expiration_date);
 
+    CREATE TABLE IF NOT EXISTS quantity_history (
+      id SERIAL PRIMARY KEY,
+      item_id INTEGER REFERENCES inventory_items(id) ON DELETE CASCADE,
+      action TEXT NOT NULL,
+      amount REAL NOT NULL,
+      unit TEXT NOT NULL,
+      quantity_before REAL,
+      quantity_after REAL NOT NULL,
+      note TEXT,
+      recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_qty_history_item ON quantity_history(item_id);
+
     CREATE TABLE IF NOT EXISTS receipt_corrections (
       id SERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

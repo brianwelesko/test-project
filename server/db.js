@@ -148,6 +148,12 @@ async function initializeDatabase() {
       ALTER TABLE quantity_history ADD COLUMN IF NOT EXISTS store TEXT;
     EXCEPTION WHEN others THEN NULL;
     END $$;
+
+    -- Link price_history back to the quantity_history entry that created it
+    DO $$ BEGIN
+      ALTER TABLE price_history ADD COLUMN IF NOT EXISTS quantity_history_id INTEGER;
+    EXCEPTION WHEN others THEN NULL;
+    END $$;
   `);
   console.log('Database initialized');
 }

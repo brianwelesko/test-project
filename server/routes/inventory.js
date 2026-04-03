@@ -480,13 +480,22 @@ router.put('/quantity-history/:historyId', async (req, res) => {
       [price ?? null, price_unit || 'flat', store ?? null, note ?? null, req.params.historyId]
     );
 
-    // Write through to price_history if price newly added on a restock
+    // Write through to price_history for restocks
     const rec = ownerCheck.rows[0];
-    if (price != null && rec.action === 'restock' && rec.price == null) {
-      await query(
-        'INSERT INTO price_history (item_id, price, store, price_unit) VALUES ($1,$2,$3,$4)',
-        [rec.item_id, price, store ?? null, price_unit || 'flat']
-      );
+    if (price != null && rec.action === 'restock') {
+      if (rec.price == null) {
+        // First time setting price — insert a new price_history record linked to this qty entry
+        await query(
+          'INSERT INTO price_history (item_id, price, store, price_unit, quantity_history_id) VALUES ($1,$2,$3,$4,$5)',
+          [rec.item_id, price, store ?? null, price_unit || 'flat', req.params.historyId]
+        );
+      } else {
+        // Price already existed — update the linked price_history record so the chart stays in sync
+        await query(
+          'UPDATE price_history SET price=$1, store=$2, price_unit=$3 WHERE quantity_history_id=$4',
+          [price, store ?? null, price_unit || 'flat', req.params.historyId]
+        );
+      }
     }
 
     res.json(result.rows[0]);

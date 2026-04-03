@@ -478,6 +478,23 @@ Example:
                     <span id="detailsStaple" class="detail-value"></span>
                 </div>
             </div>
+            <div class="details-qty-history">
+                <button class="details-section-toggle" id="qtyHistoryToggle">
+                    Transaction History <span class="toggle-arrow">▶</span>
+                </button>
+                <div class="qty-history-body hidden" id="qtyHistoryBody">
+                    <p id="qtyHistoryNoData" class="price-history-no-data hidden">No transactions recorded yet.</p>
+                    <div id="qtyHistoryTableWrapper" class="price-history-table-wrapper qty-history-scroll hidden">
+                        <table class="price-history-table qty-history-table">
+                            <thead>
+                                <tr><th>#</th><th>Date</th><th>Type</th><th>Change</th><th>Total</th><th>Price</th></tr>
+                            </thead>
+                            <tbody id="qtyHistoryTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <div class="details-price-history">
                 <h4 class="details-section-header">Price History</h4>
                 <div class="details-price-chart-container">

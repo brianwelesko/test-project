@@ -1478,6 +1478,16 @@ class PantryInventory {
                 }
             });
         }
+        const qtyHistoryToggle = document.getElementById('qtyHistoryToggle');
+        if (qtyHistoryToggle) {
+            qtyHistoryToggle.addEventListener('click', () => {
+                const body = document.getElementById('qtyHistoryBody');
+                const arrow = document.querySelector('#qtyHistoryToggle .toggle-arrow');
+                const hidden = body.classList.toggle('hidden');
+                arrow.textContent = hidden ? '▶' : '▼';
+            });
+        }
+
         if (this.itemDetailsModal) {
             this.itemDetailsModal.addEventListener('click', (e) => {
                 // Close if clicking outside modal content
@@ -5379,15 +5389,17 @@ class PantryInventory {
                 const date = new Date(r.recorded_at).toLocaleDateString();
                 const sign = r.action === 'restock' ? '+' : '−';
                 const typeLabel = r.action === 'restock' ? 'Restock' : 'Deduct';
-                let hint = '';
-                if (r.store) hint += `<span class="txn-meta-hint">${this.escapeHtml(r.store)}</span>`;
-                if (r.price != null) hint += `<span class="txn-meta-hint">$${parseFloat(r.price).toFixed(2)}</span>`;
+                const storeHint = r.store ? `<span class="txn-meta-hint">${this.escapeHtml(r.store)}</span>` : '';
+                const priceCell = r.action === 'restock' && r.price != null
+                    ? `$${parseFloat(r.price).toFixed(2)}`
+                    : '—';
                 return `<tr style="cursor:pointer;" onclick="app.showTxnDetail(app.currentQtyHistory[${idx}])">
                     <td>${String(history.length - idx).padStart(2, '0')}</td>
                     <td>${date}</td>
-                    <td class="qty-action-${r.action}">${typeLabel}${hint}</td>
+                    <td class="qty-action-${r.action}">${typeLabel}${storeHint}</td>
                     <td>${sign}${r.amount} ${r.unit}</td>
                     <td>${r.quantity_after} ${r.unit}</td>
+                    <td class="qty-price-cell">${priceCell}</td>
                 </tr>`;
             }).join('');
         } catch (e) {
@@ -6378,8 +6390,10 @@ class PantryInventory {
             return;
         }
 
+        const qtyBefore = item.quantity;
         const newQty = Math.max(0, item.quantity - converted);
         await this.updateItem(item.id, { quantity: Math.round(newQty * 100) / 100 });
+        await this._recordQtyHistory(item, 'deduct', converted, qtyBefore, Math.round(newQty * 100) / 100);
 
         this.clearCommandBar();
         this.render();
@@ -6400,8 +6414,15 @@ class PantryInventory {
             return;
         }
 
+        const qtyBefore = item.quantity;
         const newQty = item.quantity + converted;
-        await this.updateItem(item.id, { quantity: Math.round(newQty * 100) / 100 });
+        const today = new Date().toISOString().split('T')[0];
+        await this.updateItem(item.id, {
+            quantity: Math.round(newQty * 100) / 100,
+            purchaseDate: today,
+            expirationDate: this.autoCalculateExpiration(item.category, today)
+        });
+        await this._recordQtyHistory(item, 'restock', converted, qtyBefore, Math.round(newQty * 100) / 100);
 
         this.clearCommandBar();
         this.render();
@@ -6421,8 +6442,10 @@ class PantryInventory {
             return;
         }
 
+        const qtyBefore = item.quantity;
         const newQty = Math.max(0, item.quantity - amount);
         await this.updateItem(item.id, { quantity: Math.round(newQty * 100) / 100 });
+        await this._recordQtyHistory(item, 'deduct', amount, qtyBefore, Math.round(newQty * 100) / 100);
 
         this.clearCommandBar();
         this.render();
@@ -6442,8 +6465,15 @@ class PantryInventory {
             return;
         }
 
+        const qtyBefore = item.quantity;
         const newQty = item.quantity + amount;
-        await this.updateItem(item.id, { quantity: Math.round(newQty * 100) / 100 });
+        const today = new Date().toISOString().split('T')[0];
+        await this.updateItem(item.id, {
+            quantity: Math.round(newQty * 100) / 100,
+            purchaseDate: today,
+            expirationDate: this.autoCalculateExpiration(item.category, today)
+        });
+        await this._recordQtyHistory(item, 'restock', amount, qtyBefore, Math.round(newQty * 100) / 100);
 
         this.clearCommandBar();
         this.render();
@@ -6540,25 +6570,49 @@ class PantryInventory {
     async executeAddNew(parsed) {
         const unit = this.normalizeUnitShortcut(parsed.unit);
 
-        // Auto-detect category and location from database
-        const detected = this.detectIngredientInfo(parsed.name);
+        // Check if an item with this name already exists
+        const existingItem = this.findInventoryMatch(parsed.name);
 
-        // Use explicit overrides (@location, #category) or detected values or defaults
-        const category = parsed.category || (detected ? detected.category : 'other');
-        const location = parsed.location || (detected ? detected.location : '');
+        if (existingItem) {
+            // Add to existing item's quantity instead of creating a duplicate
+            const converted = this.convertQuantity(parsed.amount, unit, existingItem.unit, existingItem.name);
+            if (converted === null) {
+                alert(`Cannot convert ${unit} to ${existingItem.unit}. Edit the item directly to change units.`);
+                return;
+            }
+            const qtyBefore = existingItem.quantity;
+            const newQty = Math.round((existingItem.quantity + converted) * 100) / 100;
+            const today = new Date().toISOString().split('T')[0];
+            const updateData = {
+                quantity: newQty,
+                purchaseDate: today,
+                expirationDate: this.autoCalculateExpiration(existingItem.category, today)
+            };
+            if (parsed.store) updateData.boughtFrom = parsed.store;
+            if (parsed.price != null) updateData.last_price = parsed.price;
+            await this.updateItem(existingItem.id, updateData);
+            await this._recordQtyHistory(existingItem, 'restock', converted, qtyBefore, newQty);
+        } else {
+            // Auto-detect category and location from database
+            const detected = this.detectIngredientInfo(parsed.name);
 
-        await this.addItem({
-            name: parsed.name,
-            quantity: parsed.amount,
-            unit: unit,
-            category: category,
-            location: location,
-            threshold: parsed.threshold, // Will use default 20% if null
-            last_price: parsed.price,
-            price_unit: parsed.priceUnit || 'flat',
-            boughtFrom: parsed.store
-            // Expiration will be auto-calculated in addItem based on category
-        });
+            // Use explicit overrides (@location, #category) or detected values or defaults
+            const category = parsed.category || (detected ? detected.category : 'other');
+            const location = parsed.location || (detected ? detected.location : '');
+
+            await this.addItem({
+                name: parsed.name,
+                quantity: parsed.amount,
+                unit: unit,
+                category: category,
+                location: location,
+                threshold: parsed.threshold, // Will use default 20% if null
+                last_price: parsed.price,
+                price_unit: parsed.priceUnit || 'flat',
+                boughtFrom: parsed.store
+                // Expiration will be auto-calculated in addItem based on category
+            });
+        }
 
         this.clearCommandBar();
         this.render();

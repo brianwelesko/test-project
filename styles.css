@@ -1928,6 +1928,55 @@ mark {
     text-align: right;
 }
 
+/* Price history section */
+.details-price-history {
+    padding: 0 20px;
+}
+
+/* Transaction history collapsible section */
+.details-qty-history {
+    border-top: 1px solid var(--border-warm);
+    padding: 0 20px;
+}
+
+.details-section-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
+    padding: 14px 0 10px;
+    text-align: left;
+}
+
+.details-section-toggle:hover {
+    color: var(--text-primary);
+}
+
+.toggle-arrow {
+    font-size: 0.6rem;
+    opacity: 0.6;
+}
+
+.qty-history-body {
+    padding-bottom: 8px;
+}
+
+.qty-history-table td.qty-action-restock { color: var(--sage-green); font-weight: 500; }
+.qty-history-table td.qty-action-deduct  { color: var(--terra-cotta); font-weight: 500; }
+.txn-meta-hint {
+    font-size: 0.7rem;
+    opacity: 0.65;
+    margin-left: 4px;
+}
+
 .details-actions {
     display: flex;
     gap: 10px;

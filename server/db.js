@@ -140,6 +140,14 @@ async function initializeDatabase() {
 
     CREATE INDEX IF NOT EXISTS idx_execution_log_user ON package_execution_log(user_id);
     CREATE INDEX IF NOT EXISTS idx_execution_log_package ON package_execution_log(package_id);
+
+    -- Add price/store columns to quantity_history (for existing databases)
+    DO $$ BEGIN
+      ALTER TABLE quantity_history ADD COLUMN IF NOT EXISTS price REAL;
+      ALTER TABLE quantity_history ADD COLUMN IF NOT EXISTS price_unit TEXT DEFAULT 'flat';
+      ALTER TABLE quantity_history ADD COLUMN IF NOT EXISTS store TEXT;
+    EXCEPTION WHEN others THEN NULL;
+    END $$;
   `);
   console.log('Database initialized');
 }

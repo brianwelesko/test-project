@@ -975,6 +975,22 @@ const API = {
         });
     },
 
+    async getQuantityHistory(itemId) {
+        return this.request(`/inventory/${itemId}/quantity-history`);
+    },
+    async addQuantityHistory(itemId, data) {
+        return this.request(`/inventory/${itemId}/quantity-history`, {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+    },
+    async updateQuantityHistory(historyId, data) {
+        return this.request(`/inventory/quantity-history/${historyId}`, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+    },
+
     async deleteItem(id, reason = null) {
         return this.request(`/inventory/${id}`, {
             method: 'DELETE',
@@ -1507,6 +1523,16 @@ class PantryInventory {
                 if (e.target === pricePointPopup) {
                     this.hidePricePointPopup();
                 }
+            });
+        }
+
+        // Transaction detail popup
+        document.getElementById('closeTxnDetailPopup')?.addEventListener('click', () => this.hideTxnDetail());
+        document.getElementById('saveTxnDetail')?.addEventListener('click', () => this.saveTxnDetail());
+        const txnDetailPopup = document.getElementById('txnDetailPopup');
+        if (txnDetailPopup) {
+            txnDetailPopup.addEventListener('click', (e) => {
+                if (e.target === txnDetailPopup) this.hideTxnDetail();
             });
         }
 
@@ -5312,6 +5338,106 @@ class PantryInventory {
 
         // Render embedded price history chart and table
         await this._renderDetailsChart(item);
+
+        // Render quantity transaction history (collapsed by default)
+        await this._renderQtyHistory(item);
+        document.getElementById('qtyHistoryBody').classList.add('hidden');
+        document.querySelector('#qtyHistoryToggle .toggle-arrow').textContent = '▶';
+    }
+
+    // Record a quantity change to the transaction history log
+    async _recordQtyHistory(item, action, amount, qtyBefore, qtyAfter) {
+        try {
+            await API.addQuantityHistory(item.id, {
+                action,
+                amount: Math.abs(amount),
+                unit: item.unit,
+                quantity_before: qtyBefore,
+                quantity_after: qtyAfter
+            });
+        } catch (e) {
+            console.warn('Failed to record quantity history:', e);
+        }
+    }
+
+    // Render quantity transaction history table inside the item details modal
+    async _renderQtyHistory(item) {
+        const noData = document.getElementById('qtyHistoryNoData');
+        const tableWrapper = document.getElementById('qtyHistoryTableWrapper');
+        const tbody = document.getElementById('qtyHistoryTableBody');
+        noData.classList.add('hidden');
+        tableWrapper.classList.add('hidden');
+        try {
+            const history = await API.getQuantityHistory(item.id);
+            this.currentQtyHistory = history;
+            if (!history || history.length === 0) {
+                noData.classList.remove('hidden');
+                return;
+            }
+            tableWrapper.classList.remove('hidden');
+            tbody.innerHTML = history.map((r, idx) => {
+                const date = new Date(r.recorded_at).toLocaleDateString();
+                const sign = r.action === 'restock' ? '+' : '−';
+                const typeLabel = r.action === 'restock' ? 'Restock' : 'Deduct';
+                const hint = r.store
+                    ? `<span class="txn-meta-hint">${this.escapeHtml(r.store)}</span>`
+                    : (r.price != null ? `<span class="txn-meta-hint">$${parseFloat(r.price).toFixed(2)}</span>` : '');
+                return `<tr style="cursor:pointer;" onclick="app.showTxnDetail(app.currentQtyHistory[${idx}])">
+                    <td>${String(history.length - idx).padStart(2, '0')}</td>
+                    <td>${date}</td>
+                    <td class="qty-action-${r.action}">${typeLabel}${hint}</td>
+                    <td>${sign}${r.amount} ${r.unit}</td>
+                    <td>${r.quantity_after} ${r.unit}</td>
+                </tr>`;
+            }).join('');
+        } catch (e) {
+            noData.classList.remove('hidden');
+        }
+    }
+
+    showTxnDetail(record) {
+        if (!record) return;
+        this.currentTxnRecord = record;
+        document.getElementById('txnDetailDate').textContent = new Date(record.recorded_at).toLocaleDateString();
+        document.getElementById('txnDetailType').textContent = record.action === 'restock' ? 'Restock' : 'Deduct';
+        const sign = record.action === 'restock' ? '+' : '−';
+        document.getElementById('txnDetailChange').textContent = `${sign}${record.amount} ${record.unit}`;
+        document.getElementById('txnDetailTotal').textContent = `${record.quantity_after} ${record.unit}`;
+        document.getElementById('txnDetailStore').value = record.store || '';
+        document.getElementById('txnDetailNote').value = record.note || '';
+        const priceRow = document.getElementById('txnDetailPriceRow');
+        if (record.action === 'restock') {
+            document.getElementById('txnDetailPrice').value = record.price != null ? record.price : '';
+            document.getElementById('txnDetailPriceUnit').value = record.price_unit || 'flat';
+            priceRow.classList.remove('hidden');
+        } else {
+            priceRow.classList.add('hidden');
+        }
+        document.getElementById('txnDetailPopup').classList.remove('hidden');
+    }
+
+    hideTxnDetail() {
+        document.getElementById('txnDetailPopup').classList.add('hidden');
+        this.currentTxnRecord = null;
+    }
+
+    async saveTxnDetail() {
+        if (!this.currentTxnRecord) return;
+        const store = document.getElementById('txnDetailStore').value.trim() || null;
+        const note = document.getElementById('txnDetailNote').value.trim() || null;
+        const priceRaw = document.getElementById('txnDetailPrice').value;
+        const priceVal = parseFloat(priceRaw);
+        const price = !isNaN(priceVal) && priceVal >= 0 ? priceVal : null;
+        const price_unit = document.getElementById('txnDetailPriceUnit').value || 'flat';
+        try {
+            await API.updateQuantityHistory(this.currentTxnRecord.id, { price, price_unit, store, note });
+            Object.assign(this.currentTxnRecord, { price, price_unit, store, note });
+            const item = this.getItem(this.currentDetailsItemId);
+            if (item) await this._renderQtyHistory(item);
+            this.hideTxnDetail();
+        } catch (err) {
+            console.error('Failed to save transaction details:', err);
+        }
     }
 
     // Render price history chart and table inside the item details modal
@@ -5426,6 +5552,7 @@ class PantryInventory {
 
     // Hide item details modal
     hideItemDetails() {
+        this.hideTxnDetail?.();
         this.itemDetailsModal.classList.add('hidden');
         this.currentDetailsItemId = null;
         if (this.detailsChart) {
@@ -5689,6 +5816,13 @@ class PantryInventory {
     // Close any open modal when Escape key is pressed
     closeAnyOpenModal() {
         // Check each modal and close the first one that's open
+        // Transaction detail popup (innermost — close first)
+        const txnDetailPopup = document.getElementById('txnDetailPopup');
+        if (txnDetailPopup && !txnDetailPopup.classList.contains('hidden')) {
+            this.hideTxnDetail();
+            return;
+        }
+
         // Price history modal
         if (this.priceHistoryModal && !this.priceHistoryModal.classList.contains('hidden')) {
             this.hidePriceHistory();

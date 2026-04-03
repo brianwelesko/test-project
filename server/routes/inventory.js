@@ -245,7 +245,13 @@ router.get('/:id/price-history', async (req, res) => {
     }
 
     const result = await query(
-      'SELECT id, price, store, price_unit, recorded_at FROM price_history WHERE item_id = $1 ORDER BY recorded_at ASC',
+      `SELECT ph.id, ph.price, ph.store, ph.price_unit, ph.recorded_at,
+              ph.quantity_history_id,
+              qh.action, qh.amount, qh.unit, qh.quantity_after
+       FROM price_history ph
+       LEFT JOIN quantity_history qh ON ph.quantity_history_id = qh.id
+       WHERE ph.item_id = $1
+       ORDER BY ph.recorded_at ASC`,
       [id]
     );
 

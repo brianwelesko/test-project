@@ -5745,6 +5745,17 @@ class PantryInventory {
         document.getElementById('pricePointPriceUnit').value = record.price_unit || 'flat';
         storeInput.value = record.store || '';
 
+        const txnCtx = document.getElementById('pricePointTxnContext');
+        if (record.action) {
+            const sign = record.action === 'restock' ? '+' : '−';
+            document.getElementById('pricePointType').textContent = record.action === 'restock' ? 'Restock' : 'Deduct';
+            document.getElementById('pricePointChange').textContent = `${sign}${record.amount} ${record.unit}`;
+            document.getElementById('pricePointTotal').textContent = `${record.quantity_after} ${record.unit}`;
+            txnCtx.classList.remove('hidden');
+        } else {
+            txnCtx.classList.add('hidden');
+        }
+
         // Store current record for saving
         this.currentPricePointRecord = record;
 

@@ -256,11 +256,11 @@ router.get('/:id/price-history', async (req, res) => {
   }
 });
 
-// Update a price history record (e.g., to edit store name)
+// Update a price history record (store, price, price_unit)
 router.put('/price-history/:historyId', async (req, res) => {
   try {
     const { historyId } = req.params;
-    const { store } = req.body;
+    const { store, price, price_unit } = req.body;
 
     // Verify ownership through the item
     const ownerCheck = await query(`
@@ -274,8 +274,8 @@ router.put('/price-history/:historyId', async (req, res) => {
     }
 
     const result = await query(
-      'UPDATE price_history SET store = $1 WHERE id = $2 RETURNING *',
-      [store, historyId]
+      'UPDATE price_history SET store=$1, price=COALESCE($2, price), price_unit=COALESCE($3, price_unit) WHERE id=$4 RETURNING *',
+      [store, price ?? null, price_unit ?? null, historyId]
     );
 
     res.json(result.rows[0]);

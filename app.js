@@ -5379,9 +5379,9 @@ class PantryInventory {
                 const date = new Date(r.recorded_at).toLocaleDateString();
                 const sign = r.action === 'restock' ? '+' : '−';
                 const typeLabel = r.action === 'restock' ? 'Restock' : 'Deduct';
-                const hint = r.store
-                    ? `<span class="txn-meta-hint">${this.escapeHtml(r.store)}</span>`
-                    : (r.price != null ? `<span class="txn-meta-hint">$${parseFloat(r.price).toFixed(2)}</span>` : '');
+                let hint = '';
+                if (r.store) hint += `<span class="txn-meta-hint">${this.escapeHtml(r.store)}</span>`;
+                if (r.price != null) hint += `<span class="txn-meta-hint">$${parseFloat(r.price).toFixed(2)}</span>`;
                 return `<tr style="cursor:pointer;" onclick="app.showTxnDetail(app.currentQtyHistory[${idx}])">
                     <td>${String(history.length - idx).padStart(2, '0')}</td>
                     <td>${date}</td>
@@ -5724,14 +5724,13 @@ class PantryInventory {
 
         const popup = document.getElementById('pricePointPopup');
         const dateEl = document.getElementById('pricePointDate');
-        const priceEl = document.getElementById('pricePointPrice');
         const storeInput = document.getElementById('pricePointStore');
 
         const d = new Date(record.recorded_at);
-        const unitSuffix = this.getPriceUnitSuffix(record.price_unit || 'flat');
 
         dateEl.textContent = d.toLocaleDateString();
-        priceEl.textContent = `$${parseFloat(record.price).toFixed(2)}${unitSuffix}`;
+        document.getElementById('pricePointPriceInput').value = parseFloat(record.price).toFixed(2);
+        document.getElementById('pricePointPriceUnit').value = record.price_unit || 'flat';
         storeInput.value = record.store || '';
 
         // Store current record for saving
@@ -5751,47 +5750,60 @@ class PantryInventory {
     async savePricePointStore() {
         if (!this.currentPricePointRecord) return;
 
-        const storeInput = document.getElementById('pricePointStore');
-        const newStore = this.normalizeStoreName(storeInput.value.trim()) || null;
+        const priceRaw = document.getElementById('pricePointPriceInput').value;
+        const newPrice = parseFloat(priceRaw);
+        const newPriceUnit = document.getElementById('pricePointPriceUnit').value || 'flat';
+        if (isNaN(newPrice) || newPrice < 0) return;
+        const newStore = this.normalizeStoreName(document.getElementById('pricePointStore').value.trim()) || null;
 
         try {
-            await API.updatePriceHistory(this.currentPricePointRecord.id, { store: newStore });
+            await API.updatePriceHistory(this.currentPricePointRecord.id, { store: newStore, price: newPrice, price_unit: newPriceUnit });
+
+            const priceChanged = newPrice !== parseFloat(this.currentPricePointRecord.price)
+                || newPriceUnit !== (this.currentPricePointRecord.price_unit || 'flat');
 
             // Update local record
             this.currentPricePointRecord.store = newStore;
+            this.currentPricePointRecord.price = newPrice;
+            this.currentPricePointRecord.price_unit = newPriceUnit;
 
-            // Refresh the table if visible
             if (this.currentPriceHistory) {
                 const record = this.currentPriceHistory.find(r => r.id === this.currentPricePointRecord.id);
-                if (record) record.store = newStore;
+                if (record) { record.store = newStore; record.price = newPrice; record.price_unit = newPriceUnit; }
 
-                // Re-render both table bodies (details modal and standalone price history modal)
-                const pricesForHighlight = this.currentPriceHistory.map(r => parseFloat(r.price));
-                const minPrice = Math.min(...pricesForHighlight);
-                const maxPrice = Math.max(...pricesForHighlight);
-                const updatedRows = [...this.currentPriceHistory].reverse().map(r => {
-                    const d = new Date(r.recorded_at);
-                    const recUnitSuffix = this.getPriceUnitSuffix(r.price_unit || 'flat');
-                    const priceVal = parseFloat(r.price);
-                    let rowClass = '';
-                    if (priceVal === minPrice && minPrice !== maxPrice) rowClass = 'price-lowest';
-                    else if (priceVal === maxPrice && minPrice !== maxPrice) rowClass = 'price-highest';
-                    return `<tr class="${rowClass}" style="cursor: pointer;" onclick="app.showPricePointDetails(app.currentPriceHistory.find(h => h.id === ${r.id}))">
-                        <td>${d.toLocaleDateString()}</td>
-                        <td>${r.store ? this.escapeHtml(r.store) : '-'}</td>
-                        <td>$${priceVal.toFixed(2)}${recUnitSuffix}</td>
-                    </tr>`;
-                }).join('');
-                const detailsBody = document.getElementById('detailsPriceTableBody');
-                if (detailsBody) detailsBody.innerHTML = updatedRows;
-                const historyBody = document.getElementById('priceHistoryTableBody');
-                if (historyBody) historyBody.innerHTML = updatedRows;
+                if (priceChanged) {
+                    // Re-render chart since data point value changed
+                    const item = this.getItem(this.currentDetailsItemId);
+                    if (item) await this._renderDetailsChart(item);
+                } else {
+                    // Re-render table rows only
+                    const pricesForHighlight = this.currentPriceHistory.map(r => parseFloat(r.price));
+                    const minPrice = Math.min(...pricesForHighlight);
+                    const maxPrice = Math.max(...pricesForHighlight);
+                    const updatedRows = [...this.currentPriceHistory].reverse().map(r => {
+                        const d = new Date(r.recorded_at);
+                        const recUnitSuffix = this.getPriceUnitSuffix(r.price_unit || 'flat');
+                        const priceVal = parseFloat(r.price);
+                        let rowClass = '';
+                        if (priceVal === minPrice && minPrice !== maxPrice) rowClass = 'price-lowest';
+                        else if (priceVal === maxPrice && minPrice !== maxPrice) rowClass = 'price-highest';
+                        return `<tr class="${rowClass}" style="cursor: pointer;" onclick="app.showPricePointDetails(app.currentPriceHistory.find(h => h.id === ${r.id}))">
+                            <td>${d.toLocaleDateString()}</td>
+                            <td>${r.store ? this.escapeHtml(r.store) : '-'}</td>
+                            <td>$${priceVal.toFixed(2)}${recUnitSuffix}</td>
+                        </tr>`;
+                    }).join('');
+                    const detailsBody = document.getElementById('detailsPriceTableBody');
+                    if (detailsBody) detailsBody.innerHTML = updatedRows;
+                    const historyBody = document.getElementById('priceHistoryTableBody');
+                    if (historyBody) historyBody.innerHTML = updatedRows;
+                }
             }
 
             this.hidePricePointPopup();
         } catch (err) {
-            console.error('Failed to update price history store:', err);
-            alert('Failed to save store. Please try again.');
+            console.error('Failed to update price history:', err);
+            alert('Failed to save. Please try again.');
         }
     }
 

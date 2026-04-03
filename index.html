@@ -607,7 +607,16 @@ Example:
             <h4>Price Details</h4>
             <div class="price-point-details">
                 <p><strong>Date:</strong> <span id="pricePointDate"></span></p>
-                <p><strong>Price:</strong> <span id="pricePointPrice"></span></p>
+                <div class="price-point-store-row">
+                    <label for="pricePointPriceInput"><strong>Price:</strong></label>
+                    <input type="number" id="pricePointPriceInput" placeholder="0.00" min="0" step="0.01">
+                    <select id="pricePointPriceUnit">
+                        <option value="flat">total</option>
+                        <option value="lb">/ lb</option>
+                        <option value="kg">/ kg</option>
+                        <option value="oz">/ oz</option>
+                    </select>
+                </div>
                 <div class="price-point-store-row">
                     <label for="pricePointStore"><strong>Store:</strong></label>
                     <input type="text" id="pricePointStore" placeholder="Enter store name">

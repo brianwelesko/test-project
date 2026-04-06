@@ -320,7 +320,7 @@ router.get('/:id/price-history', async (req, res) => {
 router.put('/price-history/:historyId', async (req, res) => {
   try {
     const { historyId } = req.params;
-    const { store } = req.body;
+    const { store, price } = req.body;
 
     // Verify ownership through the item
     const ownerCheck = await query(`
@@ -334,8 +334,8 @@ router.put('/price-history/:historyId', async (req, res) => {
     }
 
     const result = await query(
-      'UPDATE price_history SET store = $1 WHERE id = $2 RETURNING *',
-      [store, historyId]
+      'UPDATE price_history SET store = $1, price = COALESCE($2, price) WHERE id = $3 RETURNING *',
+      [store, price != null ? price : null, historyId]
     );
 
     res.json(result.rows[0]);

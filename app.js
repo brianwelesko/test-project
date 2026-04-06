@@ -5725,14 +5725,13 @@ class PantryInventory {
 
         const popup = document.getElementById('pricePointPopup');
         const dateEl = document.getElementById('pricePointDate');
-        const priceEl = document.getElementById('pricePointPrice');
+        const priceInput = document.getElementById('pricePointPriceInput');
         const storeInput = document.getElementById('pricePointStore');
 
         const d = new Date(record.recorded_at);
-        const unitSuffix = this.getPriceUnitSuffix(record.price_unit || 'flat');
 
         dateEl.textContent = d.toLocaleDateString();
-        priceEl.textContent = `$${parseFloat(record.price).toFixed(2)}${unitSuffix}`;
+        priceInput.value = record.price != null ? parseFloat(record.price).toFixed(2) : '';
         storeInput.value = record.store || '';
 
         // Store current record for saving
@@ -5748,18 +5747,22 @@ class PantryInventory {
         this.currentPricePointRecord = null;
     }
 
-    // Save price point store update
+    // Save price point (store + price) update
     async savePricePointStore() {
         if (!this.currentPricePointRecord) return;
 
         const storeInput = document.getElementById('pricePointStore');
+        const priceInput = document.getElementById('pricePointPriceInput');
         const newStore = this.normalizeStoreName(storeInput.value.trim()) || null;
+        const rawPrice = priceInput.value.trim();
+        const newPrice = rawPrice !== '' ? parseFloat(rawPrice) : null;
 
         try {
-            await API.updatePriceHistory(this.currentPricePointRecord.id, { store: newStore });
+            await API.updatePriceHistory(this.currentPricePointRecord.id, { store: newStore, price: newPrice });
 
             // Update local record
             this.currentPricePointRecord.store = newStore;
+            if (newPrice !== null) this.currentPricePointRecord.price = newPrice;
 
             // Refresh the table if visible
             if (this.currentPriceHistory) {

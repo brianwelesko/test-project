@@ -474,23 +474,27 @@ Example:
                 </div>
             </div>
 
-            <!-- Data rows -->
-            <div class="details-grid">
-                <div class="detail-row">
-                    <span class="detail-label">Purchase Date</span>
-                    <span id="detailsPurchase" class="detail-value"></span>
+            <!-- Purchase info card — shows latest restock info, persists until next restock -->
+            <div class="purchase-info-card">
+                <div class="purchase-info-row">
+                    <div class="purchase-info-item">
+                        <span class="purchase-info-label">Purchased</span>
+                        <span id="detailsPurchase" class="purchase-info-value">-</span>
+                    </div>
+                    <div class="purchase-info-item">
+                        <span class="purchase-info-label">Expires</span>
+                        <span id="detailsExpiration" class="purchase-info-value">-</span>
+                    </div>
                 </div>
-                <div class="detail-row">
-                    <span class="detail-label">Expiration Date</span>
-                    <span id="detailsExpiration" class="detail-value"></span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Store</span>
-                    <span id="detailsStore" class="detail-value"></span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Price</span>
-                    <span id="detailsPrice" class="detail-value"></span>
+                <div class="purchase-info-row">
+                    <div class="purchase-info-item">
+                        <span class="purchase-info-label">Store</span>
+                        <span id="detailsStore" class="purchase-info-value">-</span>
+                    </div>
+                    <div class="purchase-info-item">
+                        <span class="purchase-info-label">Price</span>
+                        <span id="detailsPrice" class="purchase-info-value">-</span>
+                    </div>
                 </div>
             </div>
 
@@ -509,10 +513,10 @@ Example:
                 </div>
             </div>
 
-            <!-- Transaction history (collapsible) -->
+            <!-- Ingredient Log (collapsible) -->
             <div class="details-qty-history">
                 <button class="details-section-toggle" id="qtyHistoryToggle">
-                    Transaction History <span class="toggle-arrow">▶</span>
+                    Ingredient Log <span class="toggle-arrow">▶</span>
                 </button>
                 <div class="qty-history-body hidden" id="qtyHistoryBody">
                     <p id="qtyHistoryNoData" class="price-history-no-data hidden">No transactions recorded yet.</p>
@@ -633,6 +637,22 @@ Example:
                     </thead>
                     <tbody id="priceHistoryTableBody"></tbody>
                 </table>
+            </div>
+
+            <!-- Ingredient Log: all restocks and deductions -->
+            <div id="ingredientLogSection" class="ingredient-log-section hidden">
+                <h4 class="ingredient-log-heading">Ingredient Log</h4>
+                <table class="ingredient-log-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Change</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ingredientLogBody"></tbody>
+                </table>
+                <p id="ingredientLogEmpty" class="ingredient-log-empty hidden">No activity recorded yet.</p>
             </div>
         </div>
     </div>

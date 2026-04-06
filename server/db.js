@@ -154,6 +154,25 @@ async function initializeDatabase() {
 
     CREATE INDEX IF NOT EXISTS idx_execution_log_user ON package_execution_log(user_id);
     CREATE INDEX IF NOT EXISTS idx_execution_log_package ON package_execution_log(package_id);
+
+    -- Per-item activity log (deductions and restocks)
+    CREATE TABLE IF NOT EXISTS item_activity_log (
+      id SERIAL PRIMARY KEY,
+      item_id INTEGER NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      action_type TEXT NOT NULL,
+      amount REAL NOT NULL,
+      unit TEXT NOT NULL,
+      before_quantity REAL,
+      after_quantity REAL,
+      store TEXT,
+      price REAL,
+      price_unit TEXT,
+      logged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_activity_log_item ON item_activity_log(item_id);
+    CREATE INDEX IF NOT EXISTS idx_activity_log_user ON item_activity_log(user_id);
   `);
   console.log('Database initialized');
 }

@@ -1092,6 +1092,17 @@ const API = {
 
     async getPackageHistory(limit = 50, offset = 0) {
         return this.request(`/packages/history/all?limit=${limit}&offset=${offset}`);
+    },
+
+    async logItemActivity(itemId, data) {
+        return this.request(`/inventory/${itemId}/activity`, {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+    },
+
+    async getItemActivity(itemId) {
+        return this.request(`/inventory/${itemId}/activity`);
     }
 };
 
@@ -5332,11 +5343,10 @@ class PantryInventory {
             thresholdEl.textContent = '—';
         }
 
-        // Data rows
-        document.getElementById('detailsStore').textContent = item.boughtFrom || item.notes || '-';
+        // Purchase info card — persists until next restock
         document.getElementById('detailsPurchase').textContent = item.purchaseDate || '-';
         document.getElementById('detailsExpiration').textContent = item.expirationDate || '-';
-
+        document.getElementById('detailsStore').textContent = item.boughtFrom || '-';
         const detailsPriceUnit = item.price_unit || 'flat';
         const detailsUnitSuffix = this.getPriceUnitSuffix(detailsPriceUnit);
         document.getElementById('detailsPrice').textContent = item.last_price != null ? `$${parseFloat(item.last_price).toFixed(2)}${detailsUnitSuffix}` : '-';
@@ -5537,14 +5547,24 @@ class PantryInventory {
         const tableWrapper = document.getElementById('priceHistoryTable');
         const tableBody = document.getElementById('priceHistoryTableBody');
         const canvas = document.getElementById('priceHistoryChart');
+        const logSection = document.getElementById('ingredientLogSection');
+        const logBody = document.getElementById('ingredientLogBody');
+        const logEmpty = document.getElementById('ingredientLogEmpty');
 
         // Show modal first
         this.priceHistoryModal.classList.remove('hidden');
         this.clearCommandBar();
 
-        try {
-            const history = await API.getPriceHistory(item.id);
+        // Load price history and activity log in parallel
+        const [historyResult, activityResult] = await Promise.allSettled([
+            API.getPriceHistory(item.id),
+            API.getQuantityHistory(item.id)
+        ]);
 
+        const history = historyResult.status === 'fulfilled' ? historyResult.value : [];
+        const activity = activityResult.status === 'fulfilled' ? activityResult.value : [];
+
+        try {
             // Destroy previous chart if any
             if (this.priceHistoryChart) {
                 this.priceHistoryChart.destroy();
@@ -5555,109 +5575,126 @@ class PantryInventory {
                 noDataEl.classList.remove('hidden');
                 canvas.classList.add('hidden');
                 tableWrapper.classList.add('hidden');
-                return;
-            }
+            } else {
+                noDataEl.classList.add('hidden');
+                canvas.classList.remove('hidden');
+                tableWrapper.classList.remove('hidden');
 
-            noDataEl.classList.add('hidden');
-            canvas.classList.remove('hidden');
-            tableWrapper.classList.remove('hidden');
+                // Store history for click handler
+                this.currentPriceHistory = history;
 
-            // Store history for click handler
-            this.currentPriceHistory = history;
+                // Determine dominant price unit for axis label
+                const dominantUnit = this.getDominantPriceUnit(history);
+                const unitLabel = this.getPriceUnitLabel(dominantUnit);
 
-            // Determine dominant price unit for axis label
-            const dominantUnit = this.getDominantPriceUnit(history);
-            const unitLabel = this.getPriceUnitLabel(dominantUnit);
-            const unitSuffix = this.getPriceUnitSuffix(dominantUnit);
+                // Build chart data
+                const labels = history.map(r => {
+                    const d = new Date(r.recorded_at);
+                    return d.toLocaleDateString();
+                });
+                const prices = history.map(r => parseFloat(r.price));
 
-            // Build chart data
-            const labels = history.map(r => {
-                const d = new Date(r.recorded_at);
-                return d.toLocaleDateString();
-            });
-            const prices = history.map(r => parseFloat(r.price));
-
-            this.priceHistoryChart = new Chart(canvas, {
-                type: 'line',
-                data: {
-                    labels,
-                    datasets: [{
-                        label: `Price (${unitLabel})`,
-                        data: prices,
-                        borderColor: '#C97064',
-                        backgroundColor: 'rgba(201, 112, 100, 0.12)',
-                        borderWidth: 2,
-                        pointRadius: 5,
-                        pointHoverRadius: 7,
-                        fill: true,
-                        tension: 0.3
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: ctx => {
-                                    const record = history[ctx.dataIndex];
-                                    const recUnitSuffix = this.getPriceUnitSuffix(record.price_unit || 'flat');
-                                    let label = `$${ctx.parsed.y.toFixed(2)}${recUnitSuffix}`;
-                                    if (record.store) label += ` @ ${record.store}`;
-                                    return label;
+                this.priceHistoryChart = new Chart(canvas, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [{
+                            label: `Price (${unitLabel})`,
+                            data: prices,
+                            borderColor: '#C97064',
+                            backgroundColor: 'rgba(201, 112, 100, 0.12)',
+                            borderWidth: 2,
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                            fill: true,
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: ctx => {
+                                        const record = history[ctx.dataIndex];
+                                        const recUnitSuffix = this.getPriceUnitSuffix(record.price_unit || 'flat');
+                                        let label = `$${ctx.parsed.y.toFixed(2)}${recUnitSuffix}`;
+                                        if (record.store) label += ` @ ${record.store}`;
+                                        return label;
+                                    }
                                 }
                             }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: false,
-                            title: {
-                                display: true,
-                                text: `Price (${unitLabel})`
-                            },
-                            ticks: {
-                                callback: val => `$${val.toFixed(2)}`
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                title: {
+                                    display: true,
+                                    text: `Price (${unitLabel})`
+                                },
+                                ticks: {
+                                    callback: val => `$${val.toFixed(2)}`
+                                }
+                            }
+                        },
+                        onClick: (event, elements) => {
+                            if (elements.length > 0) {
+                                const index = elements[0].index;
+                                const record = history[index];
+                                this.showPricePointDetails(record);
                             }
                         }
-                    },
-                    onClick: (event, elements) => {
-                        if (elements.length > 0) {
-                            const index = elements[0].index;
-                            const record = history[index];
-                            this.showPricePointDetails(record);
-                        }
                     }
-                }
-            });
+                });
 
-            // Calculate min and max prices for highlighting
-            const pricesForHighlight = history.map(r => parseFloat(r.price));
-            const minPrice = Math.min(...pricesForHighlight);
-            const maxPrice = Math.max(...pricesForHighlight);
+                // Calculate min and max prices for highlighting
+                const pricesForHighlight = history.map(r => parseFloat(r.price));
+                const minPrice = Math.min(...pricesForHighlight);
+                const maxPrice = Math.max(...pricesForHighlight);
 
-            // Populate table (newest first)
-            tableBody.innerHTML = [...history].reverse().map((r, idx) => {
-                const d = new Date(r.recorded_at);
-                const recUnitSuffix = this.getPriceUnitSuffix(r.price_unit || 'flat');
-                const priceVal = parseFloat(r.price);
-                let rowClass = '';
-                if (priceVal === minPrice && minPrice !== maxPrice) rowClass = 'price-lowest';
-                else if (priceVal === maxPrice && minPrice !== maxPrice) rowClass = 'price-highest';
-                return `<tr class="${rowClass}" style="cursor: pointer;" onclick="app.showPricePointDetails(app.currentPriceHistory.find(h => h.id === ${r.id}))">
-                    <td>${String(idx + 1).padStart(2, '0')}</td>
-                    <td>${d.toLocaleDateString()}</td>
-                    <td>${r.store ? this.escapeHtml(r.store) : '-'}</td>
-                    <td>$${priceVal.toFixed(2)}${recUnitSuffix}</td>
-                </tr>`;
-            }).join('');
-
+                // Populate restock table (newest first)
+                tableBody.innerHTML = [...history].reverse().map(r => {
+                    const d = new Date(r.recorded_at);
+                    const recUnitSuffix = this.getPriceUnitSuffix(r.price_unit || 'flat');
+                    const priceVal = parseFloat(r.price);
+                    let rowClass = '';
+                    if (priceVal === minPrice && minPrice !== maxPrice) rowClass = 'price-lowest';
+                    else if (priceVal === maxPrice && minPrice !== maxPrice) rowClass = 'price-highest';
+                    return `<tr class="${rowClass}" style="cursor: pointer;" onclick="app.showPricePointDetails(app.currentPriceHistory.find(h => h.id === ${r.id}))">
+                        <td>${d.toLocaleDateString()}</td>
+                        <td>${r.store ? this.escapeHtml(r.store) : '-'}</td>
+                        <td>$${priceVal.toFixed(2)}${recUnitSuffix}</td>
+                    </tr>`;
+                }).join('');
+            }
         } catch (err) {
             console.error('Failed to load price history:', err);
             noDataEl.textContent = 'Failed to load price history.';
             noDataEl.classList.remove('hidden');
             canvas.classList.add('hidden');
             tableWrapper.classList.add('hidden');
+        }
+
+        // Render Ingredient Log (quantity history — restocks and deductions)
+        logSection.classList.remove('hidden');
+        if (!activity || activity.length === 0) {
+            logBody.innerHTML = '';
+            logEmpty.classList.remove('hidden');
+        } else {
+            logEmpty.classList.add('hidden');
+            logBody.innerHTML = activity.map(entry => {
+                const d = new Date(entry.recorded_at);
+                const isRestock = entry.action === 'restock';
+                const sign = isRestock ? '+' : '-';
+                const changeText = `${sign}${entry.amount} ${entry.unit}`;
+                const rowClass = isRestock ? 'log-restock' : 'log-deduct';
+                return `<tr class="${rowClass}">
+                    <td>${d.toLocaleDateString()}</td>
+                    <td class="log-change">${this.escapeHtml(changeText)}</td>
+                    <td>${entry.note ? this.escapeHtml(entry.note) : '-'}</td>
+                </tr>`;
+            }).join('');
         }
     }
 

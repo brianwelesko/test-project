@@ -444,10 +444,39 @@ Example:
         <div class="item-details-content">
             <button id="closeDetails" class="close-details-btn">&times;</button>
             <h3 id="detailsName">Item Name</h3>
+
+            <!-- Purchase info card — shows latest restock info, persists until next restock -->
+            <div class="purchase-info-card">
+                <div class="purchase-info-row">
+                    <div class="purchase-info-item">
+                        <span class="purchase-info-label">Purchased</span>
+                        <span id="detailsPurchase" class="purchase-info-value">-</span>
+                    </div>
+                    <div class="purchase-info-item">
+                        <span class="purchase-info-label">Expires</span>
+                        <span id="detailsExpiration" class="purchase-info-value">-</span>
+                    </div>
+                </div>
+                <div class="purchase-info-row">
+                    <div class="purchase-info-item">
+                        <span class="purchase-info-label">Store</span>
+                        <span id="detailsStore" class="purchase-info-value">-</span>
+                    </div>
+                    <div class="purchase-info-item">
+                        <span class="purchase-info-label">Price</span>
+                        <span id="detailsPrice" class="purchase-info-value">-</span>
+                    </div>
+                </div>
+            </div>
+
             <div class="details-grid">
                 <div class="detail-row">
                     <span class="detail-label">Quantity:</span>
                     <span id="detailsQty" class="detail-value"></span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Brand:</span>
+                    <span id="detailsBrand" class="detail-value"></span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Category:</span>
@@ -460,18 +489,6 @@ Example:
                 <div class="detail-row">
                     <span class="detail-label">Low Stock Alert:</span>
                     <span id="detailsThreshold" class="detail-value"></span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Bought From:</span>
-                    <span id="detailsStore" class="detail-value"></span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Purchase Date:</span>
-                    <span id="detailsPurchase" class="detail-value"></span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Expiration:</span>
-                    <span id="detailsExpiration" class="detail-value"></span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Staple:</span>
@@ -583,6 +600,22 @@ Example:
                     </thead>
                     <tbody id="priceHistoryTableBody"></tbody>
                 </table>
+            </div>
+
+            <!-- Ingredient Log: all restocks and deductions -->
+            <div id="ingredientLogSection" class="ingredient-log-section hidden">
+                <h4 class="ingredient-log-heading">Ingredient Log</h4>
+                <table class="ingredient-log-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Change</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ingredientLogBody"></tbody>
+                </table>
+                <p id="ingredientLogEmpty" class="ingredient-log-empty hidden">No activity recorded yet.</p>
             </div>
         </div>
     </div>

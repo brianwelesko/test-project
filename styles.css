@@ -1928,6 +1928,44 @@ mark {
     text-align: right;
 }
 
+/* ── Purchase Info Card (top of detail modal) ── */
+.purchase-info-card {
+    background: var(--command-bg);
+    border: 1px solid var(--border-warm);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.purchase-info-row {
+    display: flex;
+    gap: 16px;
+}
+
+.purchase-info-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.purchase-info-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+}
+
+.purchase-info-value {
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
 .details-actions {
     display: flex;
     gap: 10px;
@@ -3083,6 +3121,70 @@ header {
         padding: 20px 16px;
         border-radius: 12px;
     }
+}
+
+/* ── Ingredient Log ── */
+.ingredient-log-section {
+    margin-top: 24px;
+    border-top: 1px solid var(--border-warm);
+    padding-top: 16px;
+}
+
+.ingredient-log-heading {
+    font-family: 'Lora', serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 12px 0;
+}
+
+.ingredient-log-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+}
+
+.ingredient-log-table th {
+    text-align: left;
+    padding: 6px 10px;
+    background: var(--command-bg);
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-bottom: 2px solid var(--border-warm);
+}
+
+.ingredient-log-table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--command-bg);
+    color: var(--text-primary);
+}
+
+.ingredient-log-table tr:last-child td {
+    border-bottom: none;
+}
+
+.ingredient-log-table tr.log-restock td {
+    background: #f0fdf4;
+}
+
+.ingredient-log-table tr.log-restock .log-change {
+    color: #166534;
+    font-weight: 600;
+}
+
+.ingredient-log-table tr.log-deduct td {
+    background: transparent;
+}
+
+.ingredient-log-table tr.log-deduct .log-change {
+    color: var(--text-secondary);
+}
+
+.ingredient-log-empty {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+    padding: 16px 0 4px;
 }
 
 /* ── Price Point Detail Popup ── */

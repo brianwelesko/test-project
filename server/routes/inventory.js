@@ -230,6 +230,66 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// Log an activity (deduct or restock) for an item
+router.post('/:id/activity', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { actionType, amount, unit, beforeQuantity, afterQuantity, store, price, priceUnit } = req.body;
+
+    if (!actionType || amount == null || !unit) {
+      return res.status(400).json({ error: 'actionType, amount, and unit are required' });
+    }
+
+    // Verify ownership
+    const ownerCheck = await query(
+      'SELECT id FROM inventory_items WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL',
+      [id, req.user.id]
+    );
+    if (!ownerCheck.rows[0]) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+
+    const result = await query(`
+      INSERT INTO item_activity_log
+        (item_id, user_id, action_type, amount, unit, before_quantity, after_quantity, store, price, price_unit)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING *
+    `, [id, req.user.id, actionType, amount, unit, beforeQuantity ?? null, afterQuantity ?? null,
+        store || null, price ?? null, priceUnit || null]);
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Log activity error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get activity log for an item
+router.get('/:id/activity', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verify ownership
+    const ownerCheck = await query(
+      'SELECT id FROM inventory_items WHERE id = $1 AND user_id = $2',
+      [id, req.user.id]
+    );
+    if (!ownerCheck.rows[0]) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+
+    const result = await query(
+      'SELECT * FROM item_activity_log WHERE item_id = $1 ORDER BY logged_at DESC LIMIT 100',
+      [id]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Get activity log error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Get price history for an item
 router.get('/:id/price-history', async (req, res) => {
   try {

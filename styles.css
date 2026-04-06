@@ -3508,6 +3508,8 @@ header {
     padding: 20px;
     width: 100%;
     max-width: 320px;
+    max-height: 90vh;
+    overflow-y: auto;
     position: relative;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
     border: 1px solid var(--border-warm);

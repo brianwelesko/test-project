@@ -5768,29 +5768,36 @@ class PantryInventory {
             // Refresh the table if visible
             if (this.currentPriceHistory) {
                 const record = this.currentPriceHistory.find(r => r.id === this.currentPricePointRecord.id);
-                if (record) record.store = newStore;
+                if (record) {
+                    record.store = newStore;
+                    if (newPrice !== null) record.price = newPrice;
+                }
 
-                // Re-render both table bodies (details modal and standalone price history modal)
                 const pricesForHighlight = this.currentPriceHistory.map(r => parseFloat(r.price));
                 const minPrice = Math.min(...pricesForHighlight);
                 const maxPrice = Math.max(...pricesForHighlight);
-                const updatedRows = [...this.currentPriceHistory].reverse().map(r => {
+                const reversed = [...this.currentPriceHistory].reverse();
+
+                const buildRow = (r, includeIndex, idx) => {
                     const d = new Date(r.recorded_at);
                     const recUnitSuffix = this.getPriceUnitSuffix(r.price_unit || 'flat');
                     const priceVal = parseFloat(r.price);
                     let rowClass = '';
                     if (priceVal === minPrice && minPrice !== maxPrice) rowClass = 'price-lowest';
                     else if (priceVal === maxPrice && minPrice !== maxPrice) rowClass = 'price-highest';
-                    return `<tr class="${rowClass}" style="cursor: pointer;" onclick="app.showPricePointDetails(app.currentPriceHistory.find(h => h.id === ${r.id}))">
-                        <td>${d.toLocaleDateString()}</td>
+                    const onclick = `onclick="app.showPricePointDetails(app.currentPriceHistory.find(h => h.id === ${r.id}))"`;
+                    const numCell = includeIndex ? `<td>${String(idx + 1).padStart(2, '0')}</td>` : '';
+                    return `<tr class="${rowClass}" style="cursor:pointer;" ${onclick}>
+                        ${numCell}<td>${d.toLocaleDateString()}</td>
                         <td>${r.store ? this.escapeHtml(r.store) : '-'}</td>
                         <td>$${priceVal.toFixed(2)}${recUnitSuffix}</td>
                     </tr>`;
-                }).join('');
+                };
+
                 const detailsBody = document.getElementById('detailsPriceTableBody');
-                if (detailsBody) detailsBody.innerHTML = updatedRows;
+                if (detailsBody) detailsBody.innerHTML = reversed.map((r, i) => buildRow(r, true, i)).join('');
                 const historyBody = document.getElementById('priceHistoryTableBody');
-                if (historyBody) historyBody.innerHTML = updatedRows;
+                if (historyBody) historyBody.innerHTML = reversed.map((r, i) => buildRow(r, false, i)).join('');
             }
 
             this.hidePricePointPopup();

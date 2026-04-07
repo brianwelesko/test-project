@@ -3807,21 +3807,21 @@ header {
 }
 
 .btn-primary {
-    background: var(--accent-terracotta);
+    background: var(--terra-cotta);
     color: white;
 }
 
 .btn-primary:hover {
-    opacity: 0.9;
+    background: var(--terra-cotta-hover);
 }
 
 .btn-secondary {
-    background: var(--command-bg);
-    color: var(--text-primary);
+    background: #1B1B1B;
+    color: white;
 }
 
 .btn-secondary:hover {
-    background: var(--border-warm);
+    background: #333;
 }
 
 .btn-danger {

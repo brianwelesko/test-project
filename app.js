@@ -1587,10 +1587,14 @@ class PantryInventory {
 
         // Price point popup events
         const closePricePointBtn = document.getElementById('closePricePointPopup');
+        const cancelPricePointBtn = document.getElementById('cancelPricePoint');
         const savePricePointBtn = document.getElementById('savePricePointStore');
         const pricePointPopup = document.getElementById('pricePointPopup');
         if (closePricePointBtn) {
             closePricePointBtn.addEventListener('click', () => this.hidePricePointPopup());
+        }
+        if (cancelPricePointBtn) {
+            cancelPricePointBtn.addEventListener('click', () => this.hidePricePointPopup());
         }
         if (savePricePointBtn) {
             savePricePointBtn.addEventListener('click', () => this.savePricePointStore());

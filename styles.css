@@ -3586,12 +3586,9 @@ header {
 
 .price-point-actions {
     margin-top: 16px;
-    text-align: right;
-    display: block;
-}
-
-.price-point-actions .btn {
-    display: inline-block;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
 }
 
 .btn-sm {

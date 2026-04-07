@@ -3548,8 +3548,10 @@ header {
 }
 
 .price-point-content h4 {
-    font-family: 'Lora', serif;
+    font-family: 'Alatsi', sans-serif;
     font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
     margin-bottom: 14px;
     color: var(--text-primary);
 }
@@ -3558,6 +3560,8 @@ header {
     margin: 8px 0;
     font-size: 0.9rem;
     color: var(--text-primary);
+    font-family: 'IBM Plex Mono', monospace;
+    text-transform: uppercase;
 }
 
 .price-point-store-row {
@@ -3568,7 +3572,11 @@ header {
 }
 
 .price-point-store-row label {
-    font-size: 0.9rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    color: #1B1B1B;
+    white-space: nowrap;
 }
 
 .price-point-store-row input {
@@ -3576,7 +3584,10 @@ header {
     padding: 6px 10px;
     border: 1px solid var(--border-warm);
     border-radius: 6px;
-    font-size: 0.9rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    color: #1B1B1B;
 }
 
 .price-point-store-row input:focus {
@@ -3589,6 +3600,13 @@ header {
     display: flex;
     gap: 8px;
     justify-content: flex-end;
+}
+
+.price-point-actions .btn {
+    font-family: 'IBM Plex Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.8rem;
 }
 
 .btn-sm {

@@ -2009,7 +2009,9 @@ mark {
 }
 
 .item-details-content {
-    background: var(--surface-white);
+    background: rgba(255, 255, 255, 0.8);
+    -webkit-backdrop-filter: blur(16.32px);
+    backdrop-filter: blur(16.32px);
     border-radius: 12px;
     padding: 0;
     width: 90%;
@@ -2017,8 +2019,15 @@ mark {
     max-height: 88vh;
     overflow-y: auto;
     position: relative;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);
+    box-shadow: 0px 4.66px 35px 0px rgba(0, 0, 0, 0.5);
     border: 1px solid var(--border-warm);
+}
+
+/* Fallback for browsers without backdrop-filter support */
+@supports not (backdrop-filter: blur(1px)) {
+    .item-details-content {
+        background: var(--surface-white);
+    }
 }
 
 .close-details-btn {

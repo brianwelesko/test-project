@@ -442,6 +442,47 @@ const INGREDIENT_DATABASE = {
     'strawberries': { category: 'produce', location: 'fridge', expirationDays: 5 },
     'blueberries': { category: 'produce', location: 'fridge', expirationDays: 7 },
     'grapes': { category: 'produce', location: 'fridge', expirationDays: 10 },
+    'scallions': { category: 'produce', location: 'fridge', expirationDays: 7 },
+    'scallion': { category: 'produce', location: 'fridge', expirationDays: 7 },
+    'green onion': { category: 'produce', location: 'fridge', expirationDays: 7 },
+    'green onions': { category: 'produce', location: 'fridge', expirationDays: 7 },
+    'leek': { category: 'produce', location: 'fridge', expirationDays: 14 },
+    'leeks': { category: 'produce', location: 'fridge', expirationDays: 14 },
+    'shallot': { category: 'produce', location: 'pantry', expirationDays: 30 },
+    'shallots': { category: 'produce', location: 'pantry', expirationDays: 30 },
+    'eggplant': { category: 'produce', location: 'fridge', expirationDays: 7 },
+    'bok choy': { category: 'produce', location: 'fridge', expirationDays: 5 },
+    'napa cabbage': { category: 'produce', location: 'fridge', expirationDays: 14 },
+    'serrano': { category: 'produce', location: 'fridge', expirationDays: 14 },
+    'poblano': { category: 'produce', location: 'fridge', expirationDays: 14 },
+    'ginger root': { category: 'produce', location: 'fridge', expirationDays: 21 },
+    'radish': { category: 'produce', location: 'fridge', expirationDays: 14 },
+    'radishes': { category: 'produce', location: 'fridge', expirationDays: 14 },
+    'beets': { category: 'produce', location: 'fridge', expirationDays: 14 },
+    'beet': { category: 'produce', location: 'fridge', expirationDays: 14 },
+    'fennel': { category: 'produce', location: 'fridge', expirationDays: 10 },
+    'brussels sprouts': { category: 'produce', location: 'fridge', expirationDays: 7 },
+    'brussel sprouts': { category: 'produce', location: 'fridge', expirationDays: 7 },
+    'snow peas': { category: 'produce', location: 'fridge', expirationDays: 5 },
+    'sugar snap peas': { category: 'produce', location: 'fridge', expirationDays: 5 },
+    'artichoke': { category: 'produce', location: 'fridge', expirationDays: 7 },
+    'turnip': { category: 'produce', location: 'fridge', expirationDays: 14 },
+    'parsnip': { category: 'produce', location: 'fridge', expirationDays: 14 },
+    'kohlrabi': { category: 'produce', location: 'fridge', expirationDays: 10 },
+    'mango': { category: 'produce', location: 'counter', expirationDays: 5 },
+    'mangoes': { category: 'produce', location: 'counter', expirationDays: 5 },
+    'peach': { category: 'produce', location: 'counter', expirationDays: 5 },
+    'peaches': { category: 'produce', location: 'counter', expirationDays: 5 },
+    'plum': { category: 'produce', location: 'counter', expirationDays: 5 },
+    'pear': { category: 'produce', location: 'counter', expirationDays: 7 },
+    'pears': { category: 'produce', location: 'counter', expirationDays: 7 },
+    'watermelon': { category: 'produce', location: 'counter', expirationDays: 7 },
+    'cantaloupe': { category: 'produce', location: 'fridge', expirationDays: 5 },
+    'pineapple': { category: 'produce', location: 'counter', expirationDays: 5 },
+    'kiwi': { category: 'produce', location: 'fridge', expirationDays: 14 },
+    'cherries': { category: 'produce', location: 'fridge', expirationDays: 7 },
+    'raspberries': { category: 'produce', location: 'fridge', expirationDays: 3 },
+    'blackberries': { category: 'produce', location: 'fridge', expirationDays: 3 },
 
     // Spices
     'salt': { category: 'spice', location: 'spice-cabinet', expirationDays: 1825 },
@@ -1569,6 +1610,37 @@ class PantryInventory {
                 if (e.target === pricePointPopup) {
                     this.hidePricePointPopup();
                 }
+            });
+        }
+
+        // Live category detection while typing in name field
+        let _nameDetectTimer;
+        if (this.nameInput) {
+            this.nameInput.addEventListener('input', () => {
+                clearTimeout(_nameDetectTimer);
+                _nameDetectTimer = setTimeout(async () => {
+                    const val = this.nameInput.value.trim();
+                    if (!val) return;
+                    const categoryIsDefault = !this.categorySelect.value || this.categorySelect.value === 'other';
+                    const locationIsDefault = !this.locationSelect.value || this.locationSelect.value === 'pantry';
+                    const detected = this.detectIngredientInfo(val);
+                    if (detected) {
+                        if (categoryIsDefault) this.categorySelect.value = detected.category;
+                        if (locationIsDefault) this.locationSelect.value = detected.location;
+                        return;
+                    }
+                    if (categoryIsDefault) {
+                        try {
+                            const history = await API.getItemHistory(val);
+                            const last = history?.find(r => r.deletedAt);
+                            if (last) {
+                                this.categorySelect.value = last.category || 'other';
+                                if (locationIsDefault) this.locationSelect.value = last.location || 'pantry';
+                                if (this.unitInput && !this.unitInput.value) this.unitInput.value = last.unit || '';
+                            }
+                        } catch (_) {}
+                    }
+                }, 400);
             });
         }
 
@@ -3506,6 +3578,19 @@ class PantryInventory {
             if (detected) {
                 this.categorySelect.value = detected.category;
                 this.locationSelect.value = detected.location;
+            } else {
+                // Fallback: use last known data from item history
+                API.getItemHistory(prefillName).then(history => {
+                    const last = history?.find(r => r.deletedAt);
+                    if (last) {
+                        if (!this.categorySelect.value || this.categorySelect.value === 'other')
+                            this.categorySelect.value = last.category || 'other';
+                        if (!this.locationSelect.value || this.locationSelect.value === 'pantry')
+                            this.locationSelect.value = last.location || 'pantry';
+                        if (this.unitInput && !this.unitInput.value)
+                            this.unitInput.value = last.unit || '';
+                    }
+                }).catch(() => {});
             }
         }
 

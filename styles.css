@@ -2127,7 +2127,7 @@ mark {
 .detail-row {
     display: flex;
     justify-content: space-between;
-    padding: 10px 0;
+    padding: 5px 0;
     border-bottom: 1px solid var(--border-warm);
 }
 
@@ -2136,19 +2136,18 @@ mark {
 }
 
 .detail-label {
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'Alatsi', sans-serif;
     font-size: 0.65rem;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-weight: 600;
-    color: var(--text-secondary);
+    letter-spacing: 0.06em;
+    color: #1B1B1B;
 }
 
 .detail-value {
     font-family: 'IBM Plex Mono', monospace;
     color: var(--text-primary);
     text-align: right;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
 }
 
 /* Price history section */
@@ -2293,7 +2292,9 @@ mark {
 .details-price-chart-container {
     position: relative;
     width: 100%;
-    margin-bottom: 16px;
+    margin-bottom: 0;
+    background: #F2EAE5;
+    border-radius: 6px 6px 0 0;
 }
 
 /* ========== MOBILE UI OPTIMIZATIONS ========== */
@@ -3352,7 +3353,9 @@ header {
 .price-history-chart-container {
     position: relative;
     width: 100%;
-    margin-bottom: 20px;
+    margin-bottom: 0;
+    background: #F2EAE5;
+    border-radius: 6px 6px 0 0;
 }
 
 .price-history-no-data {
@@ -3364,29 +3367,33 @@ header {
 
 /* ── Price History Table ── */
 .price-history-table-wrapper {
-    border-top: 1px solid var(--border-warm);
-    padding-top: 14px;
+    border-top: none;
+    padding-top: 0;
 }
 
 .price-history-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.88rem;
+    font-size: 0.82rem;
 }
 
 .price-history-table th {
     text-align: left;
     padding: 6px 10px;
-    background: var(--command-bg);
-    font-weight: 600;
-    color: var(--text-secondary);
-    border-bottom: 2px solid var(--border-warm);
+    background: #E8D8CE;
+    font-family: 'Alatsi', sans-serif;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #725D50;
+    border-bottom: none;
 }
 
 .price-history-table td {
-    padding: 7px 10px;
+    padding: 6px 10px;
     border-bottom: 1px solid var(--command-bg);
-    color: var(--text-primary);
+    font-family: 'IBM Plex Mono', monospace;
+    color: #1B1B1B;
 }
 
 .price-history-table tr:last-child td {

@@ -5450,6 +5450,7 @@ class PantryInventory {
             const labels = history.map(r => new Date(r.recorded_at).toLocaleDateString());
             const prices = history.map(r => parseFloat(r.price));
 
+            const monoFont = { family: "'IBM Plex Mono', monospace", size: 10 };
             this.detailsChart = new Chart(canvas, {
                 type: 'line',
                 data: {
@@ -5471,6 +5472,8 @@ class PantryInventory {
                     plugins: {
                         legend: { display: false },
                         tooltip: {
+                            bodyFont: monoFont,
+                            titleFont: monoFont,
                             callbacks: {
                                 label: ctx => {
                                     const record = history[ctx.dataIndex];
@@ -5483,10 +5486,11 @@ class PantryInventory {
                         }
                     },
                     scales: {
+                        x: { ticks: { font: monoFont } },
                         y: {
                             beginAtZero: false,
-                            title: { display: true, text: `Price (${unitLabel})` },
-                            ticks: { callback: val => `$${val.toFixed(2)}` }
+                            title: { display: true, text: `Price (${unitLabel})`, font: monoFont },
+                            ticks: { font: monoFont, callback: val => `$${val.toFixed(2)}` }
                         }
                     },
                     onClick: (event, elements) => {
@@ -5595,6 +5599,7 @@ class PantryInventory {
                 });
                 const prices = history.map(r => parseFloat(r.price));
 
+                const monoFont = { family: "'IBM Plex Mono', monospace", size: 10 };
                 this.priceHistoryChart = new Chart(canvas, {
                     type: 'line',
                     data: {
@@ -5616,6 +5621,8 @@ class PantryInventory {
                         plugins: {
                             legend: { display: false },
                             tooltip: {
+                                bodyFont: monoFont,
+                                titleFont: monoFont,
                                 callbacks: {
                                     label: ctx => {
                                         const record = history[ctx.dataIndex];
@@ -5628,15 +5635,11 @@ class PantryInventory {
                             }
                         },
                         scales: {
+                            x: { ticks: { font: monoFont } },
                             y: {
                                 beginAtZero: false,
-                                title: {
-                                    display: true,
-                                    text: `Price (${unitLabel})`
-                                },
-                                ticks: {
-                                    callback: val => `$${val.toFixed(2)}`
-                                }
+                                title: { display: true, text: `Price (${unitLabel})`, font: monoFont },
+                                ticks: { font: monoFont, callback: val => `$${val.toFixed(2)}` }
                             }
                         },
                         onClick: (event, elements) => {

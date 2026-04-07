@@ -2009,7 +2009,7 @@ mark {
 }
 
 .item-details-content {
-    background: rgba(255, 255, 255, 0.8);
+    background: rgba(252, 249, 247, 0.9);
     -webkit-backdrop-filter: blur(16.32px);
     backdrop-filter: blur(16.32px);
     border-radius: 12px;
@@ -2026,7 +2026,7 @@ mark {
 /* Fallback for browsers without backdrop-filter support */
 @supports not (backdrop-filter: blur(1px)) {
     .item-details-content {
-        background: var(--surface-white);
+        background: #FCF9F7;
     }
 }
 

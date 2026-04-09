@@ -1728,7 +1728,7 @@ class PantryInventory {
         this.quickDeductInput.addEventListener('focus', () => this.handleQuickDeductInput());
         this.quickDeductInput.addEventListener('keydown', (e) => this.handleQuickDeductKeydown(e));
         this.quickDeductBtn.addEventListener('click', () => this.executeQuickDeduct());
-        this.quickDeductMore.addEventListener('click', () => this.toggleExpandedForm());
+        if (this.quickDeductMore) this.quickDeductMore.addEventListener('click', () => this.toggleExpandedForm());
         this.quickDeductSuggestions.addEventListener('click', (e) => {
             const item = e.target.closest('.suggestion-item');
             if (item) this.selectSuggestionElement(item);
@@ -6035,14 +6035,15 @@ class PantryInventory {
     }
 
     updateCommandButton(parsed) {
+        const btnText = this.quickDeductBtn.querySelector('.btn-text');
         if (!parsed || parsed.action === 'search') {
-            this.quickDeductBtn.textContent = 'Go';
+            if (btnText) btnText.textContent = 'GO';
             this.quickDeductBtn.className = 'quick-deduct-btn';
         } else if (parsed.action.startsWith('deduct')) {
-            this.quickDeductBtn.textContent = 'Use';
+            if (btnText) btnText.textContent = 'USE';
             this.quickDeductBtn.className = 'quick-deduct-btn deduct-mode';
         } else if (parsed.action.startsWith('restock') || parsed.action.startsWith('add')) {
-            this.quickDeductBtn.textContent = 'Add';
+            if (btnText) btnText.textContent = 'ADD';
             this.quickDeductBtn.className = 'quick-deduct-btn add-mode';
         }
     }

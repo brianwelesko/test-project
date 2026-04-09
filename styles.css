@@ -74,7 +74,7 @@ body {
     background-position: top center;
     background-color: #D4956A; /* fallback */
     margin: -20px -20px 20px -20px; /* bleed to container edges */
-    height: 467px;
+    height: 407px;
     overflow: visible;
     position: relative;
     display: flex;
@@ -208,6 +208,16 @@ header h1 {
     gap: 0;
     position: relative;
     max-width: 600px;
+    margin: 0 auto;
+}
+
+.command-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    margin-top: 4px;
 }
 
 #quickDeductInput {
@@ -239,6 +249,9 @@ header h1 {
     flex-wrap: wrap;
     gap: 0;
     margin-top: 6px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .command-quick-links a {
@@ -489,6 +502,7 @@ header h1 {
 
 .quick-deduct-btn {
     padding: 12px 20px;
+    min-width: 72px;
     background: var(--terra-cotta);
     color: white;
     border: none;
@@ -501,6 +515,7 @@ header h1 {
     cursor: pointer;
     transition: background 0.3s;
     white-space: nowrap;
+    text-align: center;
 }
 
 .quick-deduct-btn .btn-text {
@@ -555,10 +570,6 @@ header h1 {
     color: white;
 }
 
-/* Show suggestions dropdown whenever preview inside it is visible */
-#quickDeductSuggestions:has(#quickDeductPreview:not(.hidden)) {
-    display: block !important;
-}
 
 .quick-deduct-preview .preview-item {
     font-weight: 700;
@@ -616,17 +627,11 @@ header h1 {
 }
 
 .suggestions-dropdown {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    right: 0;
     background: var(--terra-cotta);
     border: none;
     border-radius: 0;
-    margin-top: 0;
     max-height: 250px;
     overflow-y: auto;
-    z-index: 1000;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
 }
 
@@ -906,7 +911,7 @@ mark {
 
     .hero-section {
         margin: -8px 0 16px 0;
-        height: 189px;
+        height: 129px;
     }
 
     header {

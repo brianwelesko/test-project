@@ -6409,6 +6409,15 @@ class PantryInventory {
         const parsed = this.parseCommandInput(input);
 
         if (!parsed || parsed.action === 'search') {
+            const query = parsed?.query || input;
+            if (query) {
+                const item = this.findInventoryMatch(query);
+                if (item) {
+                    this.clearCommandBar();
+                    this.showItemDetails(query);
+                    return;
+                }
+            }
             return;
         }
 

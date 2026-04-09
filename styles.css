@@ -564,6 +564,7 @@ header h1 {
 /* Preview row lives inside #quickDeductSuggestions */
 .quick-deduct-preview {
     padding: 10px 16px;
+    background: var(--terra-cotta);
     border-top: 1px solid rgba(255, 255, 255, 0.2);
     font-family: 'IBM Plex Mono', monospace;
     font-size: 0.85rem;

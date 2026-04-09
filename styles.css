@@ -74,7 +74,12 @@ body {
     background-position: top center;
     background-color: #D4956A; /* fallback */
     margin: -20px -20px 20px -20px; /* bleed to container edges */
-    padding-bottom: 20px;
+    height: 189px;
+    overflow: visible;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
 }
 
 header {
@@ -598,14 +603,17 @@ header h1 {
 }
 
 .suggestions-dropdown {
-    position: relative;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
     background: #1E1C1A;
     border: none;
     border-radius: 8px;
     margin-top: 4px;
     max-height: 250px;
     overflow-y: auto;
-    z-index: 100;
+    z-index: 1000;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
 
@@ -871,6 +879,7 @@ mark {
 
     .hero-section {
         margin: -8px 0 16px 0;
+        height: 189px;
     }
 
     header {

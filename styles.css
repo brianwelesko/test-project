@@ -205,15 +205,17 @@ header h1 {
 /* Command-palette style Quick Deduct */
 .quick-deduct-wrapper {
     display: flex;
-    gap: 8px;
+    gap: 0;
     position: relative;
+    max-width: 600px;
 }
 
 #quickDeductInput {
     flex: 1;
     padding: 12px 16px;
     border: 2px solid var(--border-warm);
-    border-radius: 8px;
+    border-right: none;
+    border-radius: 0;
     font-size: 16px; /* Prevents iOS zoom */
     font-family: 'IBM Plex Mono', monospace;
     transition: border-color 0.3s;
@@ -222,13 +224,13 @@ header h1 {
 
 #quickDeductInput:focus {
     outline: none;
-    border-color: var(--sage-green);
+    border-color: var(--terra-cotta);
     animation: pulse-border 2s ease-in-out infinite;
 }
 
 @keyframes pulse-border {
-    0%, 100% { border-color: var(--sage-green); box-shadow: 0 0 0 0 rgba(122, 155, 118, 0); }
-    50% { border-color: #9BB897; box-shadow: 0 0 8px 2px rgba(122, 155, 118, 0.3); }
+    0%, 100% { border-color: var(--terra-cotta); box-shadow: 0 0 0 0 rgba(227, 83, 54, 0); }
+    50% { border-color: #e8705a; box-shadow: 0 0 8px 2px rgba(227, 83, 54, 0.25); }
 }
 
 /* Quick Links */
@@ -266,14 +268,9 @@ header h1 {
     opacity: 1;
 }
 
-/* Preview warning for delete confirmation */
+/* Preview warning for delete confirmation (inside terra cotta dropdown) */
 .preview-warning {
-    background: var(--terra-light) !important;
-    border: 2px solid var(--terra-cotta);
-}
-
-.preview-warning .preview-item {
-    color: var(--terra-cotta);
+    border-top: 2px solid rgba(255, 255, 255, 0.5) !important;
 }
 
 .quick-deduct-preview.preview-warning::before {
@@ -495,11 +492,12 @@ header h1 {
     background: var(--terra-cotta);
     color: white;
     border: none;
-    border-radius: 8px;
+    border-radius: 0;
     font-size: 1rem;
     font-family: 'IBM Plex Mono', monospace;
-    font-weight: 400;
+    font-weight: 500;
     letter-spacing: 0.06em;
+    text-transform: uppercase;
     cursor: pointer;
     transition: background 0.3s;
     white-space: nowrap;
@@ -548,46 +546,58 @@ header h1 {
     background: #5B5550;
 }
 
+/* Preview row lives inside #quickDeductSuggestions */
 .quick-deduct-preview {
-    margin-top: 10px;
-    padding: 10px 14px;
-    background: var(--sage-light);
-    border-radius: 8px;
-    font-size: 0.95rem;
+    padding: 10px 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85rem;
+    color: white;
+}
+
+/* Show suggestions dropdown whenever preview inside it is visible */
+#quickDeductSuggestions:has(#quickDeductPreview:not(.hidden)) {
+    display: block !important;
 }
 
 .quick-deduct-preview .preview-item {
-    font-weight: 600;
-    margin-right: 8px;
+    font-weight: 700;
+    margin-right: 6px;
+    color: white;
 }
 
 .quick-deduct-preview .preview-calc {
-    color: var(--text-primary);
+    color: rgba(255, 255, 255, 0.85);
 }
 
 .quick-deduct-preview .preview-deduct {
-    color: var(--terra-cotta);
-    margin-left: 8px;
+    color: rgba(255, 255, 255, 0.85);
+    margin-left: 6px;
 }
 
 .quick-deduct-preview .preview-error {
-    color: var(--terra-cotta);
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 600;
 }
 
 .quick-deduct-preview .preview-add {
-    color: var(--sage-green);
-    margin-left: 8px;
+    color: rgba(255, 255, 255, 0.85);
+    margin-left: 6px;
 }
 
 .quick-deduct-preview .preview-hint {
-    color: var(--text-secondary);
-    font-style: italic;
+    color: rgba(255, 255, 255, 0.75);
+    font-style: normal;
 }
 
 .quick-deduct-preview .preview-auto {
-    color: var(--sage-green);
+    color: rgba(255, 255, 255, 0.65);
     font-size: 0.85em;
     margin-left: 4px;
+}
+
+.quick-deduct-preview .preview-success {
+    color: rgba(255, 255, 255, 0.9);
 }
 
 .quick-deduct-expanded {
@@ -952,8 +962,8 @@ mark {
     }
 
     .quick-deduct-preview {
-        padding: 8px 10px;
-        font-size: 0.9rem;
+        padding: 8px 12px;
+        font-size: 0.82rem;
     }
 
     .deduct-row {

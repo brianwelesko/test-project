@@ -80,7 +80,9 @@
                 <input type="text" id="quickDeductInput" placeholder="Search, convert, add..." autocomplete="off" autofocus>
                 <button id="quickDeductBtn" class="quick-deduct-btn"><span class="btn-text">GO</span><span class="btn-icon">→</span></button>
                 <button id="quickDeductMore" class="quick-deduct-more" title="More options">⋯</button>
-                <div id="quickDeductSuggestions" class="suggestions-dropdown hidden"></div>
+                <div id="quickDeductSuggestions" class="suggestions-dropdown hidden">
+                    <div id="quickDeductPreview" class="quick-deduct-preview hidden"></div>
+                </div>
             </div>
             <div class="command-quick-links">
                 <a href="#" data-command="use">-USE</a>
@@ -155,7 +157,6 @@
                 <p><strong>Locations:</strong> @fridge, @freezer, @pantry, @spice, @counter</p>
                 <p><strong>Categories:</strong> #protein, #dairy, #produce, #spice, #grain, #frozen, #baking</p>
             </div>
-            <div id="quickDeductPreview" class="quick-deduct-preview hidden"></div>
             <!-- Expanded form (hidden by default) -->
             <div id="quickDeductExpanded" class="quick-deduct-expanded hidden">
                 <div class="selected-item">

@@ -80,11 +80,16 @@
                 <input type="text" id="quickDeductInput" placeholder="Search, convert, add..." autocomplete="off" autofocus>
                 <button id="quickDeductBtn" class="quick-deduct-btn"><span class="btn-text">GO</span><span class="btn-icon">→</span></button>
                 <button id="quickDeductMore" class="quick-deduct-more" title="More options">⋯</button>
+                <div id="quickDeductSuggestions" class="suggestions-dropdown hidden"></div>
             </div>
             <div class="command-quick-links">
-                <a href="#" data-command="add">+Add</a>
-                <a href="#" data-command="recipe">Recipe</a>
-                <a href="#" data-command="help">?</a>
+                <a href="#" data-command="use">-USE</a>
+                <a href="#" data-command="add">+ADD</a>
+                <a href="#" data-command="sort">SORT</a>
+                <a href="#" data-command="scan">SCAN</a>
+                <a href="#" data-command="recipe">RECIPE</a>
+                <a href="#" data-command="shop">SHOP</a>
+                <a href="#" data-command="help">HELP</a>
             </div>
             <div id="commandHelp" class="command-help hidden">
                 <h4>Command Syntax</h4>
@@ -150,7 +155,6 @@
                 <p><strong>Locations:</strong> @fridge, @freezer, @pantry, @spice, @counter</p>
                 <p><strong>Categories:</strong> #protein, #dairy, #produce, #spice, #grain, #frozen, #baking</p>
             </div>
-            <div id="quickDeductSuggestions" class="suggestions-dropdown hidden"></div>
             <div id="quickDeductPreview" class="quick-deduct-preview hidden"></div>
             <!-- Expanded form (hidden by default) -->
             <div id="quickDeductExpanded" class="quick-deduct-expanded hidden">

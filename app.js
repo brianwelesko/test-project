@@ -1522,6 +1522,15 @@ class PantryInventory {
                     this.showRecipeSection();
                 } else if (command === 'help') {
                     this.toggleHelp();
+                } else if (command === 'use') {
+                    this.quickDeductInput.focus();
+                    this.quickDeductInput.placeholder = 'item -amount...';
+                } else if (command === 'sort') {
+                    this.showFilterModal();
+                } else if (command === 'scan') {
+                    this.showScanModal();
+                } else if (command === 'shop') {
+                    // placeholder — no-op for now
                 }
             });
         });

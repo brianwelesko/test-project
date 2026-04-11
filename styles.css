@@ -86,20 +86,34 @@ header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 20px 20px 12px 20px;
+    padding: 12px 20px;
     margin-bottom: 0;
-    background: transparent;
+    background: rgba(255, 255, 255, 0.82);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
     text-align: left;
 }
 
 header h1 {
-    font-family: 'Public Sans', sans-serif;
-    color: var(--text-primary);
-    font-size: 1.4rem;
-    font-weight: 800;
+    font-family: 'Alatsi', sans-serif;
+    color: #1B1B1B;
+    font-size: 1.3rem;
+    font-weight: 400;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     margin: 0;
+}
+
+.menu-btn {
+    background: none;
+    border: none;
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+    color: #1B1B1B;
+    padding: 4px 6px;
+    display: flex;
+    align-items: center;
 }
 
 /* Search Section */
@@ -2398,10 +2412,12 @@ mark {
 }
 
 .filter-modal-header h3 {
-    font-family: 'Lora', serif;
+    font-family: 'Alatsi', sans-serif;
     margin: 0;
-    font-size: 1.1rem;
-    color: var(--text-primary);
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #1B1B1B;
 }
 
 .close-filter-btn {
@@ -2448,6 +2464,29 @@ mark {
     gap: 10px;
     padding: 16px 20px;
     border-top: 1px solid var(--border-warm);
+}
+
+.filter-modal-logout {
+    padding: 12px 20px 20px;
+}
+
+.logout-menu-btn {
+    width: 100%;
+    padding: 12px;
+    background: #1B1B1B;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.logout-menu-btn:hover {
+    background: #333;
 }
 
 .btn-clear-filters {

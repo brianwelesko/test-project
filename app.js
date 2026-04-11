@@ -1661,6 +1661,12 @@ class PantryInventory {
         this.filterCategory.addEventListener('change', () => this.render());
         this.sortBy.addEventListener('change', () => this.render());
 
+        // Hamburger menu button
+        const menuBtn = document.getElementById('menuBtn');
+        if (menuBtn) {
+            menuBtn.addEventListener('click', () => this.showFilterModal());
+        }
+
         // Mobile filter modal events
         if (this.mobileFilterBtn) {
             this.mobileFilterBtn.addEventListener('click', () => this.showFilterModal());

@@ -71,7 +71,7 @@
         <div class="hero-section">
         <header>
             <h1>My Pantry</h1>
-            <button id="logoutBtn" class="logout-btn" title="Logout">Logout</button>
+            <button id="menuBtn" class="menu-btn" title="Menu">☰</button>
         </header>
 
         <!-- Quick Actions Command Bar -->
@@ -211,10 +211,8 @@
         <!-- Inventory List -->
         <section class="inventory-section">
             <div class="inventory-header">
-                <h2>Inventory <span id="filterIndicator" class="filter-indicator hidden"></span></h2>
-                <!-- Mobile Filter Button (hamburger) -->
-                <button id="mobileFilterBtn" class="mobile-filter-btn">☰</button>
-                <div class="filter-sort">
+                <span id="filterIndicator" class="filter-indicator hidden"></span>
+                <div class="filter-sort" style="display:none">
                     <select id="filterCategory">
                         <option value="all">All Categories</option>
                         <option value="spice">Spices</option>
@@ -243,11 +241,11 @@
             <div id="inventoryList" class="inventory-list"></div>
         </section>
 
-        <!-- Mobile Filter Modal -->
+        <!-- App Menu (Filter, Sort, Logout) -->
         <div id="filterModal" class="filter-modal hidden">
             <div class="filter-modal-content">
                 <div class="filter-modal-header">
-                    <h3>Filter & Sort</h3>
+                    <h3>Menu</h3>
                     <button id="closeFilterModal" class="close-filter-btn">&times;</button>
                 </div>
                 <div class="filter-modal-body">
@@ -284,6 +282,9 @@
                 <div class="filter-modal-actions">
                     <button id="clearFiltersBtn" class="btn-clear-filters">Clear</button>
                     <button id="applyFiltersBtn" class="btn-apply-filters">Apply</button>
+                </div>
+                <div class="filter-modal-logout">
+                    <button id="logoutBtn" class="logout-menu-btn">Log Out</button>
                 </div>
             </div>
         </div>

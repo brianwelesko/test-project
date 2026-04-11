@@ -1410,24 +1410,15 @@ class PantryInventory {
 
         // Alerts elements
         this.alertsSection = document.getElementById('alertsSection');
-        this.expiringAlerts = document.getElementById('expiringAlerts');
-        this.lowStockAlerts = document.getElementById('lowStockAlerts');
-        this.lowStockList = document.getElementById('lowStockList');
-
-        // Expiring panel subsections
-        this.useTodaySubsection = document.getElementById('useTodaySubsection');
+        this.useTodayRow  = document.getElementById('useTodayRow');
+        this.useSoonRow   = document.getElementById('useSoonRow');
+        this.expiredRow   = document.getElementById('expiredRow');
         this.useTodayList = document.getElementById('useTodayList');
-        this.useTodayMore = document.getElementById('useTodayMore');
-        this.useSoonSubsection = document.getElementById('useSoonSubsection');
-        this.useSoonList = document.getElementById('useSoonList');
-        this.useSoonMore = document.getElementById('useSoonMore');
-        this.expiredSubsection = document.getElementById('expiredSubsection');
-        this.expiredList = document.getElementById('expiredList');
-        this.expiredMore = document.getElementById('expiredMore');
-        this.closeExpiringPanel = document.getElementById('closeExpiringPanel');
+        this.useSoonList  = document.getElementById('useSoonList');
+        this.expiredList  = document.getElementById('expiredList');
 
         // Expiring panel state
-        this.expiringPanelVisible = false;
+        this.expiringPanelVisible = true;
         this.expiringPanelFilter = 'all'; // 'all', 'today', 'soon', 'expired'
 
         // Recipe elements
@@ -1694,11 +1685,6 @@ class PantryInventory {
                 this.closeAnyOpenModal();
             }
         });
-
-        // Close expiring panel button
-        if (this.closeExpiringPanel) {
-            this.closeExpiringPanel.addEventListener('click', () => this.hideUsePanel());
-        }
 
         // Recipe events
         this.tabBtns.forEach(btn => {
@@ -2129,110 +2115,56 @@ class PantryInventory {
 
     renderAlerts() {
         const useTodayItems = this.getUseTodayItems();
-        const useSoonItems = this.getUseSoonItems();
-        const expiredItems = this.getExpiredItems();
-        const lowStockItems = this.getLowStockItems();
+        const useSoonItems  = this.getUseSoonItems();
+        const expiredItems  = this.getExpiredItems();
 
-        const hasExpiringItems = useTodayItems.length > 0 || useSoonItems.length > 0 || expiredItems.length > 0;
-        const hasAlerts = hasExpiringItems || lowStockItems.length > 0;
+        const hasAny = useTodayItems.length > 0 || useSoonItems.length > 0 || expiredItems.length > 0;
 
-        // Show alerts section if low stock items exist OR expiring panel is visible with items
-        const showAlertsSection = lowStockItems.length > 0 || (this.expiringPanelVisible && hasExpiringItems);
-
-        if (!showAlertsSection) {
+        if (!this.expiringPanelVisible || !hasAny) {
             this.alertsSection.classList.add('hidden');
-            this.expiringAlerts.classList.add('hidden');
             return;
         }
 
         this.alertsSection.classList.remove('hidden');
+        const filter = this.expiringPanelFilter;
 
-        // Render expiring items panel (only if visible)
-        if (this.expiringPanelVisible && hasExpiringItems) {
-            this.expiringAlerts.classList.remove('hidden');
-            const filter = this.expiringPanelFilter;
-
-            // Render Use Today subsection
-            if ((filter === 'all' || filter === 'today') && useTodayItems.length > 0) {
-                this.useTodaySubsection.classList.remove('hidden');
-                this.renderCompactLine(useTodayItems, this.useTodayList, this.useTodayMore);
-            } else {
-                this.useTodaySubsection.classList.add('hidden');
-            }
-
-            // Render Use Soon subsection
-            if ((filter === 'all' || filter === 'soon') && useSoonItems.length > 0) {
-                this.useSoonSubsection.classList.remove('hidden');
-                this.renderCompactLine(useSoonItems, this.useSoonList, this.useSoonMore);
-            } else {
-                this.useSoonSubsection.classList.add('hidden');
-            }
-
-            // Render Expired subsection
-            if ((filter === 'all' || filter === 'expired') && expiredItems.length > 0) {
-                this.expiredSubsection.classList.remove('hidden');
-                this.renderCompactLine(expiredItems, this.expiredList, this.expiredMore);
-            } else {
-                this.expiredSubsection.classList.add('hidden');
-            }
+        // USE TODAY row
+        if ((filter === 'all' || filter === 'today') && useTodayItems.length > 0) {
+            this.useTodayRow.classList.remove('hidden');
+            this.renderAlertRow(useTodayItems, this.useTodayList);
         } else {
-            this.expiringAlerts.classList.add('hidden');
+            this.useTodayRow.classList.add('hidden');
         }
 
-        // Render low stock items
-        if (lowStockItems.length > 0) {
-            this.lowStockAlerts.classList.remove('hidden');
-            this.lowStockList.innerHTML = lowStockItems.map(item => `
-                <div class="alert-item">
-                    <span class="item-name">${this.escapeHtml(item.name)}</span>
-                    <span class="item-status low-stock">
-                        ${item.quantity} ${item.unit} remaining
-                    </span>
-                </div>
-            `).join('');
+        // USE SOON row
+        if ((filter === 'all' || filter === 'soon') && useSoonItems.length > 0) {
+            this.useSoonRow.classList.remove('hidden');
+            this.renderAlertRow(useSoonItems, this.useSoonList);
         } else {
-            this.lowStockAlerts.classList.add('hidden');
+            this.useSoonRow.classList.add('hidden');
+        }
+
+        // EXPIRED row
+        if ((filter === 'all' || filter === 'expired') && expiredItems.length > 0) {
+            this.expiredRow.classList.remove('hidden');
+            this.renderAlertRow(expiredItems, this.expiredList);
+        } else {
+            this.expiredRow.classList.add('hidden');
         }
     }
 
-    // Render a compact comma-separated line with "more" link
-    renderCompactLine(items, listEl, moreEl, maxVisible = 5) {
-        const visibleItems = items.slice(0, maxVisible);
-        const hiddenItems = items.slice(maxVisible);
-        const hasMore = hiddenItems.length > 0;
+    renderAlertRow(items, listEl, maxVisible = 8) {
+        const visible = items.slice(0, maxVisible);
+        const rest    = items.length - visible.length;
 
-        // Store all items for expanding
-        listEl.dataset.allItems = JSON.stringify(items.map(i => this.escapeHtml(i.name)));
-        listEl.dataset.expanded = 'false';
+        listEl.innerHTML = visible.map(item =>
+            `<span class="alert-item-link" data-name="${this.escapeHtml(item.name)}">${this.escapeHtml(item.name)}</span>`
+        ).join('<span style="opacity:0.6">, </span>') +
+        (rest > 0 ? `<span style="opacity:0.6">, +${rest} more</span>` : '');
 
-        listEl.textContent = visibleItems.map(i => i.name).join(', ');
-        if (hasMore && listEl.dataset.expanded === 'false') {
-            listEl.textContent += '...';
-        }
-
-        if (hasMore) {
-            moreEl.classList.remove('hidden');
-            moreEl.textContent = `+${hiddenItems.length} more`;
-            moreEl.onclick = () => this.toggleCompactLineExpand(listEl, moreEl, items);
-        } else {
-            moreEl.classList.add('hidden');
-        }
-    }
-
-    // Toggle expanding/collapsing a compact line
-    toggleCompactLineExpand(listEl, moreEl, items) {
-        const expanded = listEl.dataset.expanded === 'true';
-        if (expanded) {
-            // Collapse
-            listEl.textContent = items.slice(0, 5).map(i => i.name).join(', ') + '...';
-            listEl.dataset.expanded = 'false';
-            moreEl.textContent = `+${items.length - 5} more`;
-        } else {
-            // Expand
-            listEl.textContent = items.map(i => i.name).join(', ');
-            listEl.dataset.expanded = 'true';
-            moreEl.textContent = 'less';
-        }
+        listEl.querySelectorAll('.alert-item-link').forEach(el => {
+            el.addEventListener('click', () => this.showItemDetails(el.dataset.name));
+        });
     }
 
     // Show the expiring panel with optional filter

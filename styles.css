@@ -73,7 +73,7 @@ body {
     background-size: cover;
     background-position: top center;
     background-color: #D4956A; /* fallback */
-    margin: -20px -20px 20px -20px; /* bleed to container edges */
+    margin: -20px -20px 0 -20px; /* bleed to container edges */
     height: 407px;
     overflow: visible;
     position: relative;
@@ -925,7 +925,7 @@ mark {
     }
 
     .hero-section {
-        margin: -8px 0 16px 0;
+        margin: -8px 0 0 0;
         height: 189px;
     }
 
@@ -1000,159 +1000,66 @@ mark {
     }
 }
 
-/* Alerts Section */
+/* Alerts Section — flat rows under hero */
 .alerts-section {
-    background: var(--surface-white);
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-    border: 1px solid var(--border-warm);
-}
-
-.alerts-group {
-    margin-bottom: 20px;
-}
-
-.alerts-group:last-child {
-    margin-bottom: 0;
-}
-
-.alerts-group h3 {
-    font-family: 'Lora', serif;
-    color: var(--terra-cotta);
-    margin-bottom: 12px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 1rem;
-}
-
-#expiringAlerts h3::before {
-    content: "⏰";
-}
-
-#lowStockAlerts h3::before {
-    content: "📦";
-}
-
-.alert-item {
-    background: var(--command-bg);
-    padding: 12px;
-    border-radius: 8px;
-    margin-bottom: 8px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.alert-item.urgent {
-    background: var(--terra-light);
-    border-left: 3px solid var(--terra-cotta);
-}
-
-.alert-item .item-status.expiring {
-    color: var(--terra-cotta);
-    font-weight: 500;
-}
-
-.alert-item .item-status.low-stock {
-    color: var(--terra-cotta);
-    font-weight: 500;
-}
-
-.alert-item:last-child {
-    margin-bottom: 0;
-}
-
-.alert-item .item-name {
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.alert-item .item-status {
-    color: var(--terra-cotta);
-    font-weight: 500;
-}
-
-/* Compact Expiring Items Panel */
-.expiring-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-}
-
-.expiring-header h3 {
-    margin: 0;
-}
-
-.close-panel-btn {
     background: none;
+    border-radius: 0;
+    padding: 0;
+    margin: 0;
+    box-shadow: none;
     border: none;
-    font-size: 1.4rem;
-    cursor: pointer;
-    color: var(--text-secondary);
-    padding: 0 5px;
-    line-height: 1;
 }
 
-.close-panel-btn:hover {
-    color: var(--text-primary);
-}
-
-.expiring-subsections {
+.alert-row {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 20px;
+    overflow: hidden;
 }
 
-.expiring-subsection {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    flex-wrap: nowrap;
-}
+.alert-row-today  { background: var(--terra-cotta); }
+.alert-row-soon   { background: rgba(227, 83, 54, 0.18); }
+.alert-row-expired { background: rgba(227, 83, 54, 0.07); }
 
-.subsection-header {
-    font-size: 0.85rem;
-    font-weight: 600;
+.alert-row-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
     white-space: nowrap;
     flex-shrink: 0;
+    min-width: 72px;
 }
 
-.today-header {
-    color: #D4A84B;
-}
+.alert-row-today .alert-row-label   { color: white; }
+.alert-row-soon .alert-row-label    { color: var(--terra-cotta); }
+.alert-row-expired .alert-row-label { color: var(--text-secondary); }
 
-.soon-header {
-    color: var(--text-secondary);
-}
-
-.expired-header {
-    color: var(--terra-cotta);
-}
-
-.compact-list {
-    font-size: 0.85rem;
-    color: var(--text-primary);
+.alert-row-items {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.show-more-link {
-    font-size: 0.8rem;
-    color: var(--sage);
+.alert-row-today .alert-row-items   { color: rgba(255,255,255,0.92); }
+.alert-row-soon .alert-row-items    { color: var(--text-primary); }
+.alert-row-expired .alert-row-items { color: var(--text-secondary); }
+
+.alert-item-link {
     cursor: pointer;
-    white-space: nowrap;
-    flex-shrink: 0;
     text-decoration: underline;
+    text-underline-offset: 2px;
 }
 
-.show-more-link:hover {
-    color: var(--sage-dark);
-}
+.alert-row-today .alert-item-link   { color: white; }
+.alert-row-soon .alert-item-link    { color: var(--terra-cotta); }
+.alert-row-expired .alert-item-link { color: var(--text-secondary); }
+
+.alert-item-link:hover { opacity: 0.75; }
 
 /* Form Section — modal overlay */
 .form-section {
@@ -1331,8 +1238,13 @@ mark {
     background: var(--surface-white);
     border-radius: 12px;
     padding: 20px;
+    margin-top: 20px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     border: 1px solid var(--border-warm);
+}
+
+.alerts-section:not(.hidden) + .inventory-section {
+    margin-top: 0;
 }
 
 .inventory-header {
@@ -2599,47 +2511,6 @@ mark {
 
     .filter-sort {
         display: none;
-    }
-
-    /* Compact Alerts Section */
-    .alerts-section {
-        padding: 10px;
-        margin-bottom: 10px;
-    }
-
-    .alerts-group {
-        margin-bottom: 10px;
-    }
-
-    .alerts-group h3 {
-        font-size: 0.85rem;
-        margin-bottom: 8px;
-    }
-
-    .alert-item {
-        padding: 8px 10px;
-        margin-bottom: 6px;
-        border-radius: 6px;
-        flex-wrap: nowrap;
-        gap: 8px;
-    }
-
-    .alert-item .item-name {
-        font-size: 0.9rem;
-        flex: 1;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .alert-item .item-status {
-        font-size: 0.8rem;
-        white-space: nowrap;
-        flex-shrink: 0;
-    }
-
-    .alert-item.urgent {
-        border-left-width: 2px;
     }
 
     /* Mobile Inventory — full width, no side padding on section */

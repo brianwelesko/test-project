@@ -1805,10 +1805,13 @@ class PantryInventory {
     getDaysUntilExpiration(item) {
         if (!item.expirationDate) return null;
         const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const expDate = new Date(item.expirationDate);
-        const diffTime = expDate - today;
-        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        // Use local date parts to avoid UTC/timezone offset issues with date strings
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+        const todayMs = new Date(todayStr).getTime();
+        // Normalize expDate to midnight UTC for consistent comparison
+        const expStr = item.expirationDate.split('T')[0];
+        const expMs = new Date(expStr).getTime();
+        return Math.round((expMs - todayMs) / (1000 * 60 * 60 * 24));
     }
 
     // Get expiration status: 'fresh', 'expiring-soon', 'expired'
@@ -1867,11 +1870,11 @@ class PantryInventory {
         });
     }
 
-    // Get items expiring soon (days 1-3)
+    // Get items expiring soon (days 1-7)
     getUseSoonItems() {
         return this.inventory.filter(item => {
             const days = this.getDaysUntilExpiration(item);
-            return days !== null && days >= 1 && days <= 3;
+            return days !== null && days >= 1 && days <= 7;
         }).sort((a, b) => {
             return this.getDaysUntilExpiration(a) - this.getDaysUntilExpiration(b);
         });

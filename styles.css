@@ -1058,13 +1058,8 @@ mark {
 .alert-row-today .alert-item-link   { color: white; }
 .alert-row-soon .alert-item-link    { color: var(--terra-cotta); }
 .alert-row-expired .alert-item-link { color: var(--text-secondary); }
-.alert-row-lowstock .alert-item-link { color: #8B7040; }
 
 .alert-item-link:hover { opacity: 0.75; }
-
-.alert-row-lowstock { background: rgba(180, 130, 40, 0.10); }
-.alert-row-lowstock .alert-row-label { color: #8B7040; }
-.alert-row-lowstock .alert-row-items { color: var(--text-secondary); }
 
 /* Form Section — modal overlay */
 .form-section {
@@ -1311,6 +1306,7 @@ mark {
 }
 
 .inventory-item.low-stock {
+    background: var(--terra-light);
     border-left: none;
 }
 

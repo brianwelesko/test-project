@@ -1413,11 +1413,9 @@ class PantryInventory {
         this.useTodayRow  = document.getElementById('useTodayRow');
         this.useSoonRow   = document.getElementById('useSoonRow');
         this.expiredRow   = document.getElementById('expiredRow');
-        this.lowStockRow  = document.getElementById('lowStockRow');
         this.useTodayList = document.getElementById('useTodayList');
         this.useSoonList  = document.getElementById('useSoonList');
         this.expiredList  = document.getElementById('expiredList');
-        this.lowStockList = document.getElementById('lowStockList');
 
         // Expiring panel state
         this.expiringPanelVisible = true;
@@ -2122,10 +2120,8 @@ class PantryInventory {
         const useTodayItems = this.getUseTodayItems();
         const useSoonItems  = this.getUseSoonItems();
         const expiredItems  = this.getExpiredItems();
-        const lowStockItems = this.getLowStockItems();
 
-        const hasAny = useTodayItems.length > 0 || useSoonItems.length > 0
-                     || expiredItems.length > 0  || lowStockItems.length > 0;
+        const hasAny = useTodayItems.length > 0 || useSoonItems.length > 0 || expiredItems.length > 0;
 
         if (!this.expiringPanelVisible || !hasAny) {
             this.alertsSection.classList.add('hidden');
@@ -2157,14 +2153,6 @@ class PantryInventory {
             this.renderAlertRow(expiredItems, this.expiredList);
         } else {
             this.expiredRow.classList.add('hidden');
-        }
-
-        // LOW STOCK row
-        if ((filter === 'all' || filter === 'low-stock') && lowStockItems.length > 0) {
-            this.lowStockRow.classList.remove('hidden');
-            this.renderAlertRow(lowStockItems, this.lowStockList);
-        } else {
-            this.lowStockRow.classList.add('hidden');
         }
     }
 

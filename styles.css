@@ -1005,7 +1005,7 @@ mark {
     background: none;
     border-radius: 0;
     padding: 0;
-    margin: 0;
+    margin: 0 -20px;
     box-shadow: none;
     border: none;
 }
@@ -1238,7 +1238,7 @@ mark {
     background: var(--surface-white);
     border-radius: 12px;
     padding: 20px;
-    margin-top: 20px;
+    margin: 20px -20px 0;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     border: 1px solid var(--border-warm);
 }
@@ -2540,6 +2540,13 @@ mark {
         border-left: none;
         border-right: none;
         padding: 12px 0 16px;
+        margin-left: 0;
+        margin-right: 0;
+    }
+
+    .alerts-section {
+        margin-left: 0;
+        margin-right: 0;
     }
 
     .inventory-header {

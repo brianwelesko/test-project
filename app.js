@@ -3552,6 +3552,12 @@ class PantryInventory {
                 this.quickDeductPreview.classList.remove('hidden');
                 this.clearSearchFilter();
                 break;
+            case 'show-price-history':
+                this.quickDeductSuggestions.classList.add('hidden');
+                this.quickDeductPreview.innerHTML = `<span class="preview-hint">Show price history for <strong>${this.escapeHtml(parsed.itemQuery)}</strong> — Press Enter</span>`;
+                this.quickDeductPreview.classList.remove('hidden');
+                this.clearSearchFilter();
+                break;
             case 'close-all':
                 this.quickDeductSuggestions.classList.add('hidden');
                 this.quickDeductPreview.innerHTML = `<span class="preview-hint">Press Enter to close all open panels</span>`;

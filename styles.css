@@ -1306,7 +1306,6 @@ mark {
 }
 
 .inventory-item.low-stock {
-    background: var(--terra-light);
     border-left: none;
 }
 

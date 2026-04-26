@@ -2121,15 +2121,20 @@ class PantryInventory {
         const useSoonItems  = this.getUseSoonItems();
         const expiredItems  = this.getExpiredItems();
 
-        const hasAny = useTodayItems.length > 0 || useSoonItems.length > 0 || expiredItems.length > 0;
+        const filter = this.expiringPanelFilter;
 
-        if (!this.expiringPanelVisible || !hasAny) {
+        // Only show section if at least one row will actually be visible for this filter
+        const hasVisible =
+            ((filter === 'all' || filter === 'today')   && useTodayItems.length > 0) ||
+            ((filter === 'all' || filter === 'soon')    && useSoonItems.length > 0)  ||
+            ((filter === 'all' || filter === 'expired') && expiredItems.length > 0);
+
+        if (!this.expiringPanelVisible || !hasVisible) {
             this.alertsSection.classList.add('hidden');
             return;
         }
 
         this.alertsSection.classList.remove('hidden');
-        const filter = this.expiringPanelFilter;
 
         // USE TODAY row
         if ((filter === 'all' || filter === 'today') && useTodayItems.length > 0) {
@@ -2955,11 +2960,17 @@ class PantryInventory {
         if (input.toLowerCase() === 'use now' || input.toLowerCase() === 'use today') {
             return { action: 'show-use-panel', filter: 'today' };
         }
-        if (input.toLowerCase() === 'use soon' || input.toLowerCase() === 'expiring' || input.toLowerCase() === 'exp') {
+        if (input.toLowerCase() === 'use soon') {
             return { action: 'show-use-panel', filter: 'soon' };
+        }
+        if (input.toLowerCase() === 'expiring' || input.toLowerCase() === 'exp') {
+            return { action: 'show-use-panel', filter: 'all' };
         }
         if (input.toLowerCase() === 'expired') {
             return { action: 'show-use-panel', filter: 'expired' };
+        }
+        if (input.toLowerCase() === 'hide alerts' || input.toLowerCase() === 'hide') {
+            return { action: 'hide-alerts' };
         }
 
         // Close all modules: "close"
@@ -3498,6 +3509,12 @@ class PantryInventory {
             case 'clear-filters':
                 this.quickDeductSuggestions.classList.add('hidden');
                 this.quickDeductPreview.innerHTML = `<span class="preview-hint">Press Enter to show all items</span>`;
+                this.quickDeductPreview.classList.remove('hidden');
+                this.clearSearchFilter();
+                break;
+            case 'hide-alerts':
+                this.quickDeductSuggestions.classList.add('hidden');
+                this.quickDeductPreview.innerHTML = `<span class="preview-hint">Press Enter to hide alert bars</span>`;
                 this.quickDeductPreview.classList.remove('hidden');
                 this.clearSearchFilter();
                 break;
@@ -6409,6 +6426,8 @@ class PantryInventory {
             this.executeFilterLowStock();
         } else if (parsed.action === 'show-use-panel') {
             this.showUsePanel(parsed.filter);
+        } else if (parsed.action === 'hide-alerts') {
+            this.hideUsePanel();
         } else if (parsed.action === 'clear-filters') {
             this.executeClearFilters();
         } else if (parsed.action === 'close-all') {

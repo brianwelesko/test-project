@@ -230,6 +230,27 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// Permanently delete item and all history (hard delete)
+router.delete('/:id/permanent', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await query(
+      'DELETE FROM inventory_items WHERE id = $1 AND user_id = $2 RETURNING id, name',
+      [id, req.user.id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+
+    res.json({ success: true, id: result.rows[0].id, name: result.rows[0].name });
+  } catch (err) {
+    console.error('Permanent delete error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Log an activity (deduct or restock) for an item
 router.post('/:id/activity', async (req, res) => {
   try {

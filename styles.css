@@ -2247,6 +2247,28 @@ mark {
     background: #1A1816;
 }
 
+.details-permanent-delete {
+    text-align: center;
+    padding: 12px 20px 4px;
+    border-top: 1px solid var(--border-warm);
+}
+
+.btn-permanent-delete {
+    background: none;
+    border: none;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    padding: 4px 8px;
+}
+
+.btn-permanent-delete:hover {
+    color: var(--terra-cotta);
+}
+
 .details-section-header {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 0.65rem;

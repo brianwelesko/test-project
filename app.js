@@ -1033,6 +1033,10 @@ const API = {
         });
     },
 
+    async permanentDeleteItem(id) {
+        return this.request(`/inventory/${id}/permanent`, { method: 'DELETE' });
+    },
+
     async syncItems(items) {
         return this.request('/inventory/sync', {
             method: 'POST',
@@ -1554,6 +1558,24 @@ class PantryInventory {
                 }
             });
         }
+
+        const permanentDeleteBtn = document.getElementById('detailsPermanentDeleteBtn');
+        if (permanentDeleteBtn) {
+            permanentDeleteBtn.addEventListener('click', async () => {
+                const itemId = this.currentDetailsItemId;
+                if (!itemId) return;
+                const item = this.getItem(itemId);
+                if (!item) return;
+                const confirmed = confirm(
+                    `Permanently delete "${item.name}" and all its history?\n\nThis cannot be undone.`
+                );
+                if (confirmed) {
+                    this.hideItemDetails();
+                    await this.permanentDeleteItem(itemId);
+                    this.render();
+                }
+            });
+        }
         const qtyHistoryToggle = document.getElementById('qtyHistoryToggle');
         if (qtyHistoryToggle) {
             qtyHistoryToggle.addEventListener('click', () => {
@@ -1911,6 +1933,18 @@ class PantryInventory {
         } catch (err) {
             console.error('Failed to delete item:', err);
             alert('Failed to delete item. Please check your connection and try again.');
+            throw err;
+        }
+    }
+
+    async permanentDeleteItem(id) {
+        try {
+            await API.permanentDeleteItem(id);
+            this.inventory = this.inventory.filter(item => String(item.id) !== String(id));
+            this.rebuildSearchIndex();
+        } catch (err) {
+            console.error('Failed to permanently delete item:', err);
+            alert('Failed to permanently delete item. Please check your connection and try again.');
             throw err;
         }
     }

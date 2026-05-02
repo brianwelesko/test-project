@@ -1283,7 +1283,7 @@ mark {
 .inventory-item {
     background: transparent;
     border-radius: 0;
-    padding: 9px 4px;
+    padding: 9px 16px;
     display: grid;
     grid-template-columns: 28px 1fr auto;
     align-items: center;
@@ -1429,7 +1429,10 @@ mark {
     margin-left: 6px;
 }
 
-.expiration-info {
+.expiration-price-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     margin-top: 4px;
 }
 
@@ -1470,7 +1473,6 @@ mark {
 }
 
 .item-price {
-    margin-top: 2px;
     font-size: 0.8rem;
     color: var(--sage-green);
     font-weight: 500;
@@ -2575,10 +2577,6 @@ mark {
         padding: 1px 6px;
         font-size: 0.65rem;
         margin-right: 4px;
-    }
-
-    .item-info .expiration-info {
-        margin-top: 4px;
     }
 
     .item-info .expiration-badge {

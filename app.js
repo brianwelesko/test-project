@@ -2373,10 +2373,9 @@ class PantryInventory {
                             ${locationDisplay ? `<span class="location-badge ${item.location}">${locationDisplay}</span>` : ''}
                             ${item.isStaple ? '<span class="staple-badge">Staple</span>' : ''}
                         </div>
-                        ${expirationDisplay ? `<div class="expiration-info">${expirationDisplay}</div>` : ''}
                         ${item.brand ? `<div class="item-brand">${this.escapeHtml(item.brand)}</div>` : ''}
                         ${storeInfo ? `<div class="item-store">From: ${this.escapeHtml(storeInfo)}</div>` : ''}
-                        ${this.renderPriceInfo(item)}
+                        ${(expirationDisplay || this.renderPriceInfo(item)) ? `<div class="expiration-price-row">${expirationDisplay ? `<span class="expiration-info">${expirationDisplay}</span>` : ''}${this.renderPriceInfo(item)}</div>` : ''}
                     </div>
                     <div class="item-quantity">
                         <div class="amount">${item.quantity}</div>
@@ -2409,7 +2408,7 @@ class PantryInventory {
             }
         }
 
-        return `<div class="item-price">$${price}${unitSuffix}${changeIndicator}</div>`;
+        return `<span class="item-price">$${price}${unitSuffix}${changeIndicator}</span>`;
     }
 
     async confirmDelete(id) {

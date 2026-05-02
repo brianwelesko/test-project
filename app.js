@@ -3288,6 +3288,7 @@ class PantryInventory {
     // Detect ingredient info from database
     detectIngredientInfo(name) {
         const nameLower = name.toLowerCase().trim();
+        if (!nameLower) return null;
 
         // Try exact match
         if (INGREDIENT_DATABASE[nameLower]) {
@@ -6210,6 +6211,10 @@ class PantryInventory {
             // Show "add new" option when no matches
             // Strip leading "+" and whitespace from query to get clean item name
             const cleanName = query.replace(/^\+\s*/, '');
+            if (!cleanName) {
+                this.quickDeductSuggestions.classList.add('hidden');
+                return;
+            }
             const detected = this.detectIngredientInfo(cleanName);
             const categoryHint = detected ? ` as ${CATEGORY_NAMES[detected.category] || detected.category}` : '';
 

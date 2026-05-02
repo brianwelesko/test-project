@@ -1236,11 +1236,11 @@ mark {
 /* Inventory Section */
 .inventory-section {
     background: var(--surface-white);
-    border-radius: 12px;
-    padding: 20px;
+    border-radius: 0;
+    padding: 0;
     margin: 20px -20px 0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-    border: 1px solid var(--border-warm);
+    box-shadow: none;
+    border: none;
 }
 
 .alerts-section:not(.hidden) + .inventory-section {
@@ -1251,7 +1251,7 @@ mark {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
+    margin-bottom: 0;
     flex-wrap: wrap;
     gap: 12px;
 }

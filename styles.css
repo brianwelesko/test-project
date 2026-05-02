@@ -756,6 +756,21 @@ header h1 {
     font-style: normal;
 }
 
+/* Command suggestions — appear above ingredient results */
+.suggestion-item.suggestion-command {
+    border-left: 2px solid rgba(255, 255, 255, 0.35);
+    background: rgba(0, 0, 0, 0.12);
+}
+
+.suggestion-item.suggestion-command:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.suggestion-item.suggestion-command .suggestion-name {
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
 .suggestion-category {
     color: white;
     font-size: 0.75rem;

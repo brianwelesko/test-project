@@ -359,6 +359,30 @@ const LOCATION_NAMES = {
     'other': 'Other'
 };
 
+const COMMAND_HINTS = [
+    { keyword: 'help',     hint: 'Show help panel'               },
+    { keyword: 'add',      hint: 'Open add form',      tail: ' ' },
+    { keyword: 'recipe',   hint: 'Open recipe section'           },
+    { keyword: 'scan',     hint: 'Scan label / receipt'          },
+    { keyword: 'sort',     hint: 'Sort inventory'                },
+    { keyword: 'delete',   hint: 'Delete ingredient',  tail: ' ' },
+    { keyword: 'edit',     hint: 'Edit ingredient',    tail: ' ' },
+    { keyword: 'set',      hint: 'Set quantity',       tail: ' ' },
+    { keyword: 'staple',   hint: 'Toggle staple',      tail: ' ' },
+    { keyword: 'view',     hint: 'View ingredient',    tail: ' ' },
+    { keyword: 'chart',    hint: 'Show price history', tail: ' ' },
+    { keyword: 'graph',    hint: 'Show price history', tail: ' ' },
+    { keyword: 'price',    hint: 'Show price history', tail: ' ' },
+    { keyword: 'move',     hint: 'Move between locations', tail: ' ' },
+    { keyword: 'convert',  hint: 'Convert units'                 },
+    { keyword: 'low',      hint: 'Filter: low stock'             },
+    { keyword: 'expiring', hint: 'Show expiring items'           },
+    { keyword: 'expired',  hint: 'Show expired items'            },
+    { keyword: 'clear',    hint: 'Clear all filters'             },
+    { keyword: 'close',    hint: 'Close all panels'              },
+    { keyword: 'group',    hint: 'Group deduction',    tail: ' ' },
+];
+
 // Ingredient database for auto-categorization and expiration
 const INGREDIENT_DATABASE = {
     // Proteins
@@ -6170,13 +6194,19 @@ class PantryInventory {
             this.rebuildSearchIndex();
         }
 
+        // Find commands whose keyword starts with the query (min 2 chars, max 3 hints)
+        const commandMatches = query.length >= 2
+            ? COMMAND_HINTS.filter(c => c.keyword.startsWith(query.toLowerCase())).slice(0, 3)
+            : [];
+
         // Search with fuzzy matching
-        let results = SuggestionEngine.search(query, this.searchIndex, { limit: 8 });
+        const ingredientLimit = Math.max(1, 8 - commandMatches.length);
+        let results = SuggestionEngine.search(query, this.searchIndex, { limit: ingredientLimit });
 
         // Boost recently used items
         results = SuggestionEngine.boostRecent(results);
 
-        if (results.length === 0) {
+        if (results.length === 0 && commandMatches.length === 0) {
             // Show "add new" option when no matches
             // Strip leading "+" and whitespace from query to get clean item name
             const cleanName = query.replace(/^\+\s*/, '');
@@ -6198,24 +6228,34 @@ class PantryInventory {
         // Store both inventory items and suggestion metadata
         this.currentSuggestions = results.map(r => r.type === 'inventory' ? r.data : r);
 
-        this.quickDeductSuggestions.innerHTML = results.map((result, idx) => {
+        const commandRows = commandMatches.map((cmd, idx) => {
+            const fill = cmd.keyword + (cmd.tail || '');
+            const matchedKeyword = `<mark>${this.escapeHtml(query)}</mark>${this.escapeHtml(cmd.keyword.slice(query.length))}`;
+            return `
+                <div class="suggestion-item suggestion-command" data-action="command" data-command="${this.escapeHtml(fill)}" data-index="${idx}">
+                    <span class="suggestion-name">${matchedKeyword}</span>
+                    <span class="suggestion-hint">${this.escapeHtml(cmd.hint)}</span>
+                </div>
+            `;
+        }).join('');
+
+        const ingredientRows = results.map((result, idx) => {
+            const i = idx + commandMatches.length;
             if (result.type === 'inventory') {
-                // Item in user's inventory
                 const item = result.data;
                 const locationText = item.location ? LOCATION_NAMES[item.location] || item.location : '';
                 return `
-                    <div class="suggestion-item" data-id="${item.id}" data-index="${idx}">
+                    <div class="suggestion-item" data-id="${item.id}" data-index="${i}">
                         <span class="suggestion-name">${result.matchedName}</span>
                         <span class="suggestion-qty">${item.quantity} ${item.unit}</span>
                         ${locationText ? `<span class="suggestion-loc">${locationText}</span>` : ''}
                     </div>
                 `;
             } else if (result.type === 'known') {
-                // Known ingredient not in inventory
                 const info = result.data;
                 const categoryName = CATEGORY_NAMES[info.category] || info.category;
                 return `
-                    <div class="suggestion-item suggestion-known" data-action="add-known" data-name="${this.escapeHtml(result.name)}" data-index="${idx}">
+                    <div class="suggestion-item suggestion-known" data-action="add-known" data-name="${this.escapeHtml(result.name)}" data-index="${i}">
                         <span class="suggestion-icon">+</span>
                         <span class="suggestion-name">${result.matchedName}</span>
                         <span class="suggestion-category">${categoryName}</span>
@@ -6223,9 +6263,8 @@ class PantryInventory {
                     </div>
                 `;
             } else {
-                // Density-only ingredient
                 return `
-                    <div class="suggestion-item suggestion-density" data-action="add-known" data-name="${this.escapeHtml(result.name)}" data-index="${idx}">
+                    <div class="suggestion-item suggestion-density" data-action="add-known" data-name="${this.escapeHtml(result.name)}" data-index="${i}">
                         <span class="suggestion-icon">+</span>
                         <span class="suggestion-name">${result.matchedName}</span>
                         <span class="suggestion-hint">Add to inventory</span>
@@ -6234,6 +6273,7 @@ class PantryInventory {
             }
         }).join('');
 
+        this.quickDeductSuggestions.innerHTML = commandRows + ingredientRows;
         this.quickDeductSuggestions.classList.remove('hidden');
     }
 
@@ -6347,7 +6387,12 @@ class PantryInventory {
         const id = el.dataset.id;
         const name = el.dataset.name;
 
-        if (action === 'add-new' || action === 'add-known') {
+        if (action === 'command') {
+            this.quickDeductInput.value = el.dataset.command;
+            this.quickDeductSuggestions.classList.add('hidden');
+            this.quickDeductInput.focus();
+            this.handleQuickDeductInput();
+        } else if (action === 'add-new' || action === 'add-known') {
             this.selectKnownIngredient(name);
         } else if (id) {
             this.selectSuggestion(id);

@@ -1725,10 +1725,10 @@ class PantryInventory {
             this.clearFiltersBtn.addEventListener('click', () => this.clearMobileFilters());
         }
 
-        // Global escape key handler for closing modals
+        // Global escape key handler
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                this.closeAnyOpenModal();
+                this.handleEscape();
             }
         });
 
@@ -5950,42 +5950,62 @@ class PantryInventory {
 
     // Close any open modal when Escape key is pressed
     closeAnyOpenModal() {
-        // Check each modal and close the first one that's open
-        // Price history modal
         if (this.priceHistoryModal && !this.priceHistoryModal.classList.contains('hidden')) {
             this.hidePriceHistory();
-            return;
+            return true;
         }
-
-        // Item details modal
         if (this.itemDetailsModal && !this.itemDetailsModal.classList.contains('hidden')) {
             this.hideItemDetails();
-            return;
+            return true;
         }
-
-        // Edit/Add form modal
         if (this.formSection && !this.formSection.classList.contains('hidden')) {
             this.cancelEdit();
-            return;
+            return true;
         }
-
-        // Filter modal
         if (this.filterModal && !this.filterModal.classList.contains('hidden')) {
             this.hideFilterModal();
-            return;
+            return true;
         }
-
-        // Scan modal
         if (this.scanModal && !this.scanModal.classList.contains('hidden')) {
             this.closeScanModal();
-            return;
+            return true;
         }
-
-        // Grocery review modal
         const groceryModal = document.getElementById('groceryReviewModal');
         if (groceryModal && !groceryModal.classList.contains('hidden')) {
             this.closeGroceryReviewModal();
+            return true;
+        }
+        return false;
+    }
+
+    handleEscape() {
+        if (this.closeAnyOpenModal()) return;
+
+        const hasDropdown = !this.quickDeductSuggestions.classList.contains('hidden')
+                         || !this.quickDeductPreview.classList.contains('hidden');
+        if (hasDropdown) {
+            this.quickDeductSuggestions.classList.add('hidden');
+            this.quickDeductPreview.classList.add('hidden');
             return;
+        }
+
+        if (this.quickDeductInput.value) {
+            this.clearCommandBar();
+            this.clearSearchFilter();
+            return;
+        }
+
+        // Full reset: clear any active filters and re-render
+        const hasFilters = this.filterCategory.value !== 'all'
+                        || this.currentLocationFilter
+                        || this.currentSpecialFilter
+                        || this.currentSearchFilter;
+        if (hasFilters) {
+            this.filterCategory.value = 'all';
+            this.currentLocationFilter = null;
+            this.currentSpecialFilter = null;
+            this.clearCommandBar();
+            this.clearSearchFilter();
         }
     }
 
@@ -6436,8 +6456,8 @@ class PantryInventory {
                 this.updateSuggestionHighlight(suggestions);
             }
         } else if (e.key === 'Escape') {
-            this.quickDeductSuggestions.classList.add('hidden');
-            this.quickDeductPreview.classList.add('hidden');
+            e.stopPropagation(); // handled here; prevent global handler from double-firing
+            this.handleEscape();
         }
     }
 

@@ -6876,27 +6876,17 @@ class PantryInventory {
             }));
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(priceRows.length ? priceRows : [{}]), 'Price History');
 
-            // Sheet 3: Transactions (package executions, one row per item deducted)
-            const txRows = [];
-            for (const tx of data.transactions) {
-                const date = tx.executed_at ? tx.executed_at.split('T')[0] : '';
-                const details = tx.details || {};
-                const results = details.results || [];
-                if (results.length === 0) {
-                    txRows.push({ 'Date': date, 'Package': tx.package_name, 'Item': '', 'Amount': '', 'Unit': '', 'Result': tx.status });
-                } else {
-                    for (const r of results) {
-                        txRows.push({
-                            'Date': date,
-                            'Package': tx.package_name,
-                            'Item': r.name || '',
-                            'Amount': r.deducted != null ? r.deducted : '',
-                            'Unit': r.unit || '',
-                            'Result': r.success ? 'OK' : 'Failed',
-                        });
-                    }
-                }
-            }
+            // Sheet 3: Transactions (all deductions and restocks from quantity_history)
+            const txRows = data.transactions.map(tx => ({
+                'Date': tx.recorded_at ? tx.recorded_at.split('T')[0] : '',
+                'Item': tx.item_name || '',
+                'Type': tx.action === 'restock' ? 'Restock' : 'Deduct',
+                'Amount': tx.amount != null ? parseFloat(tx.amount) : '',
+                'Unit': tx.unit || '',
+                'Before': tx.quantity_before != null ? parseFloat(tx.quantity_before) : '',
+                'After': tx.quantity_after != null ? parseFloat(tx.quantity_after) : '',
+                'Note': tx.note || '',
+            }));
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(txRows.length ? txRows : [{}]), 'Transactions');
 
             const date = new Date().toISOString().split('T')[0];

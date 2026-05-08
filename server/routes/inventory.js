@@ -481,11 +481,13 @@ router.get('/export', async (req, res) => {
       `, [userId]),
 
       query(`
-        SELECT executed_at, package_name, status, details
-        FROM package_execution_log
-        WHERE user_id = $1
-        ORDER BY executed_at DESC
-        LIMIT 500
+        SELECT ii.name AS item_name, qh.action, qh.amount, qh.unit,
+               qh.quantity_before, qh.quantity_after, qh.note, qh.recorded_at
+        FROM quantity_history qh
+        JOIN inventory_items ii ON qh.item_id = ii.id
+        WHERE ii.user_id = $1
+        ORDER BY qh.recorded_at DESC
+        LIMIT 1000
       `, [userId]),
     ]);
 

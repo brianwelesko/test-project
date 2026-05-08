@@ -1627,6 +1627,59 @@ mark {
     }
 }
 
+/* Export Section */
+.export-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 0 32px;
+    margin: 0 -20px;
+    padding-left: 20px;
+    padding-right: 20px;
+}
+
+.export-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: 1px solid var(--border-warm);
+    color: var(--text-secondary);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 6px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.export-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--text-secondary);
+}
+
+.export-btn:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.export-icon {
+    font-size: 0.9rem;
+    line-height: 1;
+}
+
+.export-status {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.export-status.error {
+    color: var(--terra-cotta);
+}
+
 /* Quick update modal */
 .modal-overlay {
     position: fixed;

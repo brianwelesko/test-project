@@ -1026,6 +1026,10 @@ const API = {
         return this.request('/inventory');
     },
 
+    async getExportData() {
+        return this.request('/inventory/export');
+    },
+
     async addItem(item) {
         return this.request('/inventory', {
             method: 'POST',
@@ -1445,6 +1449,10 @@ class PantryInventory {
         this.useSoonList  = document.getElementById('useSoonList');
         this.expiredList  = document.getElementById('expiredList');
 
+        // Export
+        this.exportBtn = document.getElementById('exportBtn');
+        this.exportStatus = document.getElementById('exportStatus');
+
         // Expiring panel state
         this.expiringPanelVisible = true;
         this.expiringPanelFilter = 'all'; // 'all', 'today', 'soon', 'expired'
@@ -1723,6 +1731,10 @@ class PantryInventory {
         }
         if (this.clearFiltersBtn) {
             this.clearFiltersBtn.addEventListener('click', () => this.clearMobileFilters());
+        }
+
+        if (this.exportBtn) {
+            this.exportBtn.addEventListener('click', () => this.exportToExcel());
         }
 
         // Global escape key handler
@@ -6821,6 +6833,89 @@ class PantryInventory {
         this.quickDeductPreview.classList.add('hidden');
         this.quickDeductSuggestions.classList.add('hidden');
         this.updateCommandButton(null);
+    }
+
+    async exportToExcel() {
+        if (typeof XLSX === 'undefined') {
+            this.showExportStatus('Export library not loaded — try refreshing the page.', true);
+            return;
+        }
+
+        this.exportBtn.disabled = true;
+        this.showExportStatus('Preparing export…');
+
+        try {
+            const data = await API.getExportData();
+            const wb = XLSX.utils.book_new();
+
+            // Sheet 1: Inventory
+            const inventoryRows = data.inventory.map(item => ({
+                'Name': item.name,
+                'Quantity': item.quantity,
+                'Unit': item.unit,
+                'Category': item.category || '',
+                'Location': item.location || '',
+                'Brand': item.brand || '',
+                'Last Price': item.last_price != null ? parseFloat(item.last_price) : '',
+                'Price Unit': item.price_unit || '',
+                'Low Stock Threshold': item.threshold != null ? parseFloat(item.threshold) : '',
+                'Expiration Date': item.expiration_date ? item.expiration_date.split('T')[0] : '',
+                'Purchase Date': item.purchase_date ? item.purchase_date.split('T')[0] : '',
+                'Staple': item.is_staple ? 'Yes' : 'No',
+                'Store': item.bought_from || '',
+            }));
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(inventoryRows), 'Inventory');
+
+            // Sheet 2: Price History
+            const priceRows = data.priceHistory.map(ph => ({
+                'Item': ph.item_name,
+                'Price': ph.price != null ? parseFloat(ph.price) : '',
+                'Price Unit': ph.price_unit || 'flat',
+                'Store': ph.store || '',
+                'Date': ph.recorded_at ? ph.recorded_at.split('T')[0] : '',
+            }));
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(priceRows.length ? priceRows : [{}]), 'Price History');
+
+            // Sheet 3: Transactions (package executions, one row per item deducted)
+            const txRows = [];
+            for (const tx of data.transactions) {
+                const date = tx.executed_at ? tx.executed_at.split('T')[0] : '';
+                const details = tx.details || {};
+                const results = details.results || [];
+                if (results.length === 0) {
+                    txRows.push({ 'Date': date, 'Package': tx.package_name, 'Item': '', 'Amount': '', 'Unit': '', 'Result': tx.status });
+                } else {
+                    for (const r of results) {
+                        txRows.push({
+                            'Date': date,
+                            'Package': tx.package_name,
+                            'Item': r.name || '',
+                            'Amount': r.deducted != null ? r.deducted : '',
+                            'Unit': r.unit || '',
+                            'Result': r.success ? 'OK' : 'Failed',
+                        });
+                    }
+                }
+            }
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(txRows.length ? txRows : [{}]), 'Transactions');
+
+            const date = new Date().toISOString().split('T')[0];
+            XLSX.writeFile(wb, `pantry-export-${date}.xlsx`);
+            this.showExportStatus('Downloaded ✓');
+            setTimeout(() => this.showExportStatus('', false), 3000);
+        } catch (err) {
+            console.error('Export failed:', err);
+            this.showExportStatus('Export failed — please try again.', true);
+        } finally {
+            this.exportBtn.disabled = false;
+        }
+    }
+
+    showExportStatus(msg, isError = false) {
+        if (!this.exportStatus) return;
+        this.exportStatus.textContent = msg;
+        this.exportStatus.classList.toggle('hidden', !msg);
+        this.exportStatus.classList.toggle('error', isError);
     }
 
     // Expanded form methods

@@ -457,6 +457,49 @@ router.get('/history/:name/prices', async (req, res) => {
   }
 });
 
+// Export all data for spreadsheet download
+router.get('/export', async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const [inventoryResult, priceResult, txResult] = await Promise.all([
+      query(`
+        SELECT name, quantity, unit, category, location, brand,
+               last_price, price_unit, threshold,
+               expiration_date, purchase_date, is_staple, bought_from, created_at
+        FROM inventory_items
+        WHERE user_id = $1 AND deleted_at IS NULL
+        ORDER BY name ASC
+      `, [userId]),
+
+      query(`
+        SELECT ii.name AS item_name, ph.price, ph.price_unit, ph.store, ph.recorded_at
+        FROM price_history ph
+        JOIN inventory_items ii ON ph.item_id = ii.id
+        WHERE ii.user_id = $1
+        ORDER BY ph.recorded_at DESC
+      `, [userId]),
+
+      query(`
+        SELECT executed_at, package_name, status, details
+        FROM package_execution_log
+        WHERE user_id = $1
+        ORDER BY executed_at DESC
+        LIMIT 500
+      `, [userId]),
+    ]);
+
+    res.json({
+      inventory: inventoryResult.rows,
+      priceHistory: priceResult.rows,
+      transactions: txResult.rows,
+    });
+  } catch (err) {
+    console.error('Export error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Restore a soft-deleted item
 router.post('/:id/restore', async (req, res) => {
   try {

@@ -13,14 +13,13 @@ async function sendDigestEmail(userEmail, alerts) {
 
   const { expiringItems, lowStockItems } = alerts;
 
-  // Build email HTML
   const html = buildEmailHtml(expiringItems, lowStockItems);
 
   try {
     const { data, error } = await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'Pantry Tracker <onboarding@resend.dev>',
+      from: process.env.EMAIL_FROM || 'My Pantry <onboarding@resend.dev>',
       to: userEmail,
-      subject: `Pantry Alert: ${expiringItems.length + lowStockItems.length} items need attention`,
+      subject: `Pantry: ${expiringItems.length + lowStockItems.length} items need attention`,
       html: html
     });
 
@@ -38,75 +37,182 @@ async function sendDigestEmail(userEmail, alerts) {
 }
 
 function buildEmailHtml(expiringItems, lowStockItems) {
-  let html = `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h1 style="color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px;">
-        Pantry Inventory Alert
-      </h1>
-  `;
+  // Site palette
+  const c = {
+    bg:          '#FCF9F7',
+    card:        '#FFFFFF',
+    border:      '#E8DDD0',
+    terra:       '#E35336',
+    terraLight:  'rgba(227, 83, 54, 0.08)',
+    amber:       '#8B7040',
+    amberLight:  '#FFF8E7',
+    sage:        '#5C7A5C',
+    textPrimary: '#2C2318',
+    textMuted:   '#8B7B6B',
+    mono:        "'Courier New', Courier, monospace",
+    sans:        "Georgia, 'Times New Roman', serif",
+  };
 
-  if (expiringItems.length > 0) {
-    html += `
-      <h2 style="color: #e74c3c;">
-        ⏰ Expiring Soon (${expiringItems.length} items)
-      </h2>
-      <ul style="list-style: none; padding: 0;">
-    `;
+  // Categorise expiring items
+  const expired   = expiringItems.filter(i => i.daysUntilExpiry  <  0);
+  const useToday  = expiringItems.filter(i => i.daysUntilExpiry === 0);
+  const useSoon   = expiringItems.filter(i => i.daysUntilExpiry  >  0);
 
-    for (const item of expiringItems) {
-      const daysText = item.daysUntilExpiry <= 0
-        ? '<strong style="color: #e74c3c;">EXPIRED</strong>'
-        : `<strong>${item.daysUntilExpiry}</strong> day${item.daysUntilExpiry === 1 ? '' : 's'} left`;
+  const itemRow = (item, accentColor, bgColor) => {
+    const daysText = item.daysUntilExpiry < 0
+      ? `Expired ${Math.abs(item.daysUntilExpiry)} day${Math.abs(item.daysUntilExpiry) === 1 ? '' : 's'} ago`
+      : item.daysUntilExpiry === 0
+        ? 'Use today'
+        : `${item.daysUntilExpiry} day${item.daysUntilExpiry === 1 ? '' : 's'} left`;
 
-      html += `
-        <li style="padding: 10px; margin: 5px 0; background: #fff5f5; border-left: 4px solid #e74c3c; border-radius: 4px;">
-          <strong>${escapeHtml(item.name)}</strong> - ${daysText}
-          <br><span style="color: #666; font-size: 14px;">${item.quantity} ${item.unit} in ${item.location}</span>
-        </li>
-      `;
-    }
+    return `
+      <tr>
+        <td style="padding: 0 0 2px 0;">
+          <div style="
+            background: ${bgColor};
+            border-left: 3px solid ${accentColor};
+            padding: 10px 14px;
+            display: block;
+          ">
+            <span style="
+              font-family: ${c.sans};
+              font-size: 15px;
+              color: ${c.textPrimary};
+              font-weight: 600;
+            ">${escapeHtml(item.name)}</span>
+            <span style="
+              font-family: ${c.mono};
+              font-size: 11px;
+              color: ${accentColor};
+              margin-left: 10px;
+              text-transform: uppercase;
+              letter-spacing: 0.05em;
+            ">${daysText}</span>
+            <br>
+            <span style="
+              font-family: ${c.mono};
+              font-size: 11px;
+              color: ${c.textMuted};
+              text-transform: uppercase;
+              letter-spacing: 0.04em;
+            ">${item.quantity} ${item.unit} &mdash; ${escapeHtml(item.location || '')}</span>
+          </div>
+        </td>
+      </tr>`;
+  };
 
-    html += '</ul>';
-  }
+  const lowStockRow = (item) => `
+    <tr>
+      <td style="padding: 0 0 2px 0;">
+        <div style="
+          background: ${c.bg};
+          border-left: 3px solid ${c.textMuted};
+          padding: 10px 14px;
+        ">
+          <span style="
+            font-family: ${c.sans};
+            font-size: 15px;
+            color: ${c.textPrimary};
+            font-weight: 600;
+          ">${escapeHtml(item.name)}</span>
+          <span style="
+            font-family: ${c.mono};
+            font-size: 11px;
+            color: ${c.textMuted};
+            margin-left: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+          ">Low stock</span>
+          <br>
+          <span style="
+            font-family: ${c.mono};
+            font-size: 11px;
+            color: ${c.textMuted};
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+          ">${item.quantity} ${item.unit} remaining</span>
+        </div>
+      </td>
+    </tr>`;
 
-  if (lowStockItems.length > 0) {
-    html += `
-      <h2 style="color: #f39c12;">
-        📦 Low Stock (${lowStockItems.length} items)
-      </h2>
-      <ul style="list-style: none; padding: 0;">
-    `;
+  const section = (label, rows, accentColor) => rows.length === 0 ? '' : `
+    <tr>
+      <td style="padding: 24px 0 6px 0;">
+        <span style="
+          font-family: ${c.mono};
+          font-size: 10px;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          color: ${accentColor};
+        ">${label}</span>
+      </td>
+    </tr>
+    ${rows}`;
 
-    for (const item of lowStockItems) {
-      html += `
-        <li style="padding: 10px; margin: 5px 0; background: #fffbf0; border-left: 4px solid #f39c12; border-radius: 4px;">
-          <strong>${escapeHtml(item.name)}</strong> - ${item.quantity} ${item.unit} remaining
-          <br><span style="color: #666; font-size: 14px;">Below ${Math.round(item.threshold * 100)}% threshold</span>
-        </li>
-      `;
-    }
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Lora:wght@600&display=swap" rel="stylesheet">
+</head>
+<body style="margin:0;padding:0;background:${c.bg};">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:${c.bg};padding:40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="100%" style="max-width:560px;" cellpadding="0" cellspacing="0">
 
-    html += '</ul>';
-  }
+          <!-- Header -->
+          <tr>
+            <td style="padding-bottom: 8px; border-bottom: 1px solid ${c.border};">
+              <span style="
+                font-family: 'Lora', Georgia, serif;
+                font-size: 22px;
+                font-weight: 600;
+                color: ${c.textPrimary};
+                letter-spacing: 0.01em;
+              ">My Pantry</span>
+              <span style="
+                font-family: ${c.mono};
+                font-size: 11px;
+                color: ${c.textMuted};
+                margin-left: 12px;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                vertical-align: middle;
+              ">Daily digest</span>
+            </td>
+          </tr>
 
-  html += `
-      <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 15px;">
-        This is an automated alert from your Pantry Inventory Tracker.
-      </p>
-    </div>
-  `;
+          <!-- Alert sections -->
+          ${section('Expired', expired.map(i => itemRow(i, c.terra, c.terraLight)).join(''), c.terra)}
+          ${section('Use Today', useToday.map(i => itemRow(i, c.terra, c.terraLight)).join(''), c.terra)}
+          ${section('Use Soon', useSoon.map(i => itemRow(i, c.amber, c.amberLight)).join(''), c.amber)}
+          ${section('Low Stock', lowStockItems.map(i => lowStockRow(i)).join(''), c.textMuted)}
 
-  return html;
+          <!-- Footer -->
+          <tr>
+            <td style="padding-top: 32px; border-top: 1px solid ${c.border}; margin-top: 24px;">
+              <span style="
+                font-family: ${c.mono};
+                font-size: 10px;
+                color: ${c.textMuted};
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+              ">Pantry Tracker &mdash; automated digest</span>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
 }
 
 function escapeHtml(text) {
-  const map = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;'
-  };
+  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
   return String(text).replace(/[&<>"']/g, m => map[m]);
 }
 

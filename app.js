@@ -2412,9 +2412,8 @@ class PantryInventory {
                             ${locationDisplay ? `<span class="location-badge ${item.location}">${locationDisplay}</span>` : ''}
                             ${item.isStaple ? '<span class="staple-badge">Staple</span>' : ''}
                         </div>
-                        ${item.brand ? `<div class="item-brand">${this.escapeHtml(item.brand)}</div>` : ''}
                         ${storeInfo ? `<div class="item-store">From: ${this.escapeHtml(storeInfo)}</div>` : ''}
-                        ${(expirationDisplay || this.renderPriceInfo(item)) ? `<div class="expiration-price-row">${expirationDisplay ? `<span class="expiration-info">${expirationDisplay}</span>` : ''}${this.renderPriceInfo(item)}</div>` : ''}
+                        ${(item.brand || expirationDisplay || this.renderPriceInfo(item)) ? `<div class="expiration-price-row">${item.brand ? `<span class="item-brand">${this.escapeHtml(item.brand)}</span>` : ''}${expirationDisplay ? `<span class="expiration-info">${expirationDisplay}</span>` : ''}${this.renderPriceInfo(item)}</div>` : ''}
                     </div>
                     <div class="item-quantity">
                         <div class="amount">${item.quantity}</div>

@@ -1913,7 +1913,7 @@ class PantryInventory {
     getExpiredItems() {
         return this.inventory.filter(item => {
             const days = this.getDaysUntilExpiration(item);
-            return days !== null && days < 0;
+            return item.quantity > 0 && days !== null && days < 0;
         }).sort((a, b) => {
             // Most recently expired first
             return this.getDaysUntilExpiration(b) - this.getDaysUntilExpiration(a);
@@ -1924,7 +1924,7 @@ class PantryInventory {
     getUseTodayItems() {
         return this.inventory.filter(item => {
             const days = this.getDaysUntilExpiration(item);
-            return days === 0;
+            return item.quantity > 0 && days !== null && days === 0;
         });
     }
 
@@ -1932,7 +1932,7 @@ class PantryInventory {
     getUseSoonItems() {
         return this.inventory.filter(item => {
             const days = this.getDaysUntilExpiration(item);
-            return days !== null && days >= 1 && days <= 7;
+            return item.quantity > 0 && days !== null && days >= 1 && days <= 7;
         }).sort((a, b) => {
             return this.getDaysUntilExpiration(a) - this.getDaysUntilExpiration(b);
         });
@@ -2375,13 +2375,16 @@ class PantryInventory {
 
         this.inventoryList.innerHTML = items.map((item, index) => {
             const isLowStock = item.threshold > 0 && item.quantity <= item.threshold;
+            const isEmpty = item.quantity === 0;
             const expirationStatus = this.getExpirationStatus(item);
             const days = this.getDaysUntilExpiration(item);
-            const statusClass = expirationStatus !== 'fresh' ? expirationStatus : (isLowStock ? 'low-stock' : '');
+            const statusClass = isEmpty ? 'out-of-stock'
+                : expirationStatus !== 'fresh' ? expirationStatus
+                : (isLowStock ? 'low-stock' : '');
 
-            // Format expiration display
+            // Format expiration display (suppressed when out of stock)
             let expirationDisplay = '';
-            if (days !== null) {
+            if (!isEmpty && days !== null) {
                 if (days < 0) {
                     expirationDisplay = `<span class="expiration-badge expired">Expired ${Math.abs(days)} days ago</span>`;
                 } else if (days === 0) {

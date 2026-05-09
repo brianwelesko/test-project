@@ -1324,6 +1324,18 @@ mark {
     border-left: none;
 }
 
+.inventory-item.out-of-stock {
+    opacity: 0.45;
+    border-left: none;
+}
+
+.inventory-item.out-of-stock .amount {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
 .inventory-item.expiring-soon {
     background: #FFF8E7;
     border-left: none;

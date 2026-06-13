@@ -190,10 +190,22 @@ router.put('/:id', async (req, res) => {
     // Record price history when price changes, or when a restock explicitly requests it
     const newPrice = item.last_price !== undefined ? item.last_price : null;
     const oldPrice = existing.last_price;
-    if (newPrice !== null && (newPrice !== oldPrice || item.recordPriceHistory)) {
+    const writingNewPriceEntry = newPrice !== null && (newPrice !== oldPrice || item.recordPriceHistory);
+    if (writingNewPriceEntry) {
       await query(
         'INSERT INTO price_history (item_id, price, store, price_unit) VALUES ($1, $2, $3, $4)',
         [id, newPrice, item.boughtFrom || existing.bought_from || null, item.price_unit || 'flat']
+      );
+    }
+
+    // If only the store changed (no new price entry), update the most recent price history row's store
+    const storeChanged = item.boughtFrom !== undefined && item.boughtFrom !== existing.bought_from;
+    if (storeChanged && !writingNewPriceEntry) {
+      await query(
+        `UPDATE price_history SET store = $1
+         WHERE item_id = $2
+           AND recorded_at = (SELECT MAX(recorded_at) FROM price_history WHERE item_id = $2)`,
+        [item.boughtFrom || null, id]
       );
     }
 

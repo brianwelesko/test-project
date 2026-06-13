@@ -1083,6 +1083,14 @@ const API = {
         });
     },
 
+    async deletePriceHistory(historyId) {
+        return this.request(`/inventory/price-history/${historyId}`, { method: 'DELETE' });
+    },
+
+    async deleteQuantityHistory(itemId, historyId) {
+        return this.request(`/inventory/${itemId}/quantity-history/${historyId}`, { method: 'DELETE' });
+    },
+
     async getItemHistory(name) {
         return this.request(`/inventory/history/${encodeURIComponent(name)}`);
     },
@@ -2677,12 +2685,14 @@ class PantryInventory {
         }
 
         if (!match) {
-            // Try matching individual words
+            // Try matching individual words — ALL significant words must appear
             const words = searchName.split(/\s+/).filter(w => w.length > 2);
-            match = this.inventory.find(item => {
-                const itemName = item.name.toLowerCase();
-                return words.some(word => itemName.includes(word));
-            });
+            if (words.length > 0) {
+                match = this.inventory.find(item => {
+                    const itemName = item.name.toLowerCase();
+                    return words.every(word => itemName.includes(word));
+                });
+            }
         }
 
         return match;
@@ -5541,6 +5551,7 @@ class PantryInventory {
                     <td class="qty-action-${r.action}">${typeLabel}</td>
                     <td>${sign}${r.amount} ${r.unit}</td>
                     <td>${r.quantity_after} ${r.unit}</td>
+                    <td><button class="history-delete-btn" onclick="app.deleteQtyHistoryEntry(${r.id}, ${item.id})" title="Delete">×</button></td>
                 </tr>`;
             }).join('');
         } catch (e) {
@@ -5648,11 +5659,12 @@ class PantryInventory {
                 let rowClass = '';
                 if (priceVal === minPrice && minPrice !== maxPrice) rowClass = 'price-lowest';
                 else if (priceVal === maxPrice && minPrice !== maxPrice) rowClass = 'price-highest';
-                return `<tr class="${rowClass}" style="cursor: pointer;" onclick="app.showPricePointDetails(app.currentPriceHistory.find(h => h.id === ${r.id}))">
+                return `<tr class="${rowClass}">
                     <td>${String(idx + 1).padStart(2, '0')}</td>
-                    <td>${d.toLocaleDateString()}</td>
+                    <td style="cursor: pointer;" onclick="app.showPricePointDetails(app.currentPriceHistory.find(h => h.id === ${r.id}))">${d.toLocaleDateString()}</td>
                     <td>${r.store ? this.escapeHtml(r.store) : '-'}</td>
                     <td>$${priceVal.toFixed(2)}${recUnitSuffix}</td>
+                    <td><button class="history-delete-btn" onclick="app.deletePriceHistoryEntry(${r.id}, ${item.id})" title="Delete">×</button></td>
                 </tr>`;
             }).join('');
 
@@ -5670,6 +5682,28 @@ class PantryInventory {
         if (this.detailsChart) {
             this.detailsChart.destroy();
             this.detailsChart = null;
+        }
+    }
+
+    async deletePriceHistoryEntry(historyId, itemId) {
+        if (!confirm('Delete this price entry?')) return;
+        try {
+            await API.deletePriceHistory(historyId);
+            const item = this.inventory.find(i => i.id === itemId);
+            if (item) await this._renderDetailsChart(item);
+        } catch (e) {
+            alert('Failed to delete entry.');
+        }
+    }
+
+    async deleteQtyHistoryEntry(historyId, itemId) {
+        if (!confirm('Delete this log entry?')) return;
+        try {
+            await API.deleteQuantityHistory(itemId, historyId);
+            const item = this.inventory.find(i => i.id === itemId);
+            if (item) await this._renderQtyHistory(item);
+        } catch (e) {
+            alert('Failed to delete entry.');
         }
     }
 

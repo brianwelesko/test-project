@@ -366,6 +366,24 @@ router.put('/price-history/:historyId', async (req, res) => {
   }
 });
 
+// Delete a price history record
+router.delete('/price-history/:historyId', async (req, res) => {
+  try {
+    const { historyId } = req.params;
+    const ownerCheck = await query(`
+      SELECT ph.id FROM price_history ph
+      JOIN inventory_items i ON ph.item_id = i.id
+      WHERE ph.id = $1 AND i.user_id = $2
+    `, [historyId, req.user.id]);
+    if (!ownerCheck.rows[0]) return res.status(404).json({ error: 'Not found' });
+    await query('DELETE FROM price_history WHERE id = $1', [historyId]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete price history error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Bulk sync (for initial migration from localStorage)
 router.post('/sync', async (req, res) => {
   const client = await pool.connect();
@@ -585,6 +603,25 @@ router.post('/:id/quantity-history', async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) {
     console.error('Add quantity history error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Delete a quantity history record
+router.delete('/:id/quantity-history/:historyId', async (req, res) => {
+  try {
+    const { id, historyId } = req.params;
+    const ownerCheck = await query(
+      `SELECT qh.id FROM quantity_history qh
+       JOIN inventory_items i ON i.id = qh.item_id
+       WHERE qh.id = $1 AND i.id = $2 AND i.user_id = $3`,
+      [historyId, id, req.user.id]
+    );
+    if (!ownerCheck.rows[0]) return res.status(404).json({ error: 'Not found' });
+    await query('DELETE FROM quantity_history WHERE id = $1', [historyId]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete quantity history error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });

@@ -6792,7 +6792,10 @@ class PantryInventory {
                 expirationDate: this.autoCalculateExpiration(existingItem.category, today)
             };
             if (parsed.store) updateData.boughtFrom = parsed.store;
-            if (parsed.price != null) updateData.last_price = parsed.price;
+            if (parsed.price != null) {
+                updateData.last_price = parsed.price;
+                updateData.recordPriceHistory = true;
+            }
             await this.updateItem(existingItem.id, updateData);
             await this._recordQtyHistory(existingItem, 'restock', converted, qtyBefore, newQty);
         } else {

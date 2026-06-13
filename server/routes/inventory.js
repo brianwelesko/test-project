@@ -187,10 +187,10 @@ router.put('/:id', async (req, res) => {
       req.user.id
     ]);
 
-    // Record price history when price changes
+    // Record price history when price changes, or when a restock explicitly requests it
     const newPrice = item.last_price !== undefined ? item.last_price : null;
     const oldPrice = existing.last_price;
-    if (newPrice !== null && newPrice !== oldPrice) {
+    if (newPrice !== null && (newPrice !== oldPrice || item.recordPriceHistory)) {
       await query(
         'INSERT INTO price_history (item_id, price, store, price_unit) VALUES ($1, $2, $3, $4)',
         [id, newPrice, item.boughtFrom || existing.bought_from || null, item.price_unit || 'flat']

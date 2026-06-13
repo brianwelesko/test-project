@@ -6654,11 +6654,16 @@ class PantryInventory {
         const qtyBefore = item.quantity;
         const newQty = item.quantity + converted;
         const today = new Date().toISOString().split('T')[0];
-        await this.updateItem(item.id, {
+        const updateData = {
             quantity: Math.round(newQty * 100) / 100,
             purchaseDate: today,
             expirationDate: this.autoCalculateExpiration(item.category, today)
-        });
+        };
+        if (item.last_price != null) {
+            updateData.last_price = item.last_price;
+            updateData.recordPriceHistory = true;
+        }
+        await this.updateItem(item.id, updateData);
         await this._recordQtyHistory(item, 'restock', converted, qtyBefore, Math.round(newQty * 100) / 100);
 
         this.clearCommandBar();
@@ -6705,11 +6710,16 @@ class PantryInventory {
         const qtyBefore = item.quantity;
         const newQty = item.quantity + amount;
         const today = new Date().toISOString().split('T')[0];
-        await this.updateItem(item.id, {
+        const restockData = {
             quantity: Math.round(newQty * 100) / 100,
             purchaseDate: today,
             expirationDate: this.autoCalculateExpiration(item.category, today)
-        });
+        };
+        if (item.last_price != null) {
+            restockData.last_price = item.last_price;
+            restockData.recordPriceHistory = true;
+        }
+        await this.updateItem(item.id, restockData);
         await this._recordQtyHistory(item, 'restock', amount, qtyBefore, Math.round(newQty * 100) / 100);
 
         this.clearCommandBar();
